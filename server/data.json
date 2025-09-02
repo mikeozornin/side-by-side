@@ -1,0 +1,86 @@
+{
+  "votings": [
+    {
+      "id": "d3f244ae-df93-4d02-bf30-ac7d29d8c179",
+      "title": "Что предпочтете?",
+      "created_at": "2023-09-01T23:10:17.095Z",
+      "end_at": "2024-09-02T23:10:17.071Z"
+    },
+    {
+      "id": "2202fb66-c7d0-4b29-9d81-e970562efe7c",
+      "title": "Какой вариант лучше?",
+      "created_at": "2023-09-01T23:16:11.902Z",
+      "end_at": "2024-09-02T23:16:11.154Z"
+    },
+    {
+      "id": "61ec00ad-bac1-4b9e-b221-dc08d132de87",
+      "title": "Какой вариант лучше?",
+      "created_at": "2023-09-02T00:05:52.515Z",
+      "end_at": "2024-09-03T00:05:51.672Z"
+    }
+  ],
+  "voting_images": [
+    {
+      "id": 1,
+      "voting_id": "d3f244ae-df93-4d02-bf30-ac7d29d8c179",
+      "file_path": "data/d3f244ae-df93-4d02-bf30-ac7d29d8c179/b49d7bf0d89cd36261f1a101c8d64b641c0b83a52fc75d465a8d794eee4d5ce3.jpg",
+      "sort_order": 0
+    },
+    {
+      "id": 2,
+      "voting_id": "d3f244ae-df93-4d02-bf30-ac7d29d8c179",
+      "file_path": "data/d3f244ae-df93-4d02-bf30-ac7d29d8c179/496db4a5f220afebc32aea954007d069d65006067a3a8b4ff6553b33456d18b1.jpg",
+      "sort_order": 1
+    },
+    {
+      "id": 3,
+      "voting_id": "2202fb66-c7d0-4b29-9d81-e970562efe7c",
+      "file_path": "data/2202fb66-c7d0-4b29-9d81-e970562efe7c/b49d7bf0d89cd36261f1a101c8d64b641c0b83a52fc75d465a8d794eee4d5ce3.jpg",
+      "sort_order": 0
+    },
+    {
+      "id": 4,
+      "voting_id": "2202fb66-c7d0-4b29-9d81-e970562efe7c",
+      "file_path": "data/2202fb66-c7d0-4b29-9d81-e970562efe7c/2896202fa821cde3f032bfefefa491731d680b8022ff744118ed248f45c3ecdf.png",
+      "sort_order": 1
+    },
+    {
+      "id": 5,
+      "voting_id": "61ec00ad-bac1-4b9e-b221-dc08d132de87",
+      "file_path": "data/61ec00ad-bac1-4b9e-b221-dc08d132de87/f860eb0c7ae125574633262d5a9fd392d2e44c4d74d91c2a9ea9020b1fe3f650.png",
+      "sort_order": 0
+    },
+    {
+      "id": 6,
+      "voting_id": "61ec00ad-bac1-4b9e-b221-dc08d132de87",
+      "file_path": "data/61ec00ad-bac1-4b9e-b221-dc08d132de87/4eb0935d0980360fb7942447407d806f829156728967b25f6218421d3c4197c6.png",
+      "sort_order": 1
+    }
+  ],
+  "votes": [
+    {
+      "id": 1,
+      "voting_id": "d3f244ae-df93-4d02-bf30-ac7d29d8c179",
+      "choice": 0,
+      "created_at": "2025-09-01T23:37:26.529Z"
+    },
+    {
+      "id": 2,
+      "voting_id": "2202fb66-c7d0-4b29-9d81-e970562efe7c",
+      "choice": 0,
+      "created_at": "2025-09-02T00:05:24.951Z"
+    },
+    {
+      "id": 3,
+      "voting_id": "61ec00ad-bac1-4b9e-b221-dc08d132de87",
+      "choice": 0,
+      "created_at": "2025-09-02T00:06:04.732Z"
+    },
+    {
+      "id": 4,
+      "voting_id": "61ec00ad-bac1-4b9e-b221-dc08d132de87",
+      "choice": 1,
+      "created_at": "2025-09-02T00:06:08.509Z"
+    }
+  ]
+}

@@ -1,0 +1,188 @@
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { Plus, Clock, CheckCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+
+interface Voting {
+  id: string
+  title: string
+  created_at: string
+  end_at: string
+  image1_path: string
+  image2_path: string
+  vote_count: number
+}
+
+export function VotingList() {
+  const [votings, setVotings] = useState<Voting[]>([])
+  const [loading, setLoading] = useState(true)
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+
+  useEffect(() => {
+    fetchVotings()
+  }, [])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [])
+
+  const fetchVotings = async () => {
+    try {
+      const response = await fetch('/api/votings')
+      const data = await response.json()
+      setVotings(data.votings || [])
+    } catch (error) {
+      console.error('Ошибка загрузки голосований:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getTimeRemaining = (endAt: string) => {
+    const endTime = new Date(endAt)
+    const timeDiff = endTime.getTime() - currentTime.getTime()
+    
+    if (timeDiff <= 0) return 'Завершено'
+    
+    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60))
+    const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
+    
+    if (days > 0) {
+      return `${days}д ${hours}ч ${minutes}м`
+    } else if (hours > 0) {
+      return `${hours}ч ${minutes}м ${seconds}с`
+    } else if (minutes > 0) {
+      return `${minutes}м ${seconds}с`
+    } else {
+      return `${seconds}с`
+    }
+  }
+
+  const getVoteCountText = (count: number) => {
+    if (count === 0) return 'Нет голосов'
+    if (count === 1) return '1 голос'
+    if (count < 5) return `${count} голоса`
+    return `${count} голосов`
+  }
+
+  const hasVoted = (votingId: string) => {
+    // Проверяем IndexedDB
+    return localStorage.getItem(`voted_${votingId}`) !== null
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Загрузка...</div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="container mx-auto p-6">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Сайд-бай-сайды</h1>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link to="/new">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Создать
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {votings.length === 0 ? (
+        <Card>
+          <CardContent className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <p className="text-muted-foreground mb-4">Сайд-бай-сайдов пока нет</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {votings.map((voting) => (
+            <Link key={voting.id} to={`/v/${voting.id}`} className="block">
+              <Card 
+                className={`transition-all hover:bg-muted cursor-pointer ${
+                  hasVoted(voting.id) ? 'opacity-60 grayscale' : ''
+                }`}
+              >
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl">{voting.title}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      {hasVoted(voting.id) && (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      )}
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {getVoteCountText(voting.vote_count)} · <Clock className="h-4 w-4" /> {getTimeRemaining(voting.end_at)}
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="relative w-full h-64 rounded overflow-hidden">
+                    {/* Левая картинка (вариант 1) */}
+                    <div className="absolute inset-0">
+                      <img 
+                        src={`/api/images/${voting.image1_path.split('/').pop()}`}
+                        alt="Вариант 1"
+                        className="w-full h-full object-cover"
+                        style={{
+                          clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
+                        }}
+                      />
+                    </div>
+                    {/* Правая картинка (вариант 2) */}
+                    <div className="absolute inset-0">
+                      <img 
+                        src={`/api/images/${voting.image2_path.split('/').pop()}`}
+                        alt="Вариант 2"
+                        className="w-full h-full object-cover"
+                        style={{
+                          clipPath: 'polygon(100% 0%, 100% 100%, 0% 100%)'
+                        }}
+                      />
+                    </div>
+                    {/* Диагональная линия */}
+                    <svg
+                      className="absolute inset-0 pointer-events-none z-10"
+                      width="100%"
+                      height="100%"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                    >
+                      <line
+                        x1="0"
+                        y1="100"
+                        x2="100"
+                        y2="0"
+                        stroke="hsl(var(--muted))"
+                        strokeWidth="2"
+                      />
+                    </svg>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
