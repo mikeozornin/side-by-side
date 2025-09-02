@@ -23,7 +23,14 @@
     "errorVoting": "Ошибка голосования",
     "enterTitle": "Введите название голосования",
     "errorLoadingVotings": "Ошибка загрузки голосований",
+    "errorLoadingSideBySides": "Не удалось загрузить сайд-бай-сайды",
+    "tryAgain": "Попробовать снова",
     "option1": "Вариант 1",
     "option2": "Вариант 2"
+  },
+  "dropzone": {
+    "uploadFile": "Загрузите файл",
+    "dragAndDrop": "Drag and drop or click to upload",
+    "imageSizeLimit": "Картинка до 10 МБ"
   }
 }

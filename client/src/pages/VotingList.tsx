@@ -20,6 +20,7 @@ export function VotingList() {
   const { t } = useTranslation()
   const [votings, setVotings] = useState<Voting[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
 
 
@@ -37,11 +38,19 @@ export function VotingList() {
 
   const fetchVotings = async () => {
     try {
+      setError(null)
+      setLoading(true)
       const response = await fetch('/api/votings')
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
       setVotings(data.votings || [])
     } catch (error) {
       console.error(t('voting.errorLoadingVotings'), error)
+      setError(t('voting.errorLoadingSideBySides'))
     } finally {
       setLoading(false)
     }
@@ -94,6 +103,37 @@ export function VotingList() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">{t('voting.active')}</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link to="/new">
+              <Button>
+                <Plus className="h-4 w-4 mr-2 stroke-[3]" />
+                {t('voting.create')}
+              </Button>
+            </Link>
+          </div>
+        </div>
+        
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-64">
+            <div className="text-center">
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <Button onClick={fetchVotings} variant="outline">
+                {t('voting.tryAgain')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex items-center justify-between mb-8">
@@ -103,7 +143,7 @@ export function VotingList() {
         <div className="flex items-center gap-4">
           <Link to="/new">
             <Button>
-              <Plus className="h-4 w-4 mr-2 stroke-[4]" />
+              <Plus className="h-4 w-4 mr-2 stroke-[3]" />
               {t('voting.create')}
             </Button>
           </Link>
@@ -132,7 +172,7 @@ export function VotingList() {
                       }`}
                     >
                       <CardHeader>
-                        <div className="flex items-center justify-between">
+                        <div className="space-y-2">
                           <CardTitle className="text-xl">{voting.title}</CardTitle>
                           <div className="flex items-center gap-2">
                             {hasVoted(voting.id) && (
@@ -207,7 +247,7 @@ export function VotingList() {
                       }`}
                     >
                       <CardHeader>
-                        <div className="flex items-center justify-between">
+                        <div className="space-y-2">
                           <CardTitle className="text-xl">{voting.title}</CardTitle>
                           <div className="flex items-center gap-2">
                             {hasVoted(voting.id) && (

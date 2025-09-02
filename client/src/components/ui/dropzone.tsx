@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 import { createContext, useContext } from 'react'
 import type { DropEvent, DropzoneOptions, FileRejection } from 'react-dropzone'
 import { useDropzone } from 'react-dropzone'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -114,7 +115,7 @@ export const DropzoneContent = ({
   return (
     <div className={cn('flex flex-col items-center justify-center', className)}>
       <div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        <UploadIcon size={16}/>
+        <UploadIcon size={16} strokeWidth={3}/>
       </div>
       <p className="my-2 w-full truncate font-medium text-sm">
         {src.length > maxLabelItems
@@ -135,6 +136,8 @@ export const DropzoneEmptyState = ({
   className,
 }: DropzoneEmptyStateProps) => {
   const { src } = useDropzoneContext()
+  const { t } = useTranslation()
+  
   if (src) {
     return null
   }
@@ -144,15 +147,15 @@ export const DropzoneEmptyState = ({
   return (
     <div className={cn('flex flex-col items-center justify-center', className)}>
       <div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        <UploadIcon size={16} />
+        <UploadIcon size={16} strokeWidth={3} />
       </div>
       <p className="my-2 w-full truncate text-wrap font-medium text-sm">
-        Загрузите файл
+        {t('dropzone.uploadFile')}
       </p>
       <p className="w-full truncate text-wrap text-muted-foreground text-xs">
-        Drag and drop or click to upload
+        {t('dropzone.dragAndDrop')}
       </p>
-      <p className="text-wrap text-muted-foreground text-xs">Картинка до 10 МБ</p>
+      <p className="text-wrap text-muted-foreground text-xs">{t('dropzone.imageSizeLimit')}</p>
     </div>
   )
 }
