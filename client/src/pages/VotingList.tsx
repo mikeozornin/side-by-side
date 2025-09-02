@@ -194,7 +194,7 @@ export function VotingList() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="relative w-full h-64 rounded overflow-hidden">
+                        <div className="relative w-full h-64 rounded overflow-hidden bg-muted">
                           {/* Левая картинка (вариант 1) */}
                           <div className="absolute inset-0">
                             <HiDPIImage
@@ -205,7 +205,7 @@ export function VotingList() {
                               fit="cover"
                               alt={t('voting.option1') as string}
                               style={{
-                                clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
+                                clipPath: 'polygon(0% 0%, 98% 0%, 0% 98%)'
                               }}
                             />
                           </div>
@@ -219,12 +219,12 @@ export function VotingList() {
                               fit="cover"
                               alt={t('voting.option2') as string}
                               style={{
-                                clipPath: 'polygon(100% 0%, 100% 100%, 0% 100%)'
+                                clipPath: 'polygon(100% 0%, 100% 100%, 2% 100%)'
                               }}
                             />
                           </div>
                           {/* Диагональная линия */}
-                          <svg
+                          {/* <svg
                             className="absolute inset-0 pointer-events-none z-10"
                             width="100%"
                             height="100%"
@@ -239,7 +239,7 @@ export function VotingList() {
                               stroke="hsl(var(--muted))"
                               strokeWidth="2"
                             />
-                          </svg>
+                          </svg> */}
                         </div>
                       </CardContent>
                     </Card>
@@ -279,26 +279,26 @@ export function VotingList() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="relative w-full h-64 rounded overflow-hidden">
+                        <div className="relative w-full h-64 rounded overflow-hidden bg-muted">
                           {/* Левая картинка (вариант 1) */}
                           <div className="absolute inset-0">
-                            <img 
+                            <img
                               src={`/api/images/${voting.image1_path.split('/').pop()}`}
                               alt={t('voting.option1')}
                               className="w-full h-full object-cover"
                               style={{
-                                clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
+                                clipPath: 'polygon(0% 0%, 98% 0%, 0% 98%)'
                               }}
                             />
                           </div>
                           {/* Правая картинка (вариант 2) */}
                           <div className="absolute inset-0">
-                            <img 
+                            <img
                               src={`/api/images/${voting.image2_path.split('/').pop()}`}
                               alt={t('voting.option2')}
                               className="w-full h-full object-cover"
                               style={{
-                                clipPath: 'polygon(100% 0%, 100% 100%, 0% 100%)'
+                                clipPath: 'polygon(100% 0%, 100% 100%, 2% 100%)'
                               }}
                             />
                           </div>
