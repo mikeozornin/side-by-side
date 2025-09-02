@@ -18,9 +18,30 @@ export function createTables(db: sqlite3.Database): void {
       voting_id TEXT NOT NULL,
       file_path TEXT NOT NULL,
       sort_order INTEGER NOT NULL,
+      pixel_ratio REAL NOT NULL DEFAULT 1,
+      width INTEGER NOT NULL,
+      height INTEGER NOT NULL,
       FOREIGN KEY (voting_id) REFERENCES votings(id) ON DELETE CASCADE
     )
   `);
+
+  // Обновляем существующую таблицу voting_images, если она создана ранее без новых столбцов
+  const ensureColumn = (table: string, column: string, definition: string) => {
+    db.all(`PRAGMA table_info(${table})`, (err, rows: any[]) => {
+      if (err) {
+        // Пропускаем в случае ошибки метаданных
+        return;
+      }
+      const hasColumn = rows?.some((r: any) => r.name === column);
+      if (!hasColumn) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+      }
+    });
+  };
+
+  ensureColumn('voting_images', 'pixel_ratio', 'pixel_ratio REAL NOT NULL DEFAULT 1');
+  ensureColumn('voting_images', 'width', 'width INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('voting_images', 'height', 'height INTEGER NOT NULL DEFAULT 0');
 
   // Таблица голосов
   db.exec(`

@@ -4,6 +4,7 @@ import { Plus, Clock, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
+import HiDPIImage from '@/components/ui/HiDPIImage'
 
 
 interface Voting {
@@ -12,7 +13,13 @@ interface Voting {
   created_at: string
   end_at: string
   image1_path: string
+  image1_pixel_ratio: number
+  image1_width: number
+  image1_height: number
   image2_path: string
+  image2_pixel_ratio: number
+  image2_width: number
+  image2_height: number
   vote_count: number
 }
 
@@ -190,10 +197,13 @@ export function VotingList() {
                         <div className="relative w-full h-64 rounded overflow-hidden">
                           {/* Левая картинка (вариант 1) */}
                           <div className="absolute inset-0">
-                            <img 
+                            <HiDPIImage
                               src={`/api/images/${voting.image1_path.split('/').pop()}`}
-                              alt={t('voting.option1')}
-                              className="w-full h-full object-cover"
+                              width={voting.image1_width}
+                              height={voting.image1_height}
+                              pixelRatio={voting.image1_pixel_ratio}
+                              fit="cover"
+                              alt={t('voting.option1') as string}
                               style={{
                                 clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
                               }}
@@ -201,10 +211,13 @@ export function VotingList() {
                           </div>
                           {/* Правая картинка (вариант 2) */}
                           <div className="absolute inset-0">
-                            <img 
+                            <HiDPIImage
                               src={`/api/images/${voting.image2_path.split('/').pop()}`}
-                              alt={t('voting.option2')}
-                              className="w-full h-full object-cover"
+                              width={voting.image2_width}
+                              height={voting.image2_height}
+                              pixelRatio={voting.image2_pixel_ratio}
+                              fit="cover"
+                              alt={t('voting.option2') as string}
                               style={{
                                 clipPath: 'polygon(100% 0%, 100% 100%, 0% 100%)'
                               }}

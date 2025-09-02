@@ -4,6 +4,7 @@ import { ArrowLeft, Check, Medal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
+import HiDPIImage from '@/components/ui/HiDPIImage'
 
 interface Voting {
   id: string
@@ -11,7 +12,13 @@ interface Voting {
   created_at: string
   end_at: string
   image1_path: string
+  image1_pixel_ratio: number
+  image1_width: number
+  image1_height: number
   image2_path: string
+  image2_pixel_ratio: number
+  image2_width: number
+  image2_height: number
 }
 
 interface Results {
@@ -191,14 +198,20 @@ export function VotingPage() {
                 } ${selectedChoice !== null && selectedChoice !== 0 && results?.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}>
                   <CardContent className="p-0 h-full">
                     <div className="relative h-full">
-                      <img
-                        src={getImageUrl(voting.image1_path)}
-                        alt="Вариант 1"
-                        className={`w-full h-full object-contain rounded-lg ${
-                          !finished && !hasVoted && selectedChoice === null ? 'cursor-pointer' : 'cursor-default'
-                        }`}
-                        onClick={() => !finished && !hasVoted && setSelectedChoice(0)}
-                      />
+                      <div className="w-full h-full flex items-center justify-center">
+                        <HiDPIImage
+                          src={getImageUrl(voting.image1_path)}
+                          width={voting.image1_width}
+                          height={voting.image1_height}
+                          pixelRatio={voting.image1_pixel_ratio}
+                          fit="contain"
+                          alt="Вариант 1"
+                          className={`max-w-full max-h-full object-contain rounded-lg ${
+                            !finished && !hasVoted && selectedChoice === null ? 'cursor-pointer' : 'cursor-default'
+                          }`}
+                          onClick={() => !finished && !hasVoted && setSelectedChoice(0)}
+                        />
+                      </div>
                       {selectedChoice === 0 && !finished && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <Check className="h-60 w-60 text-primary stroke-[0.5]" />
@@ -246,14 +259,20 @@ export function VotingPage() {
                 } ${selectedChoice !== null && selectedChoice !== 1 && results?.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}>
                   <CardContent className="p-0 h-full">
                     <div className="relative h-full">
-                      <img
-                        src={getImageUrl(voting.image2_path)}
-                        alt="Вариант 2"
-                        className={`w-full h-full object-contain rounded-lg ${
-                          !finished && !hasVoted && selectedChoice === null ? 'cursor-pointer' : 'cursor-default'
-                        }`}
-                        onClick={() => !finished && !hasVoted && setSelectedChoice(1)}
-                      />
+                      <div className="w-full h-full flex items-center justify-center">
+                        <HiDPIImage
+                          src={getImageUrl(voting.image2_path)}
+                          width={voting.image2_width}
+                          height={voting.image2_height}
+                          pixelRatio={voting.image2_pixel_ratio}
+                          fit="contain"
+                          alt="Вариант 2"
+                          className={`max-w-full max-h-full object-contain rounded-lg ${
+                            !finished && !hasVoted && selectedChoice === null ? 'cursor-pointer' : 'cursor-default'
+                          }`}
+                          onClick={() => !finished && !hasVoted && setSelectedChoice(1)}
+                        />
+                      </div>
                       {selectedChoice === 1 && !finished && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <Check className="h-60 w-60 text-primary stroke-[0.5]" />

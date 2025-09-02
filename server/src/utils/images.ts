@@ -1,10 +1,11 @@
 import { createHash } from 'crypto';
 import { writeFile } from 'fs/promises';
-import { join, extname } from 'path';
+import { join, extname, basename } from 'path';
 import { ensureVotingDirectory } from './files.js';
 import { logger } from './logger.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import sharp from 'sharp';
 
 const execAsync = promisify(exec);
 const DATA_DIR = process.env.DATA_DIR || './data';
@@ -18,9 +19,26 @@ const ALLOWED_MIME_TYPES = [
   'image/avif'
 ];
 
-export async function uploadImages(votingId: string, files: File[]): Promise<string[]> {
+export interface UploadedImageMeta {
+  filePath: string;
+  width: number;
+  height: number;
+  pixelRatio: number;
+}
+
+function parsePixelRatioFromName(fileName: string): number {
+  const name = basename(fileName);
+  const match = name.match(/@(\d+(?:\.\d+)?)x(\.[a-zA-Z0-9]+)?$/i);
+  if (match) {
+    const parsed = Number(match[1]);
+    if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+  }
+  return 1;
+}
+
+export async function uploadImages(votingId: string, files: File[]): Promise<UploadedImageMeta[]> {
   const votingDir = await ensureVotingDirectory(votingId, DATA_DIR);
-  const imagePaths: string[] = [];
+  const uploaded: UploadedImageMeta[] = [];
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
@@ -55,10 +73,32 @@ export async function uploadImages(votingId: string, files: File[]): Promise<str
       logger.warn(`Не удалось оптимизировать изображение ${fileName}, используем оригинал:`, error);
     }
 
-    imagePaths.push(filePath);
+    // Получаем метаданные
+    let width = 0;
+    let height = 0;
+    let pixelRatio = 1;
+    try {
+      const metadata = await sharp(filePath).metadata();
+      width = metadata.width || 0;
+      height = metadata.height || 0;
+      // Приоритет: density/metadata > имя > 1
+      // 72 DPI = pixelRatio 1, 144 DPI = pixelRatio 2, и т.д.
+      if (metadata.density && metadata.density > 72) {
+        pixelRatio = Number(metadata.density) / 72;
+      } else {
+        pixelRatio = parsePixelRatioFromName(file.name);
+      }
+    } catch (error) {
+      logger.warn(`Не удалось прочитать метаданные изображения ${fileName}:`, error);
+      width = 0;
+      height = 0;
+      pixelRatio = parsePixelRatioFromName(file.name);
+    }
+
+    uploaded.push({ filePath, width, height, pixelRatio });
   }
 
-  return imagePaths;
+  return uploaded;
 }
 
 async function optimizeImage(filePath: string, extension: string): Promise<void> {

@@ -31,7 +31,13 @@ votingRoutes.get('/votings', async (c) => {
         return {
           ...voting,
           image1_path: image1?.file_path || '',
+          image1_pixel_ratio: image1?.pixel_ratio ?? 1,
+          image1_width: image1?.width ?? 0,
+          image1_height: image1?.height ?? 0,
           image2_path: image2?.file_path || '',
+          image2_pixel_ratio: image2?.pixel_ratio ?? 1,
+          image2_width: image2?.width ?? 0,
+          image2_height: image2?.height ?? 0,
           vote_count: voteCount
         };
       })
@@ -63,7 +69,13 @@ votingRoutes.get('/votings/:id', async (c) => {
       voting: {
         ...voting,
         image1_path: image1?.file_path || '',
-        image2_path: image2?.file_path || ''
+        image1_pixel_ratio: image1?.pixel_ratio ?? 1,
+        image1_width: image1?.width ?? 0,
+        image1_height: image1?.height ?? 0,
+        image2_path: image2?.file_path || '',
+        image2_pixel_ratio: image2?.pixel_ratio ?? 1,
+        image2_width: image2?.width ?? 0,
+        image2_height: image2?.height ?? 0
       }
     });
   } catch (error) {
@@ -100,12 +112,12 @@ votingRoutes.post('/votings', async (c) => {
     });
 
     // Загрузка и оптимизация изображений
-    const imagePaths = await uploadImages(votingId, [image1, image2]);
+    const uploaded = await uploadImages(votingId, [image1, image2]);
 
-    // Сохранение путей к изображениям
+    // Сохранение путей и метаданных к изображениям
     await createVotingImages([
-      { voting_id: votingId, file_path: imagePaths[0], sort_order: 0 },
-      { voting_id: votingId, file_path: imagePaths[1], sort_order: 1 }
+      { voting_id: votingId, file_path: uploaded[0].filePath, sort_order: 0, pixel_ratio: uploaded[0].pixelRatio, width: uploaded[0].width, height: uploaded[0].height },
+      { voting_id: votingId, file_path: uploaded[1].filePath, sort_order: 1, pixel_ratio: uploaded[1].pixelRatio, width: uploaded[1].width, height: uploaded[1].height }
     ]);
 
     return c.json({ 

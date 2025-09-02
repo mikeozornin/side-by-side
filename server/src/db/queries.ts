@@ -55,6 +55,9 @@ export interface VotingImage {
   voting_id: string;
   file_path: string;
   sort_order: number;
+  pixel_ratio: number;
+  width: number;
+  height: number;
 }
 
 export interface Vote {
@@ -86,8 +89,8 @@ export async function getAllVotings(): Promise<Voting[]> {
 export async function createVotingImages(images: Omit<VotingImage, 'id'>[]): Promise<void> {
   for (const image of images) {
     await runQuery(
-      'INSERT INTO voting_images (voting_id, file_path, sort_order) VALUES (?, ?, ?)',
-      [image.voting_id, image.file_path, image.sort_order]
+      'INSERT INTO voting_images (voting_id, file_path, sort_order, pixel_ratio, width, height) VALUES (?, ?, ?, ?, ?, ?)',
+      [image.voting_id, image.file_path, image.sort_order, image.pixel_ratio, image.width, image.height]
     );
   }
 }

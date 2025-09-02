@@ -4,10 +4,14 @@ import { ArrowLeft, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from '@/components/ui/dropzone'
+import HiDPIImage from '@/components/ui/HiDPIImage'
 
 const defaultQuestions = [
   'Какой вариант лучше?',
   'Левый или правый?',
+  'Правый или левый?',
+  'Слева или справа лучше?',
+  'Справа или слева лучше?',
   'Какой дизайн вам больше нравится?',
   'Какой вариант лучше?',
   'Что бы вы выбрали?',
@@ -21,6 +25,8 @@ export function CreateVoting() {
   })
   const [image1, setImage1] = useState<File[] | undefined>()
   const [image2, setImage2] = useState<File[] | undefined>()
+  const [image1Dimensions, setImage1Dimensions] = useState<{width: number, height: number} | null>(null)
+  const [image2Dimensions, setImage2Dimensions] = useState<{width: number, height: number} | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -32,7 +38,31 @@ export function CreateVoting() {
     }
   }, [])
 
-  const handleDrop = (setter: (files: File[] | undefined) => void) => (files: File[]) => {
+  const parsePixelRatioFromName = (fileName: string): number => {
+    const match = fileName.match(/@(\d+(?:\.\d+)?)x\./i)
+    if (match) {
+      const parsed = Number(match[1])
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        console.log(`[CreateVoting] Parsed pixelRatio from ${fileName}: ${parsed}`)
+        return parsed
+      }
+    }
+    console.log(`[CreateVoting] No pixelRatio found in ${fileName}, using 1`)
+    return 1
+  }
+
+  const getImageDimensions = (file: File): Promise<{width: number, height: number}> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        resolve({ width: img.naturalWidth, height: img.naturalHeight })
+      }
+      img.onerror = reject
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  const handleDrop = (setter: (files: File[] | undefined) => void, dimensionSetter: (dimensions: {width: number, height: number} | null) => void) => async (files: File[]) => {
     if (files.length > 0) {
       const file = files[0]
       // Проверка размера файла (10MB)
@@ -49,6 +79,16 @@ export function CreateVoting() {
       
       setError('')
       setter(files)
+      
+      // Получаем размеры изображения
+      try {
+        const dimensions = await getImageDimensions(file)
+        console.log(`[CreateVoting] Image dimensions for ${file.name}:`, dimensions)
+        dimensionSetter(dimensions)
+      } catch (error) {
+        console.error(`[CreateVoting] Failed to get dimensions for ${file.name}:`, error)
+        dimensionSetter(null)
+      }
     }
   }
 
@@ -56,8 +96,9 @@ export function CreateVoting() {
     setError(error.message)
   }
 
-  const removeImage = (setter: (files: File[] | undefined) => void) => () => {
+  const removeImage = (setter: (files: File[] | undefined) => void, dimensionSetter: (dimensions: {width: number, height: number} | null) => void) => () => {
     setter(undefined)
+    dimensionSetter(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -136,7 +177,7 @@ export function CreateVoting() {
                   accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'] }}
                   maxFiles={1}
                   maxSize={10 * 1024 * 1024} // 10MB
-                  onDrop={handleDrop(setImage1)}
+                  onDrop={handleDrop(setImage1, setImage1Dimensions)}
                   onError={handleError}
                   src={image1}
                   className="h-full"
@@ -146,8 +187,12 @@ export function CreateVoting() {
                     {image1 && image1.length > 0 && (
                       <div className="space-y-2 h-full flex flex-col w-full min-w-0">
                         <div className="flex-1 flex items-center justify-center overflow-hidden">
-                          <img
+                          <HiDPIImage
                             src={URL.createObjectURL(image1[0])}
+                            width={image1Dimensions?.width || 0}
+                            height={image1Dimensions?.height || 0}
+                            pixelRatio={parsePixelRatioFromName(image1[0].name)}
+                            fit="contain"
                             alt="Вариант 1"
                             className="max-w-full max-h-full object-contain rounded"
                           />
@@ -158,7 +203,7 @@ export function CreateVoting() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={removeImage(setImage1)}
+                            onClick={removeImage(setImage1, setImage1Dimensions)}
                           >
                             <X className="h-4 w-4 mr-1" />
                             Удалить
@@ -177,7 +222,7 @@ export function CreateVoting() {
                   accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'] }}
                   maxFiles={1}
                   maxSize={10 * 1024 * 1024} // 10MB
-                  onDrop={handleDrop(setImage2)}
+                  onDrop={handleDrop(setImage2, setImage2Dimensions)}
                   onError={handleError}
                   src={image2}
                   className="h-full"
@@ -187,8 +232,12 @@ export function CreateVoting() {
                     {image2 && image2.length > 0 && (
                       <div className="space-y-2 h-full flex flex-col w-full min-w-0">
                         <div className="flex-1 flex items-center justify-center overflow-hidden">
-                          <img
+                          <HiDPIImage
                             src={URL.createObjectURL(image2[0])}
+                            width={image2Dimensions?.width || 0}
+                            height={image2Dimensions?.height || 0}
+                            pixelRatio={parsePixelRatioFromName(image2[0].name)}
+                            fit="contain"
                             alt="Вариант 2"
                             className="max-w-full max-h-full object-contain rounded"
                           />
@@ -199,7 +248,7 @@ export function CreateVoting() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={removeImage(setImage2)}
+                            onClick={removeImage(setImage2, setImage2Dimensions)}
                           >
                             <X className="h-4 w-4 mr-1" />
                             Удалить
