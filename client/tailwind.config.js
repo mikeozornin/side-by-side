@@ -18,10 +18,10 @@ module.exports = {
     },
     extend: {
       fontSize: {
-        'xs': '14px',
-        'sm': '16px',
-        'base': '18px',
-        'lg': '20px',
+        'xs': '12px',
+        'sm': '14px',
+        'base': '16px',
+        'lg': '18px',
         'xl': '24px',
         '2xl': '28px',
         '3xl': '32px',

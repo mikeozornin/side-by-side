@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,13 @@ export function CreateVoting() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const titleInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (titleInputRef.current) {
+      titleInputRef.current.focus()
+    }
+  }, [])
 
   const handleDrop = (setter: (files: File[] | undefined) => void) => (files: File[]) => {
     if (files.length > 0) {
@@ -109,6 +116,7 @@ export function CreateVoting() {
 
         <div>
           <Input
+            ref={titleInputRef}
             id="title"
             type="text"
             value={title}

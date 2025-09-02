@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Check, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { useTranslation } from 'react-i18next'
 
 interface Voting {
   id: string
@@ -21,6 +22,7 @@ interface Results {
 }
 
 export function VotingPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [voting, setVoting] = useState<Voting | null>(null)
@@ -42,7 +44,7 @@ export function VotingPage() {
     try {
       const response = await fetch(`/api/votings/${id}`)
       if (!response.ok) {
-        throw new Error('Голосование не найдено')
+        throw new Error(t('voting.notFound'))
       }
       const data = await response.json()
       setVoting(data.voting)
@@ -52,7 +54,7 @@ export function VotingPage() {
         fetchResults()
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Ошибка загрузки голосования')
+      setError(error instanceof Error ? error.message : t('voting.errorLoading'))
     } finally {
       setLoading(false)
     }
@@ -99,7 +101,7 @@ export function VotingPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Ошибка голосования')
+        throw new Error(errorData.error || t('voting.errorVoting'))
       }
 
       // Сохраняем в IndexedDB (используем localStorage как fallback)
@@ -115,7 +117,7 @@ export function VotingPage() {
         fetchResults()
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Ошибка голосования')
+      setError(error instanceof Error ? error.message : t('voting.errorVoting'))
     } finally {
       setVotingLoading(false)
     }
@@ -130,7 +132,7 @@ export function VotingPage() {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Загрузка...</div>
+          <div className="text-muted-foreground">{t('voting.loading')}</div>
         </div>
       </div>
     )
@@ -143,13 +145,13 @@ export function VotingPage() {
           <Button variant="outline" size="icon" onClick={() => navigate('/')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold">Ошибка</h1>
+          <h1 className="text-3xl font-bold">{t('voting.error')}</h1>
         </div>
         <Card>
           <CardContent className="flex items-center justify-center h-64">
             <div className="text-center">
-              <p className="text-destructive mb-4">{error || 'Голосование не найдено'}</p>
-              <Button onClick={() => navigate('/')}>Вернуться на главную</Button>
+              <p className="text-destructive mb-4">{error || t('voting.notFound')}</p>
+              <Button onClick={() => navigate('/')}>{t('voting.backToHome')}</Button>
             </div>
           </CardContent>
         </Card>
@@ -197,22 +199,27 @@ export function VotingPage() {
                         }`}
                         onClick={() => !finished && !hasVoted && setSelectedChoice(0)}
                       />
-                      {selectedChoice === 0 && (
+                      {selectedChoice === 0 && !finished && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Check className="h-60 w-60 text-primary stroke-[0.5]" />
+                        </div>
+                      )}
+                      {selectedChoice === 0 && finished && (
                         <div className="absolute top-4 left-4">
                           <Check className="h-6 w-6 text-primary" />
                         </div>
                       )}
                       {results && results.winner === 0 && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="bg-yellow-500 rounded-full p-8">
-                            <Trophy className="h-40 w-40 text-white" />
+                          <div className="bg-green-500 rounded-full p-8">
+                            <Trophy className="h-40 w-40 text-white stroke-[0.5]" />
                           </div>
                         </div>
                       )}
                       {results && results.winner === 'tie' && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="bg-yellow-500 rounded-full p-8">
-                            <Trophy className="h-40 w-40 text-white" />
+                          <div className="bg-green-500 rounded-full p-8">
+                            <Trophy className="h-40 w-40 text-white stroke-[0.5]" />
                           </div>
                         </div>
                       )}
@@ -224,7 +231,7 @@ export function VotingPage() {
                 <div className="mt-4 text-center">
                   <div className="text-2xl font-bold">{results.percentages[0]}%</div>
                   <div className="text-sm text-muted-foreground">
-                    {results.results.find(r => r.choice === 0)?.count || 0} голосов
+                    {t('votes', { count: results.results.find(r => r.choice === 0)?.count || 0 })}
                   </div>
                 </div>
               )}
@@ -247,22 +254,27 @@ export function VotingPage() {
                         }`}
                         onClick={() => !finished && !hasVoted && setSelectedChoice(1)}
                       />
-                      {selectedChoice === 1 && (
+                      {selectedChoice === 1 && !finished && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Check className="h-60 w-60 text-primary stroke-[0.5]" />
+                        </div>
+                      )}
+                      {selectedChoice === 1 && finished && (
                         <div className="absolute top-4 left-4">
                           <Check className="h-6 w-6 text-primary" />
                         </div>
                       )}
                       {results && results.winner === 1 && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="bg-yellow-500 rounded-full p-8">
-                            <Trophy className="h-40 w-40 text-white" />
+                          <div className="bg-green-500 rounded-full p-8">
+                            <Trophy className="h-40 w-40 text-white stroke-[0.5]" />
                           </div>
                         </div>
                       )}
                       {results && results.winner === 'tie' && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="bg-yellow-500 rounded-full p-8">
-                            <Trophy className="h-40 w-40 text-white" />
+                          <div className="bg-green-500 rounded-full p-8">
+                            <Trophy className="h-40 w-40 text-white stroke-[0.5]" />
                           </div>
                         </div>
                       )}
@@ -274,7 +286,7 @@ export function VotingPage() {
                 <div className="mt-4 text-center">
                   <div className="text-2xl font-bold">{results.percentages[1]}%</div>
                   <div className="text-sm text-muted-foreground">
-                    {results.results.find(r => r.choice === 1)?.count || 0} голосов
+                    {t('votes', { count: results.results.find(r => r.choice === 1)?.count || 0 })}
                   </div>
                 </div>
               )}
@@ -292,13 +304,13 @@ export function VotingPage() {
                 disabled={selectedChoice === null || votingLoading}
                 className="w-full h-40 text-xl font-semibold"
               >
-                {votingLoading ? 'Голосование...' : 'Подтвердить выбор'}
+                {votingLoading ? t('voting.votingInProgress') : t('voting.confirmChoice')}
               </Button>
             )}
 
             {hasVoted && !finished && (
               <div className="w-full h-40 flex items-center justify-center">
-                <p className="text-foreground text-center">Ваш голос учтен. Результаты будут показаны после окончания голосования.</p>
+                <p className="text-foreground text-center">{t('voting.voteCounted')}</p>
               </div>
             )}
           </div>

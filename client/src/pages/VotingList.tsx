@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Clock, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useTranslation } from 'react-i18next'
 
 
 interface Voting {
@@ -16,6 +17,7 @@ interface Voting {
 }
 
 export function VotingList() {
+  const { t } = useTranslation()
   const [votings, setVotings] = useState<Voting[]>([])
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -67,17 +69,20 @@ export function VotingList() {
     }
   }
 
-  const getVoteCountText = (count: number) => {
-    if (count === 0) return 'Нет голосов'
-    if (count === 1) return '1 голос'
-    if (count < 5) return `${count} голоса`
-    return `${count} голосов`
-  }
+
 
   const hasVoted = (votingId: string) => {
     // Проверяем IndexedDB
     return localStorage.getItem(`voted_${votingId}`) !== null
   }
+
+  const isVotingActive = (endAt: string) => {
+    const endTime = new Date(endAt)
+    return endTime.getTime() > currentTime.getTime()
+  }
+
+  const activeVotings = votings.filter(voting => isVotingActive(voting.end_at))
+  const finishedVotings = votings.filter(voting => !isVotingActive(voting.end_at))
 
   if (loading) {
     return (
@@ -93,7 +98,7 @@ export function VotingList() {
     <div className="container mx-auto p-6">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Сайд-бай-сайды</h1>
+          <h1 className="text-3xl font-bold">Еще идут</h1>
         </div>
         <div className="flex items-center gap-4">
           <Link to="/new">
@@ -114,73 +119,155 @@ export function VotingList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {votings.map((voting) => (
-            <Link key={voting.id} to={`/v/${voting.id}`} className="block">
-              <Card 
-                className={`transition-all hover:bg-muted cursor-pointer ${
-                  hasVoted(voting.id) ? 'opacity-60 grayscale' : ''
-                }`}
-              >
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-xl">{voting.title}</CardTitle>
-                    <div className="flex items-center gap-2">
-                      {hasVoted(voting.id) && (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                      )}
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {getVoteCountText(voting.vote_count)} · <Clock className="h-4 w-4" /> {getTimeRemaining(voting.end_at)}
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="relative w-full h-64 rounded overflow-hidden">
-                    {/* Левая картинка (вариант 1) */}
-                    <div className="absolute inset-0">
-                      <img 
-                        src={`/api/images/${voting.image1_path.split('/').pop()}`}
-                        alt="Вариант 1"
-                        className="w-full h-full object-cover"
-                        style={{
-                          clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
-                        }}
-                      />
-                    </div>
-                    {/* Правая картинка (вариант 2) */}
-                    <div className="absolute inset-0">
-                      <img 
-                        src={`/api/images/${voting.image2_path.split('/').pop()}`}
-                        alt="Вариант 2"
-                        className="w-full h-full object-cover"
-                        style={{
-                          clipPath: 'polygon(100% 0%, 100% 100%, 0% 100%)'
-                        }}
-                      />
-                    </div>
-                    {/* Диагональная линия */}
-                    <svg
-                      className="absolute inset-0 pointer-events-none z-10"
-                      width="100%"
-                      height="100%"
-                      viewBox="0 0 100 100"
-                      preserveAspectRatio="none"
+        <div className="space-y-8">
+          {/* Активные голосования */}
+          {activeVotings.length > 0 && (
+            <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {activeVotings.map((voting) => (
+                  <Link key={voting.id} to={`/v/${voting.id}`} className="block">
+                    <Card 
+                      className={`transition-all hover:bg-muted cursor-pointer ${
+                        hasVoted(voting.id) ? 'opacity-60 grayscale' : ''
+                      }`}
                     >
-                      <line
-                        x1="0"
-                        y1="100"
-                        x2="100"
-                        y2="0"
-                        stroke="hsl(var(--muted))"
-                        strokeWidth="2"
-                      />
-                    </svg>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-xl">{voting.title}</CardTitle>
+                          <div className="flex items-center gap-2">
+                            {hasVoted(voting.id) && (
+                              <CheckCircle className="h-5 w-5 text-green-500" />
+                            )}
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              {t('votes', { count: voting.vote_count })} · <Clock className="h-4 w-4" /> {getTimeRemaining(voting.end_at)}
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="relative w-full h-64 rounded overflow-hidden">
+                          {/* Левая картинка (вариант 1) */}
+                          <div className="absolute inset-0">
+                            <img 
+                              src={`/api/images/${voting.image1_path.split('/').pop()}`}
+                              alt="Вариант 1"
+                              className="w-full h-full object-cover"
+                              style={{
+                                clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
+                              }}
+                            />
+                          </div>
+                          {/* Правая картинка (вариант 2) */}
+                          <div className="absolute inset-0">
+                            <img 
+                              src={`/api/images/${voting.image2_path.split('/').pop()}`}
+                              alt="Вариант 2"
+                              className="w-full h-full object-cover"
+                              style={{
+                                clipPath: 'polygon(100% 0%, 100% 100%, 0% 100%)'
+                              }}
+                            />
+                          </div>
+                          {/* Диагональная линия */}
+                          <svg
+                            className="absolute inset-0 pointer-events-none z-10"
+                            width="100%"
+                            height="100%"
+                            viewBox="0 0 100 100"
+                            preserveAspectRatio="none"
+                          >
+                            <line
+                              x1="0"
+                              y1="100"
+                              x2="100"
+                              y2="0"
+                              stroke="hsl(var(--muted))"
+                              strokeWidth="2"
+                            />
+                          </svg>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Завершенные голосования */}
+          {finishedVotings.length > 0 && (
+            <div>
+              <h2 className="text-3xl font-bold mb-4">Уже закончились</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {finishedVotings.map((voting) => (
+                  <Link key={voting.id} to={`/v/${voting.id}`} className="block">
+                    <Card 
+                      className={`transition-all hover:bg-muted cursor-pointer ${
+                        hasVoted(voting.id) ? 'opacity-60 grayscale' : 'opacity-60 grayscale'
+                      }`}
+                    >
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-xl">{voting.title}</CardTitle>
+                          <div className="flex items-center gap-2">
+                            {hasVoted(voting.id) && (
+                              <CheckCircle className="h-5 w-5 text-green-500" />
+                            )}
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              {t('votes', { count: voting.vote_count })} · <Clock className="h-4 w-4" /> {getTimeRemaining(voting.end_at)}
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="relative w-full h-64 rounded overflow-hidden">
+                          {/* Левая картинка (вариант 1) */}
+                          <div className="absolute inset-0">
+                            <img 
+                              src={`/api/images/${voting.image1_path.split('/').pop()}`}
+                              alt="Вариант 1"
+                              className="w-full h-full object-cover"
+                              style={{
+                                clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
+                              }}
+                            />
+                          </div>
+                          {/* Правая картинка (вариант 2) */}
+                          <div className="absolute inset-0">
+                            <img 
+                              src={`/api/images/${voting.image2_path.split('/').pop()}`}
+                              alt="Вариант 2"
+                              className="w-full h-full object-cover"
+                              style={{
+                                clipPath: 'polygon(100% 0%, 100% 100%, 0% 100%)'
+                              }}
+                            />
+                          </div>
+                          {/* Диагональная линия */}
+                          <svg
+                            className="absolute inset-0 pointer-events-none z-10"
+                            width="100%"
+                            height="100%"
+                            viewBox="0 0 100 100"
+                            preserveAspectRatio="none"
+                          >
+                            <line
+                              x1="0"
+                              y1="100"
+                              x2="100"
+                              y2="0"
+                              stroke="hsl(var(--muted))"
+                              strokeWidth="2"
+                            />
+                          </svg>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

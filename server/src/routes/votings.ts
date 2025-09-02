@@ -1,30 +1,43 @@
 import { Hono } from 'hono';
-import { getDatabase, saveDatabase } from '../db/init';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger';
 import { uploadImages } from '../utils/images';
+import { 
+  createVoting, 
+  getVoting, 
+  getAllVotings, 
+  createVotingImages, 
+  getVotingImages, 
+  createVote, 
+  getVotesForVoting,
+  getVoteCountForVoting 
+} from '../db/queries';
 
 export const votingRoutes = new Hono();
 
 // GET /api/votings - список голосований
 votingRoutes.get('/votings', async (c) => {
   try {
-    const db = getDatabase();
+    const votings = await getAllVotings();
     
-    const votings = db.votings.map(voting => {
-      const image1 = db.voting_images.find(img => img.voting_id === voting.id && img.sort_order === 0);
-      const image2 = db.voting_images.find(img => img.voting_id === voting.id && img.sort_order === 1);
-      const voteCount = db.votes.filter(vote => vote.voting_id === voting.id).length;
-      
-      return {
-        ...voting,
-        image1_path: image1?.file_path || '',
-        image2_path: image2?.file_path || '',
-        vote_count: voteCount
-      };
-    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const votingsWithImages = await Promise.all(
+      votings.map(async (voting) => {
+        const images = await getVotingImages(voting.id);
+        const voteCount = await getVoteCountForVoting(voting.id);
+        
+        const image1 = images.find(img => img.sort_order === 0);
+        const image2 = images.find(img => img.sort_order === 1);
+        
+        return {
+          ...voting,
+          image1_path: image1?.file_path || '',
+          image2_path: image2?.file_path || '',
+          vote_count: voteCount
+        };
+      })
+    );
 
-    return c.json({ votings });
+    return c.json({ votings: votingsWithImages });
   } catch (error) {
     logger.error('Ошибка получения списка голосований:', error);
     return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
@@ -35,16 +48,16 @@ votingRoutes.get('/votings', async (c) => {
 votingRoutes.get('/votings/:id', async (c) => {
   try {
     const id = c.req.param('id');
-    const db = getDatabase();
     
-    const voting = db.votings.find(v => v.id === id);
+    const voting = await getVoting(id);
     
     if (!voting) {
       return c.json({ error: 'Голосование не найдено' }, 404);
     }
 
-    const image1 = db.voting_images.find(img => img.voting_id === id && img.sort_order === 0);
-    const image2 = db.voting_images.find(img => img.voting_id === id && img.sort_order === 1);
+    const images = await getVotingImages(id);
+    const image1 = images.find(img => img.sort_order === 0);
+    const image2 = images.find(img => img.sort_order === 1);
 
     return c.json({ 
       voting: {
@@ -77,30 +90,23 @@ votingRoutes.post('/votings', async (c) => {
       return c.json({ error: 'Размер файла не должен превышать 10 МБ' }, 400);
     }
 
-    const votingId = uuidv4();
     const endAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // +24 часа
 
-    // Загрузка и оптимизация изображений
-    const imagePaths = await uploadImages(votingId, [image1, image2]);
-    
-    const db = getDatabase();
-    
     // Создание голосования
-    db.votings.push({
-      id: votingId,
+    const votingId = await createVoting({
       title,
       created_at: new Date().toISOString(),
       end_at: endAt.toISOString()
     });
 
+    // Загрузка и оптимизация изображений
+    const imagePaths = await uploadImages(votingId, [image1, image2]);
+
     // Сохранение путей к изображениям
-    const maxImageId = Math.max(0, ...db.voting_images.map(img => img.id));
-    db.voting_images.push(
-      { id: maxImageId + 1, voting_id: votingId, file_path: imagePaths[0], sort_order: 0 },
-      { id: maxImageId + 2, voting_id: votingId, file_path: imagePaths[1], sort_order: 1 }
-    );
-    
-    await saveDatabase();
+    await createVotingImages([
+      { voting_id: votingId, file_path: imagePaths[0], sort_order: 0 },
+      { voting_id: votingId, file_path: imagePaths[1], sort_order: 1 }
+    ]);
 
     return c.json({ 
       voting: { 
@@ -125,10 +131,8 @@ votingRoutes.post('/votings/:id/vote', async (c) => {
       return c.json({ error: 'Неверный выбор' }, 400);
     }
 
-    const db = getDatabase();
-    
     // Проверяем, не закончилось ли голосование
-    const voting = db.votings.find(v => v.id === id);
+    const voting = await getVoting(id);
 
     if (!voting) {
       return c.json({ error: 'Голосование не найдено' }, 404);
@@ -139,15 +143,11 @@ votingRoutes.post('/votings/:id/vote', async (c) => {
     }
 
     // Сохраняем голос
-    const maxVoteId = Math.max(0, ...db.votes.map(vote => vote.id));
-    db.votes.push({
-      id: maxVoteId + 1,
+    await createVote({
       voting_id: id,
       choice,
       created_at: new Date().toISOString()
     });
-    
-    await saveDatabase();
 
     return c.json({ success: true });
   } catch (error) {
@@ -160,9 +160,8 @@ votingRoutes.post('/votings/:id/vote', async (c) => {
 votingRoutes.get('/votings/:id/results', async (c) => {
   try {
     const id = c.req.param('id');
-    const db = getDatabase();
     
-    const voting = db.votings.find(v => v.id === id);
+    const voting = await getVoting(id);
 
     if (!voting) {
       return c.json({ error: 'Голосование не найдено' }, 404);
@@ -175,7 +174,7 @@ votingRoutes.get('/votings/:id/results', async (c) => {
       return c.json({ error: 'Голосование еще не завершено' }, 400);
     }
 
-    const votes = db.votes.filter(vote => vote.voting_id === id);
+    const votes = await getVotesForVoting(id);
     const results = [
       { choice: 0, count: votes.filter(v => v.choice === 0).length },
       { choice: 1, count: votes.filter(v => v.choice === 1).length }

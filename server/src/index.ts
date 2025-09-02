@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server';
 import { router } from './routes';
-import { initDatabase } from './db/init';
+import { initDatabase, closeDatabase } from './db/init';
 import { ensureDirectories } from './utils/files';
 import { logger } from './utils/logger';
 
@@ -29,5 +29,18 @@ async function startServer() {
     process.exit(1);
   }
 }
+
+// Обработка сигналов завершения
+process.on('SIGINT', () => {
+  logger.info('Получен сигнал SIGINT, завершение работы...');
+  closeDatabase();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  logger.info('Получен сигнал SIGTERM, завершение работы...');
+  closeDatabase();
+  process.exit(0);
+});
 
 startServer();
