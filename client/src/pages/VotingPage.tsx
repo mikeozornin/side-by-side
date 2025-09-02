@@ -219,7 +219,7 @@ export function VotingPage() {
                   className={`h-full transition-all ${
                     !finished ? 'cursor-pointer' : ''
                   } ${selectedChoice === 0 ? 'ring-2 ring-primary' : ''
-                  } ${selectedChoice !== null && selectedChoice !== 0 && results?.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}
+                  } ${finished && results && results.winner !== 0 && results.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}
                   onClick={() => !finished && !hasVoted && setSelectedChoice(0)}
                 >
                   <CardContent className="p-0 h-full">
@@ -245,14 +245,7 @@ export function VotingPage() {
                           <Check className="h-6 w-6 text-primary" />
                         </div>
                       )}
-                      {results && results.winner === 0 && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="bg-green-500 rounded-full p-8">
-                            <Medal className="h-40 w-40 text-white stroke-[0.5]" />
-                          </div>
-                        </div>
-                      )}
-                      {results && results.winner === 'tie' && (
+                      {results && results.winner === 0 && selectedChoice !== 0 && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="bg-green-500 rounded-full p-8">
                             <Medal className="h-40 w-40 text-white stroke-[0.5]" />
@@ -280,7 +273,7 @@ export function VotingPage() {
                   className={`h-full transition-all ${
                     !finished ? 'cursor-pointer' : ''
                   } ${selectedChoice === 1 ? 'ring-2 ring-primary' : ''
-                  } ${selectedChoice !== null && selectedChoice !== 1 && results?.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}
+                  } ${finished && results && results.winner !== 1 && results.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}
                   onClick={() => !finished && !hasVoted && setSelectedChoice(1)}
                 >
                   <CardContent className="p-0 h-full">
@@ -306,14 +299,7 @@ export function VotingPage() {
                           <Check className="h-6 w-6 text-primary" />
                         </div>
                       )}
-                      {results && results.winner === 1 && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="bg-green-500 rounded-full p-8">
-                            <Medal className="h-40 w-40 text-white stroke-[0.5]" />
-                          </div>
-                        </div>
-                      )}
-                      {results && results.winner === 'tie' && (
+                      {results && results.winner === 1 && selectedChoice !== 1 && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="bg-green-500 rounded-full p-8">
                             <Medal className="h-40 w-40 text-white stroke-[0.5]" />
