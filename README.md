@@ -9,7 +9,7 @@ Side by Side позволяет дизайнерам загружать два �
 ## Технический стек
 
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS + shadcn/ui
-- **Backend**: Bun + Hono + SQLite
+- **Backend**: Nodejs, SQLite
 - **Оптимизация изображений**: ImageMagick, jpegoptim, pngquant, cwebp, avifenc
 
 ## Установка и запуск
