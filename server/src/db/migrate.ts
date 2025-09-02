@@ -57,7 +57,10 @@ async function migrateData() {
         await createVotingImages([{
           voting_id: newVotingId,
           file_path: image.file_path,
-          sort_order: image.sort_order
+          sort_order: image.sort_order,
+          pixel_ratio: 1, // Значение по умолчанию
+          width: 0, // Значение по умолчанию
+          height: 0 // Значение по умолчанию
         }]);
       }
     }
