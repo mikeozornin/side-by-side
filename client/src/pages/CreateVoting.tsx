@@ -5,21 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from '@/components/ui/dropzone'
 import HiDPIImage from '@/components/ui/HiDPIImage'
-
-const defaultQuestions = [
-  'Какой вариант лучше?',
-  'Левый или правый?',
-  'Правый или левый?',
-  'Слева или справа лучше?',
-  'Справа или слева лучше?',
-  'Какой дизайн вам больше нравится?',
-  'Какой вариант лучше?',
-  'Что бы вы выбрали?',
-  'Что предпочтете?'
-]
+import { useTranslation } from 'react-i18next'
 
 export function CreateVoting() {
+  const { t } = useTranslation()
   const [title, setTitle] = useState(() => {
+    const defaultQuestions = t('createVoting.defaultQuestions', { returnObjects: true }) as string[]
     const randomQuestion = defaultQuestions[Math.floor(Math.random() * defaultQuestions.length)]
     return randomQuestion
   })
@@ -67,13 +58,13 @@ export function CreateVoting() {
       const file = files[0]
       // Проверка размера файла (10MB)
       if (file.size > 10 * 1024 * 1024) {
-        setError('Размер файла не должен превышать 10 МБ')
+        setError(t('createVoting.fileSizeError'))
         return
       }
       
       // Проверка типа файла
       if (!file.type.startsWith('image/')) {
-        setError('Выберите файл изображения')
+        setError(t('createVoting.fileTypeError'))
         return
       }
       
@@ -105,12 +96,12 @@ export function CreateVoting() {
     e.preventDefault()
     
     if (!title.trim()) {
-      setError('Введите название голосования')
+      setError(t('createVoting.titleRequired'))
       return
     }
     
     if (!image1 || !image2 || image1.length === 0 || image2.length === 0) {
-      setError('Загрузите оба изображения')
+      setError(t('createVoting.imagesRequired'))
       return
     }
 
@@ -193,7 +184,7 @@ export function CreateVoting() {
                             height={image1Dimensions?.height || 0}
                             pixelRatio={parsePixelRatioFromName(image1[0].name)}
                             fit="contain"
-                            alt="Вариант 1"
+                            alt={t('createVoting.option1')}
                             className="max-w-full max-h-full object-contain rounded"
                           />
                         </div>
@@ -206,7 +197,7 @@ export function CreateVoting() {
                             onClick={removeImage(setImage1, setImage1Dimensions)}
                           >
                             <X className="h-4 w-4 mr-1" />
-                            Удалить
+                            {t('createVoting.remove')}
                           </Button>
                         </div>
                       </div>
@@ -238,7 +229,7 @@ export function CreateVoting() {
                             height={image2Dimensions?.height || 0}
                             pixelRatio={parsePixelRatioFromName(image2[0].name)}
                             fit="contain"
-                            alt="Вариант 2"
+                            alt={t('createVoting.option2')}
                             className="max-w-full max-h-full object-contain rounded"
                           />
                         </div>
@@ -251,7 +242,7 @@ export function CreateVoting() {
                             onClick={removeImage(setImage2, setImage2Dimensions)}
                           >
                             <X className="h-4 w-4 mr-1" />
-                            Удалить
+                            {t('createVoting.remove')}
                           </Button>
                         </div>
                       </div>
@@ -272,7 +263,7 @@ export function CreateVoting() {
               disabled={loading || !title.trim() || !image1 || !image2 || image1.length === 0 || image2.length === 0}
               className="w-full h-40 text-xl font-semibold"
             >
-              {loading ? 'Создание...' : 'Создать'}
+              {loading ? t('createVoting.creating') : t('createVoting.create')}
             </Button>
           </div>
         </form>

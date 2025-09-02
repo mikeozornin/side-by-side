@@ -170,7 +170,7 @@ export function VotingList() {
       ) : (
         <div className="space-y-8">
           {/* Активные голосования */}
-          {activeVotings.length > 0 && (
+          {activeVotings.length > 0 ? (
             <div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {activeVotings.map((voting) => (
@@ -246,6 +246,10 @@ export function VotingList() {
                   </Link>
                 ))}
               </div>
+                          </div>
+          ) : (
+            <div>
+              <p className="text-muted-foreground">{t('voting.noActiveVotings')}</p>
             </div>
           )}
 
