@@ -1,8 +1,8 @@
 import { createHash } from 'crypto';
 import { writeFile } from 'fs/promises';
 import { join, extname } from 'path';
-import { ensureVotingDirectory } from './files';
-import { logger } from './logger';
+import { ensureVotingDirectory } from './files.js';
+import { logger } from './logger.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Check, Trophy } from 'lucide-react'
+import { ArrowLeft, Check, Medal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
@@ -212,14 +212,14 @@ export function VotingPage() {
                       {results && results.winner === 0 && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="bg-green-500 rounded-full p-8">
-                            <Trophy className="h-40 w-40 text-white stroke-[0.5]" />
+                            <Medal className="h-40 w-40 text-white stroke-[0.5]" />
                           </div>
                         </div>
                       )}
                       {results && results.winner === 'tie' && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="bg-green-500 rounded-full p-8">
-                            <Trophy className="h-40 w-40 text-white stroke-[0.5]" />
+                            <Medal className="h-40 w-40 text-white stroke-[0.5]" />
                           </div>
                         </div>
                       )}
@@ -267,14 +267,14 @@ export function VotingPage() {
                       {results && results.winner === 1 && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="bg-green-500 rounded-full p-8">
-                            <Trophy className="h-40 w-40 text-white stroke-[0.5]" />
+                            <Medal className="h-40 w-40 text-white stroke-[0.5]" />
                           </div>
                         </div>
                       )}
                       {results && results.winner === 'tie' && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="bg-green-500 rounded-full p-8">
-                            <Trophy className="h-40 w-40 text-white stroke-[0.5]" />
+                            <Medal className="h-40 w-40 text-white stroke-[0.5]" />
                           </div>
                         </div>
                       )}

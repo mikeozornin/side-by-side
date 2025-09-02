@@ -1,6 +1,6 @@
 import sqlite3 from 'sqlite3';
-import { createTables } from './schema';
-import { logger } from '../utils/logger';
+import { createTables } from './schema.js';
+import { logger } from '../utils/logger.js';
 
 const DB_PATH = process.env.DB_PATH || './app.db';
 

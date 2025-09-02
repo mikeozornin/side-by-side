@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { v4 as uuidv4 } from 'uuid';
-import { logger } from '../utils/logger';
-import { uploadImages } from '../utils/images';
+import { logger } from '../utils/logger.js';
+import { uploadImages } from '../utils/images.js';
 import { 
   createVoting, 
   getVoting, 
@@ -11,7 +11,7 @@ import {
   createVote, 
   getVotesForVoting,
   getVoteCountForVoting 
-} from '../db/queries';
+} from '../db/queries.js';
 
 export const votingRoutes = new Hono();
 

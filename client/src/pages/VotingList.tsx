@@ -41,7 +41,7 @@ export function VotingList() {
       const data = await response.json()
       setVotings(data.votings || [])
     } catch (error) {
-      console.error('Ошибка загрузки голосований:', error)
+      console.error(t('voting.errorLoadingVotings'), error)
     } finally {
       setLoading(false)
     }
@@ -51,7 +51,7 @@ export function VotingList() {
     const endTime = new Date(endAt)
     const timeDiff = endTime.getTime() - currentTime.getTime()
     
-    if (timeDiff <= 0) return 'Завершено'
+    if (timeDiff <= 0) return t('voting.finished')
     
     const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24))
     const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
@@ -88,7 +88,7 @@ export function VotingList() {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Загрузка...</div>
+          <div className="text-muted-foreground">{t('voting.loading')}</div>
         </div>
       </div>
     )
@@ -98,13 +98,13 @@ export function VotingList() {
     <div className="container mx-auto p-6">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Еще идут</h1>
+          <h1 className="text-3xl font-bold">{t('voting.active')}</h1>
         </div>
         <div className="flex items-center gap-4">
           <Link to="/new">
             <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Создать
+              <Plus className="h-4 w-4 mr-2 stroke-[4]" />
+              {t('voting.create')}
             </Button>
           </Link>
         </div>
@@ -114,7 +114,7 @@ export function VotingList() {
         <Card>
           <CardContent className="flex items-center justify-center h-64">
             <div className="text-center">
-              <p className="text-muted-foreground mb-4">Сайд-бай-сайдов пока нет</p>
+              <p className="text-muted-foreground mb-4">{t('voting.noVotings')}</p>
             </div>
           </CardContent>
         </Card>
@@ -150,7 +150,7 @@ export function VotingList() {
                           <div className="absolute inset-0">
                             <img 
                               src={`/api/images/${voting.image1_path.split('/').pop()}`}
-                              alt="Вариант 1"
+                              alt={t('voting.option1')}
                               className="w-full h-full object-cover"
                               style={{
                                 clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
@@ -161,7 +161,7 @@ export function VotingList() {
                           <div className="absolute inset-0">
                             <img 
                               src={`/api/images/${voting.image2_path.split('/').pop()}`}
-                              alt="Вариант 2"
+                              alt={t('voting.option2')}
                               className="w-full h-full object-cover"
                               style={{
                                 clipPath: 'polygon(100% 0%, 100% 100%, 0% 100%)'
@@ -197,7 +197,7 @@ export function VotingList() {
           {/* Завершенные голосования */}
           {finishedVotings.length > 0 && (
             <div>
-              <h2 className="text-3xl font-bold mb-4">Уже закончились</h2>
+              <h2 className="text-3xl font-bold mb-4">{t('voting.completed')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {finishedVotings.map((voting) => (
                   <Link key={voting.id} to={`/v/${voting.id}`} className="block">
@@ -225,7 +225,7 @@ export function VotingList() {
                           <div className="absolute inset-0">
                             <img 
                               src={`/api/images/${voting.image1_path.split('/').pop()}`}
-                              alt="Вариант 1"
+                              alt={t('voting.option1')}
                               className="w-full h-full object-cover"
                               style={{
                                 clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
@@ -236,7 +236,7 @@ export function VotingList() {
                           <div className="absolute inset-0">
                             <img 
                               src={`/api/images/${voting.image2_path.split('/').pop()}`}
-                              alt="Вариант 2"
+                              alt={t('voting.option2')}
                               className="w-full h-full object-cover"
                               style={{
                                 clipPath: 'polygon(100% 0%, 100% 100%, 0% 100%)'

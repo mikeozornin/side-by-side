@@ -1,7 +1,7 @@
 import { readFile } from 'fs/promises';
-import { initDatabase, closeDatabase } from './init';
-import { createVoting, createVotingImages, createVote } from './queries';
-import { logger } from '../utils/logger';
+import { initDatabase, closeDatabase } from './init.js';
+import { createVoting, createVotingImages, createVote } from './queries.js';
+import { logger } from '../utils/logger.js';
 
 interface JsonDatabase {
   votings: Array<{

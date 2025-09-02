@@ -16,16 +16,7 @@ type DropzoneContextType = {
   maxFiles?: DropzoneOptions['maxFiles']
 }
 
-const renderBytes = (bytes: number) => {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-  let size = bytes
-  let unitIndex = 0
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024
-    unitIndex++
-  }
-  return `${size.toFixed(2)}${units[unitIndex]}`
-}
+
 
 const DropzoneContext = createContext<DropzoneContextType | undefined>(undefined)
 
@@ -62,7 +53,7 @@ export const Dropzone = ({
     disabled,
     onDrop: (acceptedFiles, fileRejections, event) => {
       if (fileRejections.length > 0) {
-        const message = fileRejections.at(0)?.errors.at(0)?.message
+        const message = fileRejections[0]?.errors[0]?.message
         onError?.(new Error(message))
         return
       }
@@ -123,14 +114,12 @@ export const DropzoneContent = ({
   return (
     <div className={cn('flex flex-col items-center justify-center', className)}>
       <div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
-        <UploadIcon size={16} />
+        <UploadIcon size={16}/>
       </div>
       <p className="my-2 w-full truncate font-medium text-sm">
         {src.length > maxLabelItems
-          ? `${new Intl.ListFormat('en').format(
-              src.slice(0, maxLabelItems).map((file) => file.name)
-            )} and ${src.length - maxLabelItems} more`
-          : new Intl.ListFormat('en').format(src.map((file) => file.name))}
+          ? `${src.slice(0, maxLabelItems).map((file) => file.name).join(', ')} and ${src.length - maxLabelItems} more`
+          : src.map((file) => file.name).join(', ')}
       </p>
     </div>
   )

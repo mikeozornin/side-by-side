@@ -1,8 +1,8 @@
 import { serve } from '@hono/node-server';
-import { router } from './routes';
-import { initDatabase, closeDatabase } from './db/init';
-import { ensureDirectories } from './utils/files';
-import { logger } from './utils/logger';
+import { router } from './routes/index.js';
+import { initDatabase, closeDatabase } from './db/init.js';
+import { ensureDirectories } from './utils/files.js';
+import { logger } from './utils/logger.js';
 
 const PORT = parseInt(process.env.PORT || '3000');
 const DATA_DIR = process.env.DATA_DIR || './data';

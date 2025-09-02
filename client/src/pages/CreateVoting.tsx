@@ -92,7 +92,7 @@ export function CreateVoting() {
         throw new Error(errorData.error || 'Ошибка создания голосования')
       }
 
-      const data = await response.json()
+      await response.json()
       navigate('/')
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Ошибка создания голосования')

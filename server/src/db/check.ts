@@ -1,6 +1,6 @@
-import { initDatabase, closeDatabase } from './init';
-import { getAllVotings, getVotingImages, getVotesForVoting } from './queries';
-import { logger } from '../utils/logger';
+import { initDatabase, closeDatabase } from './init.js';
+import { getAllVotings, getVotingImages, getVotesForVoting } from './queries.js';
+import { logger } from '../utils/logger.js';
 
 async function checkData() {
   try {

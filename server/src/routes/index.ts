@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { votingRoutes } from './votings';
+import { votingRoutes } from './votings.js';
 // import { serveStatic } from '@hono/node-server/serve-static';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
@@ -62,7 +62,7 @@ router.get('/api/images/:filename', async (c) => {
     else if (ext === '.webp') contentType = 'image/webp';
     else if (ext === '.avif') contentType = 'image/avif';
     
-    return new Response(fileBuffer, {
+    return new Response(new Uint8Array(fileBuffer), {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=31536000',
@@ -70,7 +70,8 @@ router.get('/api/images/:filename', async (c) => {
     });
   } catch (error) {
     console.error('Error serving image:', error);
-    return c.text(`Error serving image: ${error.message}`, 500);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return c.text(`Error serving image: ${errorMessage}`, 500);
   }
 });
 

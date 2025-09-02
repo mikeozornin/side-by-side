@@ -1,6 +1,6 @@
 import sqlite3 from 'sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import { getDatabase } from './init';
+import { getDatabase } from './init.js';
 
 // Вспомогательная функция для выполнения запросов с промисами
 export function runQuery<T = any>(sql: string, params: any[] = []): Promise<T> {
