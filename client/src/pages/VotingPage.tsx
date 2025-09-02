@@ -40,12 +40,39 @@ export function VotingPage() {
   const [error, setError] = useState('')
   const [hasVoted, setHasVoted] = useState(false)
 
+  const isFinished = (endAt: string) => {
+    return new Date(endAt) <= new Date()
+  }
+
   useEffect(() => {
     if (id) {
       fetchVoting()
       checkVotedStatus()
     }
   }, [id])
+
+  // Вычисляем finished здесь, чтобы использовать в useEffect
+  const finished = voting ? isFinished(voting.end_at) : false
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (finished || hasVoted) return
+      
+      if (event.key === 'ArrowLeft') {
+        setSelectedChoice(0)
+      } else if (event.key === 'ArrowRight') {
+        setSelectedChoice(1)
+      } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+        // Cmd+Enter на Mac или Ctrl+Enter на Windows/Linux
+        if (selectedChoice !== null) {
+          handleVote()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [finished, hasVoted, selectedChoice])
 
   const fetchVoting = async () => {
     try {
@@ -87,10 +114,6 @@ export function VotingPage() {
       const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
       setSelectedChoice(voteData.choice)
     }
-  }
-
-  const isFinished = (endAt: string) => {
-    return new Date(endAt) <= new Date()
   }
 
   const handleVote = async () => {
@@ -166,7 +189,7 @@ export function VotingPage() {
     )
   }
 
-  const finished = isFinished(voting.end_at)
+
 
   return (
     <div className="h-screen flex flex-col">
@@ -192,10 +215,13 @@ export function VotingPage() {
             {/* Вариант 1 */}
             <div className="flex flex-col h-full">
               <div className="flex-1">
-                <Card className={`h-full transition-all ${
-                  !finished ? 'cursor-pointer' : ''
-                } ${selectedChoice === 0 ? 'ring-2 ring-primary' : ''
-                } ${selectedChoice !== null && selectedChoice !== 0 && results?.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}>
+                <Card 
+                  className={`h-full transition-all ${
+                    !finished ? 'cursor-pointer' : ''
+                  } ${selectedChoice === 0 ? 'ring-2 ring-primary' : ''
+                  } ${selectedChoice !== null && selectedChoice !== 0 && results?.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}
+                  onClick={() => !finished && !hasVoted && setSelectedChoice(0)}
+                >
                   <CardContent className="p-0 h-full">
                     <div className="relative h-full">
                       <div className="w-full h-full flex items-center justify-center">
@@ -206,10 +232,7 @@ export function VotingPage() {
                           pixelRatio={voting.image1_pixel_ratio}
                           fit="contain"
                           alt="Вариант 1"
-                          className={`max-w-full max-h-full object-contain rounded-lg ${
-                            !finished && !hasVoted && selectedChoice === null ? 'cursor-pointer' : 'cursor-default'
-                          }`}
-                          onClick={() => !finished && !hasVoted && setSelectedChoice(0)}
+                          className="max-w-full max-h-full object-contain rounded-lg"
                         />
                       </div>
                       {selectedChoice === 0 && !finished && (
@@ -253,10 +276,13 @@ export function VotingPage() {
             {/* Вариант 2 */}
             <div className="flex flex-col h-full">
               <div className="flex-1">
-                <Card className={`h-full transition-all ${
-                  !finished ? 'cursor-pointer' : ''
-                } ${selectedChoice === 1 ? 'ring-2 ring-primary' : ''
-                } ${selectedChoice !== null && selectedChoice !== 1 && results?.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}>
+                <Card 
+                  className={`h-full transition-all ${
+                    !finished ? 'cursor-pointer' : ''
+                  } ${selectedChoice === 1 ? 'ring-2 ring-primary' : ''
+                  } ${selectedChoice !== null && selectedChoice !== 1 && results?.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}
+                  onClick={() => !finished && !hasVoted && setSelectedChoice(1)}
+                >
                   <CardContent className="p-0 h-full">
                     <div className="relative h-full">
                       <div className="w-full h-full flex items-center justify-center">
@@ -267,10 +293,7 @@ export function VotingPage() {
                           pixelRatio={voting.image2_pixel_ratio}
                           fit="contain"
                           alt="Вариант 2"
-                          className={`max-w-full max-h-full object-contain rounded-lg ${
-                            !finished && !hasVoted && selectedChoice === null ? 'cursor-pointer' : 'cursor-default'
-                          }`}
-                          onClick={() => !finished && !hasVoted && setSelectedChoice(1)}
+                          className="max-w-full max-h-full object-contain rounded-lg"
                         />
                       </div>
                       {selectedChoice === 1 && !finished && (
