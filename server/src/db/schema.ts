@@ -7,7 +7,8 @@ export function createTables(db: sqlite3.Database): void {
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      end_at DATETIME NOT NULL
+      end_at DATETIME NOT NULL,
+      duration_hours INTEGER NOT NULL DEFAULT 24
     )
   `);
 
@@ -42,6 +43,7 @@ export function createTables(db: sqlite3.Database): void {
   ensureColumn('voting_images', 'pixel_ratio', 'pixel_ratio REAL NOT NULL DEFAULT 1');
   ensureColumn('voting_images', 'width', 'width INTEGER NOT NULL DEFAULT 0');
   ensureColumn('voting_images', 'height', 'height INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('votings', 'duration_hours', 'duration_hours INTEGER NOT NULL DEFAULT 24');
 
   // Таблица голосов
   db.exec(`

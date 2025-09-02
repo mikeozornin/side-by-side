@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Toggle } from '@/components/ui/toggle'
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from '@/components/ui/dropzone'
 import HiDPIImage from '@/components/ui/HiDPIImage'
 import { useTranslation } from 'react-i18next'
@@ -18,16 +19,43 @@ export function CreateVoting() {
   const [image2, setImage2] = useState<File[] | undefined>()
   const [image1Dimensions, setImage1Dimensions] = useState<{width: number, height: number} | null>(null)
   const [image2Dimensions, setImage2Dimensions] = useState<{width: number, height: number} | null>(null)
+  const [duration, setDuration] = useState<number>(24) // По умолчанию 1 сутки (24 часа)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
   const titleInputRef = useRef<HTMLInputElement>(null)
+
+  // Периоды голосования в часах
+  const durationOptions = [
+    { value: 0.167, label: t('createVoting.durationOptions.10m') },
+    { value: 1, label: t('createVoting.durationOptions.1h') },
+    { value: 2, label: t('createVoting.durationOptions.2h') },
+    { value: 3, label: t('createVoting.durationOptions.3h') },
+    { value: 5, label: t('createVoting.durationOptions.5h') },
+    { value: 8, label: t('createVoting.durationOptions.8h') },
+    { value: 24, label: t('createVoting.durationOptions.1d') },
+    { value: 168, label: t('createVoting.durationOptions.7d') }
+  ]
 
   useEffect(() => {
     if (titleInputRef.current) {
       titleInputRef.current.focus()
     }
   }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+        // Cmd+Enter на Mac или Ctrl+Enter на Windows/Linux
+        if (title.trim() && image1 && image2 && image1.length > 0 && image2.length > 0 && !loading) {
+          handleSubmit(event as any)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [title, image1, image2, loading])
 
   const parsePixelRatioFromName = (fileName: string): number => {
     const match = fileName.match(/@(\d+(?:\.\d+)?)x\./i)
@@ -113,6 +141,7 @@ export function CreateVoting() {
       formData.append('title', title)
       formData.append('image1', image1[0])
       formData.append('image2', image2[0])
+      formData.append('duration', duration.toString())
 
       const response = await fetch('/api/votings', {
         method: 'POST',
@@ -146,7 +175,7 @@ export function CreateVoting() {
           </Button>
         </div>
 
-        <div>
+        <div className="space-y-6">
           <Input
             ref={titleInputRef}
             id="title"
@@ -156,6 +185,22 @@ export function CreateVoting() {
             className="text-3xl h-16"
             required
           />
+          
+          <div className="space-y-3">
+            <div className="flex flex-wrap">
+              {durationOptions.map((option, index) => (
+                <Toggle
+                  key={option.value}
+                  pressed={duration === option.value}
+                  onPressedChange={() => setDuration(option.value)}
+                  variant="outline"
+                  className={`px-4 py-2 ${index === 0 ? 'rounded-l-md rounded-r-none' : ''} ${index === durationOptions.length - 1 ? 'rounded-r-md rounded-l-none' : ''} ${index > 0 && index < durationOptions.length - 1 ? 'rounded-none' : ''} ${index > 0 ? '-ml-px' : ''}`}
+                >
+                  {option.label}
+                </Toggle>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

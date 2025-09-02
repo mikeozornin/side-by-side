@@ -48,6 +48,7 @@ export interface Voting {
   title: string;
   created_at: string;
   end_at: string;
+  duration_hours: number;
 }
 
 export interface VotingImage {
@@ -71,8 +72,8 @@ export interface Vote {
 export async function createVoting(voting: Omit<Voting, 'id'>): Promise<string> {
   const id = uuidv4();
   await runQuery(
-    'INSERT INTO votings (id, title, created_at, end_at) VALUES (?, ?, ?, ?)',
-    [id, voting.title, voting.created_at, voting.end_at]
+    'INSERT INTO votings (id, title, created_at, end_at, duration_hours) VALUES (?, ?, ?, ?, ?)',
+    [id, voting.title, voting.created_at, voting.end_at, voting.duration_hours]
   );
   return id;
 }

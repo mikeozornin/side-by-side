@@ -91,6 +91,7 @@ votingRoutes.post('/votings', async (c) => {
     const title = formData.get('title') as string;
     const image1 = formData.get('image1') as File;
     const image2 = formData.get('image2') as File;
+    const durationHours = parseFloat(formData.get('duration') as string) || 24;
 
     if (!title || !image1 || !image2) {
       return c.json({ error: 'Необходимо указать название и загрузить два изображения' }, 400);
@@ -102,13 +103,14 @@ votingRoutes.post('/votings', async (c) => {
       return c.json({ error: 'Размер файла не должен превышать 10 МБ' }, 400);
     }
 
-    const endAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // +24 часа
+    const endAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
 
     // Создание голосования
     const votingId = await createVoting({
       title,
       created_at: new Date().toISOString(),
-      end_at: endAt.toISOString()
+      end_at: endAt.toISOString(),
+      duration_hours: durationHours
     });
 
     // Загрузка и оптимизация изображений
@@ -124,7 +126,8 @@ votingRoutes.post('/votings', async (c) => {
       voting: { 
         id: votingId, 
         title, 
-        end_at: endAt.toISOString() 
+        end_at: endAt.toISOString(),
+        duration_hours: durationHours
       } 
     });
   } catch (error) {
