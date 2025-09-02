@@ -138,7 +138,9 @@ export function VotingList() {
     <div className="container mx-auto p-6">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold">{t('voting.active')}</h1>
+          <h1 className="text-3xl font-bold">
+            {votings.length === 0 ? t('voting.sideBySides') : t('voting.active')}
+          </h1>
         </div>
         <div className="flex items-center gap-4">
           <Link to="/new">
