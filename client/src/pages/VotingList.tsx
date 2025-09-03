@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
 import HiDPIImage from '@/components/ui/HiDPIImage'
+import VideoPlayer from '@/components/ui/VideoPlayer'
 
 
 interface Voting {
@@ -16,10 +17,12 @@ interface Voting {
   image1_pixel_ratio: number
   image1_width: number
   image1_height: number
+  image1_media_type: 'image' | 'video'
   image2_path: string
   image2_pixel_ratio: number
   image2_width: number
   image2_height: number
+  image2_media_type: 'image' | 'video'
   vote_count: number
 }
 
@@ -197,31 +200,61 @@ export function VotingList() {
                         <div className="relative w-full h-64 rounded overflow-hidden bg-muted">
                           {/* Левая картинка (вариант 1) */}
                           <div className="absolute inset-0">
-                            <HiDPIImage
-                              src={`/api/images/${voting.image1_path.split('/').pop()}`}
-                              width={voting.image1_width}
-                              height={voting.image1_height}
-                              pixelRatio={voting.image1_pixel_ratio}
-                              fit="cover"
-                              alt={t('voting.option1') as string}
-                              style={{
-                                clipPath: 'polygon(0% 0%, 98% 0%, 0% 98%)'
-                              }}
-                            />
+                            {voting.image1_media_type === 'image' ? (
+                              <HiDPIImage
+                                src={`/api/images/${voting.image1_path.split('/').pop()}`}
+                                width={voting.image1_width}
+                                height={voting.image1_height}
+                                pixelRatio={voting.image1_pixel_ratio}
+                                fit="cover"
+                                alt={t('voting.option1') as string}
+                                style={{
+                                  clipPath: 'polygon(0% 0%, 98% 0%, 0% 98%)'
+                                }}
+                              />
+                            ) : (
+                              <VideoPlayer
+                                src={`/api/images/${voting.image1_path.split('/').pop()}`}
+                                width={voting.image1_width}
+                                height={voting.image1_height}
+                                fit="cover"
+                                controls={false}
+                                muted={true}
+                                className="w-full h-full"
+                                style={{
+                                  clipPath: 'polygon(0% 0%, 98% 0%, 0% 98%)'
+                                }}
+                              />
+                            )}
                           </div>
                           {/* Правая картинка (вариант 2) */}
                           <div className="absolute inset-0">
-                            <HiDPIImage
-                              src={`/api/images/${voting.image2_path.split('/').pop()}`}
-                              width={voting.image2_width}
-                              height={voting.image2_height}
-                              pixelRatio={voting.image2_pixel_ratio}
-                              fit="cover"
-                              alt={t('voting.option2') as string}
-                              style={{
-                                clipPath: 'polygon(100% 0%, 100% 100%, 2% 100%)'
-                              }}
-                            />
+                            {voting.image2_media_type === 'image' ? (
+                              <HiDPIImage
+                                src={`/api/images/${voting.image2_path.split('/').pop()}`}
+                                width={voting.image2_width}
+                                height={voting.image2_height}
+                                pixelRatio={voting.image2_pixel_ratio}
+                                fit="cover"
+                                alt={t('voting.option2') as string}
+                                style={{
+                                  clipPath: 'polygon(100% 0%, 100% 100%, 2% 100%)'
+                                }}
+                              />
+                            ) : (
+                              <VideoPlayer
+                                src={`/api/images/${voting.image2_path.split('/').pop()}`}
+                                width={voting.image2_width}
+                                height={voting.image2_height}
+                                fit="cover"
+                                controls={false}
+                                muted={true}
+                                className="w-full h-full"
+                                style={{
+                                  clipPath: 'polygon(100% 0%, 100% 100%, 2% 100%)'
+                                }}
+                              />
+                            )}
                           </div>
                           {/* Диагональная линия */}
                           {/* <svg
@@ -282,25 +315,55 @@ export function VotingList() {
                         <div className="relative w-full h-64 rounded overflow-hidden bg-muted">
                           {/* Левая картинка (вариант 1) */}
                           <div className="absolute inset-0">
-                            <img
-                              src={`/api/images/${voting.image1_path.split('/').pop()}`}
-                              alt={t('voting.option1')}
-                              className="w-full h-full object-cover"
-                              style={{
-                                clipPath: 'polygon(0% 0%, 98% 0%, 0% 98%)'
-                              }}
-                            />
+                            {voting.image1_media_type === 'image' ? (
+                              <img
+                                src={`/api/images/${voting.image1_path.split('/').pop()}`}
+                                alt={t('voting.option1')}
+                                className="w-full h-full object-cover"
+                                style={{
+                                  clipPath: 'polygon(0% 0%, 98% 0%, 0% 98%)'
+                                }}
+                              />
+                            ) : (
+                              <VideoPlayer
+                                src={`/api/images/${voting.image1_path.split('/').pop()}`}
+                                width={voting.image1_width}
+                                height={voting.image1_height}
+                                fit="cover"
+                                controls={false}
+                                muted={true}
+                                className="w-full h-full"
+                                style={{
+                                  clipPath: 'polygon(0% 0%, 98% 0%, 0% 98%)'
+                                }}
+                              />
+                            )}
                           </div>
                           {/* Правая картинка (вариант 2) */}
                           <div className="absolute inset-0">
-                            <img
-                              src={`/api/images/${voting.image2_path.split('/').pop()}`}
-                              alt={t('voting.option2')}
-                              className="w-full h-full object-cover"
-                              style={{
-                                clipPath: 'polygon(100% 0%, 100% 100%, 2% 100%)'
-                              }}
-                            />
+                            {voting.image2_media_type === 'image' ? (
+                              <img
+                                src={`/api/images/${voting.image2_path.split('/').pop()}`}
+                                alt={t('voting.option2')}
+                                className="w-full h-full object-cover"
+                                style={{
+                                  clipPath: 'polygon(100% 0%, 100% 100%, 2% 100%)'
+                                }}
+                              />
+                            ) : (
+                              <VideoPlayer
+                                src={`/api/images/${voting.image2_path.split('/').pop()}`}
+                                width={voting.image2_width}
+                                height={voting.image2_height}
+                                fit="cover"
+                                controls={false}
+                                muted={true}
+                                className="w-full h-full"
+                                style={{
+                                  clipPath: 'polygon(100% 0%, 100% 100%, 2% 100%)'
+                                }}
+                              />
+                            )}
                           </div>
                           {/* Диагональная линия */}
                           <svg

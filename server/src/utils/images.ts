@@ -10,13 +10,17 @@ import sharp from 'sharp';
 const execAsync = promisify(exec);
 const DATA_DIR = process.env.DATA_DIR || './data';
 
-// Разрешенные форматы изображений
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.avif'];
+// Разрешенные форматы медиафайлов
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.mp4', '.webm', '.mov', '.avi'];
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png', 
   'image/webp',
-  'image/avif'
+  'image/avif',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/x-msvideo'
 ];
 
 export interface UploadedImageMeta {
@@ -24,6 +28,7 @@ export interface UploadedImageMeta {
   width: number;
   height: number;
   pixelRatio: number;
+  mediaType: 'image' | 'video';
 }
 
 function parsePixelRatioFromName(fileName: string): number {
@@ -54,6 +59,9 @@ export async function uploadImages(votingId: string, files: File[]): Promise<Upl
       throw new Error(`Неподдерживаемое расширение файла: ${extension}`);
     }
 
+    // Определяем тип медиафайла
+    const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
+
     // Читаем содержимое файла
     const buffer = Buffer.from(await file.arrayBuffer());
     
@@ -65,37 +73,46 @@ export async function uploadImages(votingId: string, files: File[]): Promise<Upl
     // Сохраняем файл
     await writeFile(filePath, buffer);
     
-    // Пытаемся оптимизировать
-    try {
-      await optimizeImage(filePath, extension);
-      logger.info(`Изображение оптимизировано: ${fileName}`);
-    } catch (error) {
-      logger.warn(`Не удалось оптимизировать изображение ${fileName}, используем оригинал:`, error);
+    // Пытаемся оптимизировать только изображения
+    if (mediaType === 'image') {
+      try {
+        await optimizeImage(filePath, extension);
+        logger.info(`Изображение оптимизировано: ${fileName}`);
+      } catch (error) {
+        logger.warn(`Не удалось оптимизировать изображение ${fileName}, используем оригинал:`, error);
+      }
     }
 
     // Получаем метаданные
     let width = 0;
     let height = 0;
     let pixelRatio = 1;
-    try {
-      const metadata = await sharp(filePath).metadata();
-      width = metadata.width || 0;
-      height = metadata.height || 0;
-      // Приоритет: density/metadata > имя > 1
-      // 72 DPI = pixelRatio 1, 144 DPI = pixelRatio 2, и т.д.
-      if (metadata.density && metadata.density > 72) {
-        pixelRatio = Number(metadata.density) / 72;
-      } else {
+    
+    if (mediaType === 'image') {
+      try {
+        const metadata = await sharp(filePath).metadata();
+        width = metadata.width || 0;
+        height = metadata.height || 0;
+        // Приоритет: density/metadata > имя > 1
+        // 72 DPI = pixelRatio 1, 144 DPI = pixelRatio 2, и т.д.
+        if (metadata.density && metadata.density > 72) {
+          pixelRatio = Number(metadata.density) / 72;
+        } else {
+          pixelRatio = parsePixelRatioFromName(file.name);
+        }
+      } catch (error) {
+        logger.warn(`Не удалось прочитать метаданные изображения ${fileName}:`, error);
+        width = 0;
+        height = 0;
         pixelRatio = parsePixelRatioFromName(file.name);
       }
-    } catch (error) {
-      logger.warn(`Не удалось прочитать метаданные изображения ${fileName}:`, error);
-      width = 0;
-      height = 0;
+    } else {
+      // Для видео пока используем pixelRatio из имени файла
       pixelRatio = parsePixelRatioFromName(file.name);
+      // TODO: Добавить получение размеров видео через ffprobe
     }
 
-    uploaded.push({ filePath, width, height, pixelRatio });
+    uploaded.push({ filePath, width, height, pixelRatio, mediaType });
   }
 
   return uploaded;

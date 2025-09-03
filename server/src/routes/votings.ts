@@ -34,10 +34,12 @@ votingRoutes.get('/votings', async (c) => {
           image1_pixel_ratio: image1?.pixel_ratio ?? 1,
           image1_width: image1?.width ?? 0,
           image1_height: image1?.height ?? 0,
+          image1_media_type: image1?.media_type ?? 'image',
           image2_path: image2?.file_path || '',
           image2_pixel_ratio: image2?.pixel_ratio ?? 1,
           image2_width: image2?.width ?? 0,
           image2_height: image2?.height ?? 0,
+          image2_media_type: image2?.media_type ?? 'image',
           vote_count: voteCount
         };
       })
@@ -72,10 +74,12 @@ votingRoutes.get('/votings/:id', async (c) => {
         image1_pixel_ratio: image1?.pixel_ratio ?? 1,
         image1_width: image1?.width ?? 0,
         image1_height: image1?.height ?? 0,
+        image1_media_type: image1?.media_type ?? 'image',
         image2_path: image2?.file_path || '',
         image2_pixel_ratio: image2?.pixel_ratio ?? 1,
         image2_width: image2?.width ?? 0,
-        image2_height: image2?.height ?? 0
+        image2_height: image2?.height ?? 0,
+        image2_media_type: image2?.media_type ?? 'image'
       }
     });
   } catch (error) {
@@ -94,13 +98,13 @@ votingRoutes.post('/votings', async (c) => {
     const durationHours = parseFloat(formData.get('duration') as string) || 24;
 
     if (!title || !image1 || !image2) {
-      return c.json({ error: 'Необходимо указать название и загрузить два изображения' }, 400);
+      return c.json({ error: 'Необходимо указать название и загрузить два медиафайла' }, 400);
     }
 
-    // Проверка размера файлов (10MB)
-    const maxSize = 10 * 1024 * 1024;
+    // Проверка размера файлов (20MB)
+    const maxSize = 20 * 1024 * 1024;
     if (image1.size > maxSize || image2.size > maxSize) {
-      return c.json({ error: 'Размер файла не должен превышать 10 МБ' }, 400);
+      return c.json({ error: 'Размер файла не должен превышать 20 МБ' }, 400);
     }
 
     const endAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
@@ -116,10 +120,10 @@ votingRoutes.post('/votings', async (c) => {
     // Загрузка и оптимизация изображений
     const uploaded = await uploadImages(votingId, [image1, image2]);
 
-    // Сохранение путей и метаданных к изображениям
+    // Сохранение путей и метаданных к медиафайлам
     await createVotingImages([
-      { voting_id: votingId, file_path: uploaded[0].filePath, sort_order: 0, pixel_ratio: uploaded[0].pixelRatio, width: uploaded[0].width, height: uploaded[0].height },
-      { voting_id: votingId, file_path: uploaded[1].filePath, sort_order: 1, pixel_ratio: uploaded[1].pixelRatio, width: uploaded[1].width, height: uploaded[1].height }
+      { voting_id: votingId, file_path: uploaded[0].filePath, sort_order: 0, pixel_ratio: uploaded[0].pixelRatio, width: uploaded[0].width, height: uploaded[0].height, media_type: uploaded[0].mediaType },
+      { voting_id: votingId, file_path: uploaded[1].filePath, sort_order: 1, pixel_ratio: uploaded[1].pixelRatio, width: uploaded[1].width, height: uploaded[1].height, media_type: uploaded[1].mediaType }
     ]);
 
     return c.json({ 

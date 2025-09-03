@@ -77,7 +77,7 @@ export const Dropzone = ({
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
-        if (item.type.startsWith('image/')) {
+        if (item.type.startsWith('image/') || item.type.startsWith('video/')) {
           event.preventDefault()
           
           const file = item.getAsFile()
@@ -90,9 +90,10 @@ export const Dropzone = ({
           }
 
           // Проверяем тип файла
-          const acceptedTypes = accept ? Object.keys(accept) : ['image/*']
+          const acceptedTypes = accept ? Object.keys(accept) : ['image/*', 'video/*']
           const isAccepted = acceptedTypes.some(type => {
             if (type === 'image/*') return file.type.startsWith('image/')
+            if (type === 'video/*') return file.type.startsWith('video/')
             return file.type === type
           })
 
@@ -210,7 +211,7 @@ export const DropzoneEmptyState = ({
       <p className="w-full truncate text-wrap text-muted-foreground text-xs">
         {t('dropzone.dragAndDrop')}
       </p>
-      <p className="text-wrap text-muted-foreground text-xs">{t('dropzone.imageSizeLimit')}</p>
+      <p className="text-wrap text-muted-foreground text-xs">{t('dropzone.mediaSizeLimit')}</p>
     </div>
   )
 }

@@ -12,7 +12,7 @@ export function createTables(db: sqlite3.Database): void {
     )
   `);
 
-  // Таблица изображений голосований
+  // Таблица медиафайлов голосований
   db.exec(`
     CREATE TABLE IF NOT EXISTS voting_images (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,6 +22,7 @@ export function createTables(db: sqlite3.Database): void {
       pixel_ratio REAL NOT NULL DEFAULT 1,
       width INTEGER NOT NULL,
       height INTEGER NOT NULL,
+      media_type TEXT NOT NULL DEFAULT 'image',
       FOREIGN KEY (voting_id) REFERENCES votings(id) ON DELETE CASCADE
     )
   `);
@@ -43,6 +44,7 @@ export function createTables(db: sqlite3.Database): void {
   ensureColumn('voting_images', 'pixel_ratio', 'pixel_ratio REAL NOT NULL DEFAULT 1');
   ensureColumn('voting_images', 'width', 'width INTEGER NOT NULL DEFAULT 0');
   ensureColumn('voting_images', 'height', 'height INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('voting_images', 'media_type', 'media_type TEXT NOT NULL DEFAULT \'image\'');
   ensureColumn('votings', 'duration_hours', 'duration_hours INTEGER NOT NULL DEFAULT 24');
 
   // Таблица голосов

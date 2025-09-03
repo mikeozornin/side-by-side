@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
 import HiDPIImage from '@/components/ui/HiDPIImage'
+import VideoPlayer from '@/components/ui/VideoPlayer'
+import { getMediaType } from '@/lib/mediaUtils'
 
 interface Voting {
   id: string
@@ -15,10 +17,12 @@ interface Voting {
   image1_pixel_ratio: number
   image1_width: number
   image1_height: number
+  image1_media_type: 'image' | 'video'
   image2_path: string
   image2_pixel_ratio: number
   image2_width: number
   image2_height: number
+  image2_media_type: 'image' | 'video'
 }
 
 interface Results {
@@ -225,15 +229,28 @@ export function VotingPage() {
                   <CardContent className="p-0 h-full">
                     <div className="relative h-full">
                       <div className="w-full h-full flex items-center justify-center">
-                        <HiDPIImage
-                          src={getImageUrl(voting.image1_path)}
-                          width={voting.image1_width}
-                          height={voting.image1_height}
-                          pixelRatio={voting.image1_pixel_ratio}
-                          fit="contain"
-                          alt="Вариант 1"
-                          className="max-w-full max-h-full object-contain rounded-lg"
-                        />
+                        {voting.image1_media_type === 'image' ? (
+                          <HiDPIImage
+                            src={getImageUrl(voting.image1_path)}
+                            width={voting.image1_width}
+                            height={voting.image1_height}
+                            pixelRatio={voting.image1_pixel_ratio}
+                            fit="contain"
+                            alt="Вариант 1"
+                            className="max-w-full max-h-full object-contain rounded-lg"
+                          />
+                        ) : (
+                          <VideoPlayer
+                            src={getImageUrl(voting.image1_path)}
+                            width={voting.image1_width}
+                            height={voting.image1_height}
+                            fit="contain"
+                            autoPlay={true}
+                            loop={true}
+                            muted={true}
+                            className="max-w-full max-h-full rounded-lg"
+                          />
+                        )}
                       </div>
                       {selectedChoice === 0 && !finished && (
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -279,15 +296,28 @@ export function VotingPage() {
                   <CardContent className="p-0 h-full">
                     <div className="relative h-full">
                       <div className="w-full h-full flex items-center justify-center">
-                        <HiDPIImage
-                          src={getImageUrl(voting.image2_path)}
-                          width={voting.image2_width}
-                          height={voting.image2_height}
-                          pixelRatio={voting.image2_pixel_ratio}
-                          fit="contain"
-                          alt="Вариант 2"
-                          className="max-w-full max-h-full object-contain rounded-lg"
-                        />
+                        {voting.image2_media_type === 'image' ? (
+                          <HiDPIImage
+                            src={getImageUrl(voting.image2_path)}
+                            width={voting.image2_width}
+                            height={voting.image2_height}
+                            pixelRatio={voting.image2_pixel_ratio}
+                            fit="contain"
+                            alt="Вариант 2"
+                            className="max-w-full max-h-full object-contain rounded-lg"
+                          />
+                        ) : (
+                          <VideoPlayer
+                            src={getImageUrl(voting.image2_path)}
+                            width={voting.image2_width}
+                            height={voting.image2_height}
+                            fit="contain"
+                            autoPlay={true}
+                            loop={true}
+                            muted={true}
+                            className="max-w-full max-h-full rounded-lg"
+                          />
+                        )}
                       </div>
                       {selectedChoice === 1 && !finished && (
                         <div className="absolute inset-0 flex items-center justify-center">

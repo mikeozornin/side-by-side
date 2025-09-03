@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Toggle } from '@/components/ui/toggle'
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from '@/components/ui/dropzone'
 import HiDPIImage from '@/components/ui/HiDPIImage'
+import VideoPlayer from '@/components/ui/VideoPlayer'
+import { getMediaType, getMediaDimensions, parsePixelRatioFromName } from '@/lib/mediaUtils'
 import { useTranslation } from 'react-i18next'
 
 export function CreateVoting() {
@@ -15,10 +17,10 @@ export function CreateVoting() {
     const randomQuestion = defaultQuestions[Math.floor(Math.random() * defaultQuestions.length)]
     return randomQuestion
   })
-  const [image1, setImage1] = useState<File[] | undefined>()
-  const [image2, setImage2] = useState<File[] | undefined>()
-  const [image1Dimensions, setImage1Dimensions] = useState<{width: number, height: number} | null>(null)
-  const [image2Dimensions, setImage2Dimensions] = useState<{width: number, height: number} | null>(null)
+  const [media1, setMedia1] = useState<File[] | undefined>()
+  const [media2, setMedia2] = useState<File[] | undefined>()
+  const [media1Dimensions, setMedia1Dimensions] = useState<{width: number, height: number} | null>(null)
+  const [media2Dimensions, setMedia2Dimensions] = useState<{width: number, height: number} | null>(null)
   const [duration, setDuration] = useState<number>(24) // По умолчанию 1 сутки (24 часа)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -47,7 +49,7 @@ export function CreateVoting() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
         // Cmd+Enter на Mac или Ctrl+Enter на Windows/Linux
-        if (title.trim() && image1 && image2 && image1.length > 0 && image2.length > 0 && !loading) {
+        if (title.trim() && media1 && media2 && media1.length > 0 && media2.length > 0 && !loading) {
           handleSubmit(event as any)
         }
       }
@@ -55,7 +57,7 @@ export function CreateVoting() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [title, image1, image2, loading])
+  }, [title, media1, media2, loading])
 
   // Глобальный обработчик вставки для автоматического выбора dropzone
   useEffect(() => {
@@ -65,18 +67,18 @@ export function CreateVoting() {
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
-        if (item.type.startsWith('image/')) {
+        if (item.type.startsWith('image/') || item.type.startsWith('video/')) {
           const file = item.getAsFile()
           if (!file) continue
 
-          // Проверяем размер файла (10MB)
-          if (file.size > 10 * 1024 * 1024) {
+          // Проверяем размер файла (20MB)
+          if (file.size > 20 * 1024 * 1024) {
             setError(t('createVoting.fileSizeError'))
             return
           }
           
           // Проверяем тип файла
-          if (!file.type.startsWith('image/')) {
+          if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
             setError(t('createVoting.fileTypeError'))
             return
           }
@@ -84,23 +86,23 @@ export function CreateVoting() {
           setError('')
           
           // Автоматически выбираем первый пустой dropzone
-          if (!image1 || image1.length === 0) {
-            setImage1([file])
+          if (!media1 || media1.length === 0) {
+            setMedia1([file])
             try {
-              const dimensions = await getImageDimensions(file)
-              setImage1Dimensions(dimensions)
+              const dimensions = await getMediaDimensions(file)
+              setMedia1Dimensions(dimensions)
             } catch (error) {
               console.error('Failed to get dimensions:', error)
-              setImage1Dimensions(null)
+              setMedia1Dimensions(null)
             }
-          } else if (!image2 || image2.length === 0) {
-            setImage2([file])
+          } else if (!media2 || media2.length === 0) {
+            setMedia2([file])
             try {
-              const dimensions = await getImageDimensions(file)
-              setImage2Dimensions(dimensions)
+              const dimensions = await getMediaDimensions(file)
+              setMedia2Dimensions(dimensions)
             } catch (error) {
               console.error('Failed to get dimensions:', error)
-              setImage2Dimensions(null)
+              setMedia2Dimensions(null)
             }
           }
           break
@@ -110,43 +112,21 @@ export function CreateVoting() {
 
     document.addEventListener('paste', handlePaste)
     return () => document.removeEventListener('paste', handlePaste)
-  }, [image1, image2, t])
+  }, [media1, media2, t])
 
-  const parsePixelRatioFromName = (fileName: string): number => {
-    const match = fileName.match(/@(\d+(?:\.\d+)?)x\./i)
-    if (match) {
-      const parsed = Number(match[1])
-      if (!Number.isNaN(parsed) && parsed > 0) {
-        console.log(`[CreateVoting] Parsed pixelRatio from ${fileName}: ${parsed}`)
-        return parsed
-      }
-    }
-    console.log(`[CreateVoting] No pixelRatio found in ${fileName}, using 1`)
-    return 1
-  }
 
-  const getImageDimensions = (file: File): Promise<{width: number, height: number}> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => {
-        resolve({ width: img.naturalWidth, height: img.naturalHeight })
-      }
-      img.onerror = reject
-      img.src = URL.createObjectURL(file)
-    })
-  }
 
   const handleDrop = (setter: (files: File[] | undefined) => void, dimensionSetter: (dimensions: {width: number, height: number} | null) => void) => async (files: File[]) => {
     if (files.length > 0) {
       const file = files[0]
-      // Проверка размера файла (10MB)
-      if (file.size > 10 * 1024 * 1024) {
+      // Проверка размера файла (20MB)
+      if (file.size > 20 * 1024 * 1024) {
         setError(t('createVoting.fileSizeError'))
         return
       }
       
       // Проверка типа файла
-      if (!file.type.startsWith('image/')) {
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
         setError(t('createVoting.fileTypeError'))
         return
       }
@@ -154,10 +134,10 @@ export function CreateVoting() {
       setError('')
       setter(files)
       
-      // Получаем размеры изображения
+      // Получаем размеры медиафайла
       try {
-        const dimensions = await getImageDimensions(file)
-        console.log(`[CreateVoting] Image dimensions for ${file.name}:`, dimensions)
+        const dimensions = await getMediaDimensions(file)
+        console.log(`[CreateVoting] Media dimensions for ${file.name}:`, dimensions)
         dimensionSetter(dimensions)
       } catch (error) {
         console.error(`[CreateVoting] Failed to get dimensions for ${file.name}:`, error)
@@ -170,7 +150,7 @@ export function CreateVoting() {
     setError(error.message)
   }
 
-  const removeImage = (setter: (files: File[] | undefined) => void, dimensionSetter: (dimensions: {width: number, height: number} | null) => void) => () => {
+  const removeMedia = (setter: (files: File[] | undefined) => void, dimensionSetter: (dimensions: {width: number, height: number} | null) => void) => () => {
     setter(undefined)
     dimensionSetter(null)
   }
@@ -183,7 +163,7 @@ export function CreateVoting() {
       return
     }
     
-    if (!image1 || !image2 || image1.length === 0 || image2.length === 0) {
+    if (!media1 || !media2 || media1.length === 0 || media2.length === 0) {
       setError(t('createVoting.imagesRequired'))
       return
     }
@@ -194,8 +174,8 @@ export function CreateVoting() {
     try {
       const formData = new FormData()
       formData.append('title', title)
-      formData.append('image1', image1[0])
-      formData.append('image2', image2[0])
+      formData.append('image1', media1[0])
+      formData.append('image2', media2[0])
       formData.append('duration', duration.toString())
 
       const response = await fetch('/api/votings', {
@@ -265,36 +245,52 @@ export function CreateVoting() {
             <div className="flex flex-col h-full">
               <div className="flex-1">
                 <Dropzone
-                  accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'] }}
+                  accept={{ 
+                    'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
+                    'video/*': ['.mp4', '.webm', '.mov', '.avi']
+                  }}
                   maxFiles={1}
-                  maxSize={10 * 1024 * 1024} // 10MB
-                  onDrop={handleDrop(setImage1, setImage1Dimensions)}
+                  maxSize={20 * 1024 * 1024} // 20MB
+                  onDrop={handleDrop(setMedia1, setMedia1Dimensions)}
                   onError={handleError}
-                  src={image1}
+                  src={media1}
                   className="h-full"
                 >
                   <DropzoneEmptyState />
                   <DropzoneContent>
-                    {image1 && image1.length > 0 && (
+                    {media1 && media1.length > 0 && (
                       <div className="space-y-2 h-full flex flex-col w-full min-w-0">
                         <div className="flex-1 flex items-center justify-center overflow-hidden">
-                          <HiDPIImage
-                            src={URL.createObjectURL(image1[0])}
-                            width={image1Dimensions?.width || 0}
-                            height={image1Dimensions?.height || 0}
-                            pixelRatio={parsePixelRatioFromName(image1[0].name)}
-                            fit="contain"
-                            alt={t('createVoting.option1')}
-                            className="max-w-full max-h-full object-contain rounded"
-                          />
+                          {getMediaType(media1[0]) === 'image' ? (
+                            <HiDPIImage
+                              src={URL.createObjectURL(media1[0])}
+                              width={media1Dimensions?.width || 0}
+                              height={media1Dimensions?.height || 0}
+                              pixelRatio={parsePixelRatioFromName(media1[0].name)}
+                              fit="contain"
+                              alt={t('createVoting.option1')}
+                              className="max-w-full max-h-full object-contain rounded"
+                            />
+                          ) : (
+                            <VideoPlayer
+                              src={URL.createObjectURL(media1[0])}
+                              width={media1Dimensions?.width || 0}
+                              height={media1Dimensions?.height || 0}
+                              fit="contain"
+                              className="max-w-full max-h-full rounded"
+                            />
+                          )}
                         </div>
                         <div className="space-y-2 w-full min-w-0">
-                          <p className="text-sm text-muted-foreground text-center truncate w-full" title={image1[0].name}>{image1[0].name}</p>
+                          <p className="text-sm text-muted-foreground text-center truncate w-full" title={media1[0].name}>{media1[0].name}</p>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={removeImage(setImage1, setImage1Dimensions)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeMedia(setMedia1, setMedia1Dimensions)()
+                            }}
                           >
                             <X className="h-4 w-4 mr-1" />
                             {t('createVoting.remove')}
@@ -310,36 +306,52 @@ export function CreateVoting() {
             <div className="flex flex-col h-full">
               <div className="flex-1">
                 <Dropzone
-                  accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'] }}
+                  accept={{ 
+                    'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
+                    'video/*': ['.mp4', '.webm', '.mov', '.avi']
+                  }}
                   maxFiles={1}
-                  maxSize={10 * 1024 * 1024} // 10MB
-                  onDrop={handleDrop(setImage2, setImage2Dimensions)}
+                  maxSize={20 * 1024 * 1024} // 20MB
+                  onDrop={handleDrop(setMedia2, setMedia2Dimensions)}
                   onError={handleError}
-                  src={image2}
+                  src={media2}
                   className="h-full"
                 >
                   <DropzoneEmptyState />
                   <DropzoneContent>
-                    {image2 && image2.length > 0 && (
+                    {media2 && media2.length > 0 && (
                       <div className="space-y-2 h-full flex flex-col w-full min-w-0">
                         <div className="flex-1 flex items-center justify-center overflow-hidden">
-                          <HiDPIImage
-                            src={URL.createObjectURL(image2[0])}
-                            width={image2Dimensions?.width || 0}
-                            height={image2Dimensions?.height || 0}
-                            pixelRatio={parsePixelRatioFromName(image2[0].name)}
-                            fit="contain"
-                            alt={t('createVoting.option2')}
-                            className="max-w-full max-h-full object-contain rounded"
-                          />
+                          {getMediaType(media2[0]) === 'image' ? (
+                            <HiDPIImage
+                              src={URL.createObjectURL(media2[0])}
+                              width={media2Dimensions?.width || 0}
+                              height={media2Dimensions?.height || 0}
+                              pixelRatio={parsePixelRatioFromName(media2[0].name)}
+                              fit="contain"
+                              alt={t('createVoting.option2')}
+                              className="max-w-full max-h-full object-contain rounded"
+                            />
+                          ) : (
+                            <VideoPlayer
+                              src={URL.createObjectURL(media2[0])}
+                              width={media2Dimensions?.width || 0}
+                              height={media2Dimensions?.height || 0}
+                              fit="contain"
+                              className="max-w-full max-h-full rounded"
+                            />
+                          )}
                         </div>
                         <div className="space-y-2 w-full min-w-0">
-                          <p className="text-sm text-muted-foreground text-center truncate w-full" title={image2[0].name}>{image2[0].name}</p>
+                          <p className="text-sm text-muted-foreground text-center truncate w-full" title={media2[0].name}>{media2[0].name}</p>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={removeImage(setImage2, setImage2Dimensions)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeMedia(setMedia2, setMedia2Dimensions)()
+                            }}
                           >
                             <X className="h-4 w-4 mr-1" />
                             {t('createVoting.remove')}
@@ -360,7 +372,7 @@ export function CreateVoting() {
           <div className="flex-shrink-0 pb-6">
             <Button
               type="submit"
-              disabled={loading || !title.trim() || !image1 || !image2 || image1.length === 0 || image2.length === 0}
+              disabled={loading || !title.trim() || !media1 || !media2 || media1.length === 0 || media2.length === 0}
               className="w-full h-40 text-xl font-semibold"
             >
               {loading ? t('createVoting.creating') : t('createVoting.create')}
