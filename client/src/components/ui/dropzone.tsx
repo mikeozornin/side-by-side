@@ -2,7 +2,7 @@
 
 import { UploadIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { createContext, useContext } from 'react'
+import { createContext, useContext, useEffect, useRef } from 'react'
 import type { DropEvent, DropzoneOptions, FileRejection } from 'react-dropzone'
 import { useDropzone } from 'react-dropzone'
 import { useTranslation } from 'react-i18next'
@@ -45,6 +45,8 @@ export const Dropzone = ({
   children,
   ...props
 }: DropzoneProps) => {
+  const dropzoneRef = useRef<HTMLDivElement>(null)
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept,
     maxFiles,
@@ -63,12 +65,64 @@ export const Dropzone = ({
     ...props,
   })
 
+  // Обработчик вставки из буфера
+  useEffect(() => {
+    const handlePaste = async (event: ClipboardEvent) => {
+      if (disabled || !dropzoneRef.current?.contains(document.activeElement)) {
+        return
+      }
+
+      const items = event.clipboardData?.items
+      if (!items) return
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        if (item.type.startsWith('image/')) {
+          event.preventDefault()
+          
+          const file = item.getAsFile()
+          if (!file) continue
+
+          // Проверяем размер файла
+          if (maxSize && file.size > maxSize) {
+            onError?.(new Error('Размер файла превышает допустимый лимит'))
+            return
+          }
+
+          // Проверяем тип файла
+          const acceptedTypes = accept ? Object.keys(accept) : ['image/*']
+          const isAccepted = acceptedTypes.some(type => {
+            if (type === 'image/*') return file.type.startsWith('image/')
+            return file.type === type
+          })
+
+          if (!isAccepted) {
+            onError?.(new Error('Неподдерживаемый тип файла'))
+            return
+          }
+
+          // Создаем FileList-like объект
+          const dataTransfer = new DataTransfer()
+          dataTransfer.items.add(file)
+          
+          // Вызываем onDrop с файлом из буфера
+          onDrop?.([file], [], { dataTransfer } as any)
+          break
+        }
+      }
+    }
+
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [disabled, maxSize, accept, onDrop, onError])
+
   return (
     <DropzoneContext.Provider
       key={JSON.stringify(src)}
       value={{ src, accept, maxSize, minSize, maxFiles }}
     >
       <Button
+        ref={dropzoneRef}
         className={cn(
           'relative h-auto w-full flex-col overflow-hidden p-8',
           isDragActive && 'outline-none ring-1 ring-ring',
@@ -77,6 +131,7 @@ export const Dropzone = ({
         disabled={disabled}
         type="button"
         variant="outline"
+        tabIndex={-1}
         {...getRootProps()}
       >
         <input {...getInputProps()} disabled={disabled} />

@@ -57,6 +57,61 @@ export function CreateVoting() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [title, image1, image2, loading])
 
+  // Глобальный обработчик вставки для автоматического выбора dropzone
+  useEffect(() => {
+    const handlePaste = async (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items
+      if (!items) return
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile()
+          if (!file) continue
+
+          // Проверяем размер файла (10MB)
+          if (file.size > 10 * 1024 * 1024) {
+            setError(t('createVoting.fileSizeError'))
+            return
+          }
+          
+          // Проверяем тип файла
+          if (!file.type.startsWith('image/')) {
+            setError(t('createVoting.fileTypeError'))
+            return
+          }
+
+          setError('')
+          
+          // Автоматически выбираем первый пустой dropzone
+          if (!image1 || image1.length === 0) {
+            setImage1([file])
+            try {
+              const dimensions = await getImageDimensions(file)
+              setImage1Dimensions(dimensions)
+            } catch (error) {
+              console.error('Failed to get dimensions:', error)
+              setImage1Dimensions(null)
+            }
+          } else if (!image2 || image2.length === 0) {
+            setImage2([file])
+            try {
+              const dimensions = await getImageDimensions(file)
+              setImage2Dimensions(dimensions)
+            } catch (error) {
+              console.error('Failed to get dimensions:', error)
+              setImage2Dimensions(null)
+            }
+          }
+          break
+        }
+      }
+    }
+
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [image1, image2, t])
+
   const parsePixelRatioFromName = (fileName: string): number => {
     const match = fileName.match(/@(\d+(?:\.\d+)?)x\./i)
     if (match) {
