@@ -8,10 +8,14 @@
     "build": "tsc && node dist/index.js",
     "start": "node dist/index.js",
     "db:migrate": "tsx src/db/migrate.ts",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx src/db/seed.ts",
+    "test:notifications": "tsx src/test-notifications.ts",
+    "test:locale": "tsx src/test-locale.ts",
+    "check:env": "tsx src/check-env.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",
+    "dotenv": "^16.3.1",
     "hono": "^4.0.0",
     "sharp": "^0.34.3",
     "sqlite3": "^5.1.6",

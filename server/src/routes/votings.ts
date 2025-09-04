@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 import { uploadImages } from '../utils/images.js';
+import { NotificationService } from '../notifications/index.js';
 import { 
   createVoting, 
   getVoting, 
@@ -14,6 +15,9 @@ import {
 } from '../db/queries.js';
 
 export const votingRoutes = new Hono();
+
+// Инициализируем сервис уведомлений
+const notificationService = new NotificationService();
 
 // GET /api/votings - список голосований
 votingRoutes.get('/votings', async (c) => {
@@ -91,20 +95,31 @@ votingRoutes.get('/votings/:id', async (c) => {
 // POST /api/votings - создание голосования
 votingRoutes.post('/votings', async (c) => {
   try {
-    const formData = await c.req.formData();
-    const title = formData.get('title') as string;
-    const image1 = formData.get('image1') as File;
-    const image2 = formData.get('image2') as File;
-    const durationHours = parseFloat(formData.get('duration') as string) || 24;
+    const contentType = c.req.header('Content-Type') || '';
+
+    let title: string;
+    let image1: string | File;
+    let image2: string | File;
+    let durationHours: number;
+
+    if (contentType.includes('application/json')) {
+      // Handle JSON request with base64 images
+      const jsonData = await c.req.json();
+      title = jsonData.title;
+      image1 = jsonData.image1; // base64 string
+      image2 = jsonData.image2; // base64 string
+      durationHours = parseFloat(jsonData.duration) || 24;
+    } else {
+      // Handle FormData request
+      const formData = await c.req.formData();
+      title = formData.get('title') as string;
+      image1 = formData.get('image1') as File;
+      image2 = formData.get('image2') as File;
+      durationHours = parseFloat(formData.get('duration') as string) || 24;
+    }
 
     if (!title || !image1 || !image2) {
       return c.json({ error: 'Необходимо указать название и загрузить два медиафайла' }, 400);
-    }
-
-    // Проверка размера файлов (20MB)
-    const maxSize = 20 * 1024 * 1024;
-    if (image1.size > maxSize || image2.size > maxSize) {
-      return c.json({ error: 'Размер файла не должен превышать 20 МБ' }, 400);
     }
 
     const endAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
@@ -117,8 +132,93 @@ votingRoutes.post('/votings', async (c) => {
       duration_hours: durationHours
     });
 
-    // Загрузка и оптимизация изображений
-    const uploaded = await uploadImages(votingId, [image1, image2]);
+    let uploaded: any[] = [];
+
+    if (contentType.includes('application/json')) {
+      // Handle JSON uploads that may contain base64, data URLs, or hex strings
+      const decodeImage = (input: string, fallbackName: string) => {
+        try {
+          let data = input.trim();
+          let mime = 'image/png';
+          let extension = '.png';
+          // data URL handling
+          const dataUrlMatch = data.match(/^data:(.*?);base64,(.*)$/i);
+          if (dataUrlMatch) {
+            mime = dataUrlMatch[1] || 'image/png';
+            data = dataUrlMatch[2] || '';
+            if (mime.includes('jpeg')) extension = '.jpg';
+            else if (mime.includes('webp')) extension = '.webp';
+            else if (mime.includes('avif')) extension = '.avif';
+            else if (mime.includes('png')) extension = '.png';
+          }
+
+          let buffer: Buffer | null = null;
+          // Try base64 first
+          try {
+            buffer = Buffer.from(data, 'base64');
+            // Heuristic: if base64 decoding fails it often results in empty or very small buffer
+            if (!buffer || buffer.length < 10) buffer = null;
+          } catch {
+            buffer = null;
+          }
+
+          // If not base64, try hex
+          if (!buffer) {
+            const isHex = /^[0-9a-fA-F]+$/.test(data) && data.length % 2 === 0;
+            if (isHex) {
+              buffer = Buffer.from(data, 'hex');
+            }
+          }
+
+          if (!buffer) {
+            throw new Error('Unsupported image encoding');
+          }
+
+          // Best-effort content-based extension
+          if (buffer.length >= 12) {
+            const sig = buffer.subarray(0, 12);
+            // PNG signature: 89 50 4E 47 0D 0A 1A 0A
+            if (sig[0] === 0x89 && sig[1] === 0x50 && sig[2] === 0x4E && sig[3] === 0x47) {
+              extension = '.png';
+              mime = 'image/png';
+            } else if (sig[0] === 0xFF && sig[1] === 0xD8) {
+              extension = '.jpg';
+              mime = 'image/jpeg';
+            } else if (sig[0] === 0x52 && sig[1] === 0x49 && sig[2] === 0x46 && sig[3] === 0x46 && buffer.subarray(8, 12).toString() === 'WEBP') {
+              extension = '.webp';
+              mime = 'image/webp';
+            } else if (sig.toString('ascii', 4, 8) === 'ftyp') {
+              // Could be MP4 or other ISO base media format. Leave mime as-is unless misdetected.
+            }
+          }
+
+          const fileName = `${fallbackName}@2x${extension}`;
+          const u8 = new Uint8Array(buffer);
+          // In Node >= 18, File is available (undici); use it to integrate with uploadImages
+          const blob = new Blob([u8], { type: mime });
+          const file = new File([blob], fileName, { type: mime });
+          return file;
+        } catch (error) {
+          throw new Error('Failed to decode image payload');
+        }
+      };
+
+      const image1File = decodeImage(image1 as string, 'image1');
+      const image2File = decodeImage(image2 as string, 'image2');
+
+      uploaded = await uploadImages(votingId, [image1File, image2File]);
+    } else {
+      // Handle file uploads
+      const maxSize = 20 * 1024 * 1024;
+      const image1File = image1 as File;
+      const image2File = image2 as File;
+
+      if (image1File.size > maxSize || image2File.size > maxSize) {
+        return c.json({ error: 'Размер файла не должен превышать 20 МБ' }, 400);
+      }
+
+      uploaded = await uploadImages(votingId, [image1File, image2File]);
+    }
 
     // Сохранение путей и метаданных к медиафайлам
     await createVotingImages([
@@ -126,13 +226,18 @@ votingRoutes.post('/votings', async (c) => {
       { voting_id: votingId, file_path: uploaded[1].filePath, sort_order: 1, pixel_ratio: uploaded[1].pixelRatio, width: uploaded[1].width, height: uploaded[1].height, media_type: uploaded[1].mediaType }
     ]);
 
-    return c.json({ 
-      voting: { 
-        id: votingId, 
-        title, 
+    // Отправляем уведомление асинхронно (не блокируем ответ)
+    notificationService.sendVotingCreatedNotification(votingId, title).catch(error => {
+      logger.error('Error sending notification:', error);
+    });
+
+    return c.json({
+      voting: {
+        id: votingId,
+        title,
         end_at: endAt.toISOString(),
         duration_hours: durationHours
-      } 
+      }
     });
   } catch (error) {
     logger.error('Ошибка создания голосования:', error);

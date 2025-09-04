@@ -45,7 +45,10 @@ async function migrateData() {
     // Мигрируем голосования
     for (const voting of data.votings) {
       const { id: oldId, ...votingData } = voting;
-      const newId = await createVoting(votingData);
+      const newId = await createVoting({
+        ...votingData,
+        duration_hours: 24 // Значение по умолчанию для старых данных
+      });
       idMapping[oldId] = newId;
       logger.info(`Мигрировано голосование: ${voting.title} (${oldId} -> ${newId})`);
     }
@@ -60,7 +63,8 @@ async function migrateData() {
           sort_order: image.sort_order,
           pixel_ratio: 1, // Значение по умолчанию
           width: 0, // Значение по умолчанию
-          height: 0 // Значение по умолчанию
+          height: 0, // Значение по умолчанию
+          media_type: 'image' // Значение по умолчанию
         }]);
       }
     }

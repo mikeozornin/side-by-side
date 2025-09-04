@@ -1,0 +1,42 @@
+{
+  "mattermost": {
+    "providerName": "Mattermost",
+    "webhookNotConfigured": "Mattermost webhook URL not configured",
+    "webhookInvalidFormat": "Mattermost webhook URL has invalid format",
+    "providerNotConfigured": "Mattermost provider not configured correctly",
+    "notificationSent": "Notification successfully sent to Mattermost for voting {votingId}",
+    "sendError": "Error sending notification to Mattermost: {error}",
+    "messageFormat": "**New side-by-side voting created!**\n\n[{title}]({votingUrl})"
+  },
+  "telegram": {
+    "providerName": "Telegram",
+    "notImplemented": "Telegram provider not implemented yet"
+  },
+  "service": {
+    "providersInitialized": "Initialized {count} notification providers",
+    "noActiveProviders": "No active notification providers",
+    "notificationSent": "Notification successfully sent via {provider}",
+    "sendError": "Error sending via {provider}: {error}",
+    "unexpectedError": "Unexpected error when sending via {provider}: {error}",
+    "notificationError": "Error sending notification: {error}"
+  },
+  "test": {
+    "title": "Testing notification system...",
+    "results": "Test results:",
+    "noProviders": "No active notification providers",
+    "checkEnv": "Check ENV variables settings:",
+    "mattermostEnabled": "- MATTERMOST_ENABLED=true",
+    "mattermostWebhook": "- MATTERMOST_WEBHOOK_URL=your-webhook-url",
+    "telegramEnabled": "- TELEGRAM_ENABLED=true (optional)",
+    "success": "Notification successfully sent",
+    "error": "Error: {error}",
+    "summary": "Summary:",
+    "successful": "Successful: {count}",
+    "errors": "Errors: {count}",
+    "total": "Total: {count}",
+    "testCompleted": "Test completed! Notifications work correctly.",
+    "allProvidersFailed": "All providers returned errors. Check settings.",
+    "criticalError": "Critical error during testing: {error}",
+    "unexpectedError": "Unexpected error: {error}"
+  }
+}

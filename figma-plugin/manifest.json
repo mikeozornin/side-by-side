@@ -1,0 +1,17 @@
+{
+  "name": "Side by Side Voting",
+  "id": "side-by-side-voting",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "reasoning": "Plugin needs to send voting data to the side-by-side API server to create new voting polls"
+  },
+  "permissions": [
+    "currentuser"
+  ]
+}

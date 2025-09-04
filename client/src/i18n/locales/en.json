@@ -1,0 +1,70 @@
+{
+  "votes_zero": "No votes",
+  "votes_one": "{{count}} vote",
+  "votes_few": "{{count}} votes",
+  "votes_many": "{{count}} votes",
+  "votes_other": "{{count}} votes",
+  "voting": {
+    "title": "Voting",
+    "create": "Create",
+    "loading": "Loading...",
+    "error": "Error",
+    "notFound": "Voting not found",
+    "backToHome": "Back to home",
+    "confirmChoice": "Confirm choice",
+    "votingInProgress": "Voting...",
+    "voteCounted": "Thank you, your vote has been counted. Results will be shown after the voting ends.",
+    "finished": "Finished",
+    "active": "Ongoing",
+    "completed": "Finished",
+    "sideBySides": "Side-by-sides",
+    "noVotings": "No side-by-sides yet",
+    "noActiveVotings": "No side-by-sides available for voting yet",
+    "errorLoading": "Error loading voting",
+    "errorCreating": "Error creating voting",
+    "errorVoting": "Voting error",
+    "enterTitle": "Enter voting title",
+    "errorLoadingVotings": "Error loading votings",
+    "errorLoadingSideBySides": "Failed to load side-by-sides",
+    "tryAgain": "Try again",
+    "option1": "Option 1",
+    "option2": "Option 2"
+  },
+  "dropzone": {
+    "uploadFile": "Upload file",
+    "dragAndDrop": "Drag and drop here or select file",
+    "mediaSizeLimit": "Image or video up to 20 MB"
+  },
+  "createVoting": {
+    "defaultQuestions": [
+      "Which option is better?",
+      "Left or right?",
+      "Right or left?",
+      "Which is better on the left or right?",
+      "Which is better on the right or left?",
+      "Which design do you like more?",
+      "Which option is better?",
+      "What would you choose?",
+      "What would you prefer?"
+    ],
+    "fileSizeError": "File size should not exceed 20 MB",
+    "fileTypeError": "Select an image or video file",
+    "titleRequired": "Enter voting title",
+    "imagesRequired": "Upload both files (images or videos)",
+    "creating": "Creating...",
+    "create": "Create",
+    "remove": "Remove",
+    "option1": "Option 1",
+    "option2": "Option 2",
+    "durationOptions": {
+      "10m": "10 min",
+      "1h": "1 h",
+      "2h": "2 h", 
+      "3h": "3 h",
+      "5h": "5 h",
+      "8h": "8 h",
+      "1d": "1 day",
+      "7d": "7 days"
+    }
+  }
+}

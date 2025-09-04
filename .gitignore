@@ -220,3 +220,4 @@ build/
 # Server specific
 server/logs/
 server/data/
+.env.development

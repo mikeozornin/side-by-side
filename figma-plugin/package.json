@@ -1,0 +1,25 @@
+{
+  "name": "side-by-side-figma-plugin",
+  "version": "1.0.0",
+  "description": "Figma plugin for creating side-by-side voting polls",
+  "main": "dist/code.js",
+  "scripts": {
+    "build": "tsc && vite build",
+    "dev": "tsc --watch & vite build --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "figma",
+    "plugin",
+    "voting",
+    "poll"
+  ],
+  "author": "Side by Side Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.90.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
+  }
+}
