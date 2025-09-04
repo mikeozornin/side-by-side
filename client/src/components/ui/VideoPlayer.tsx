@@ -32,15 +32,9 @@ export default function VideoPlayer({
     const video = videoRef.current
     if (!video) return
 
-    // Устанавливаем размеры видео
-    if (width && height) {
-      video.style.width = `${width}px`
-      video.style.height = `${height}px`
-    }
-
-    // Устанавливаем object-fit
+    // Устанавливаем только object-fit, размеры контролируются через CSS классы
     video.style.objectFit = fit
-  }, [width, height, fit])
+  }, [fit])
 
   return (
     <video

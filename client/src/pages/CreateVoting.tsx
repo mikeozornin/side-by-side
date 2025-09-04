@@ -199,18 +199,18 @@ export function CreateVoting() {
 
   return (
     <div className="h-screen flex flex-col">
-      <div className="max-w-none mx-auto p-6 w-full flex-shrink-0">
-        <div className="flex items-center mb-8">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+      <div className="max-w-none mx-auto p-4 w-full flex-shrink-0">
+        <div className="flex items-center mb-4">
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => navigate('/')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           <Input
             ref={titleInputRef}
             id="title"
@@ -221,7 +221,7 @@ export function CreateVoting() {
             required
           />
           
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex flex-wrap">
               {durationOptions.map((option, index) => (
                 <Toggle
@@ -239,9 +239,9 @@ export function CreateVoting() {
         </div>
       </div>
 
-      <div className="flex-1 max-w-none mx-auto px-6 w-full">
+      <div className="flex-1 max-w-none mx-auto px-4 w-full">
         <form onSubmit={handleSubmit} className="h-full flex flex-col">
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="flex flex-col h-full">
               <div className="flex-1">
                 <Dropzone
@@ -259,43 +259,39 @@ export function CreateVoting() {
                   <DropzoneEmptyState />
                   <DropzoneContent>
                     {media1 && media1.length > 0 && (
-                      <div className="space-y-2 h-full flex flex-col w-full min-w-0">
-                        <div className="flex-1 flex items-center justify-center overflow-hidden">
-                          {getMediaType(media1[0]) === 'image' ? (
-                            <HiDPIImage
-                              src={URL.createObjectURL(media1[0])}
-                              width={media1Dimensions?.width || 0}
-                              height={media1Dimensions?.height || 0}
-                              pixelRatio={parsePixelRatioFromName(media1[0].name)}
-                              fit="contain"
-                              alt={t('createVoting.option1')}
-                              className="max-w-full max-h-full object-contain rounded"
-                            />
-                          ) : (
-                            <VideoPlayer
-                              src={URL.createObjectURL(media1[0])}
-                              width={media1Dimensions?.width || 0}
-                              height={media1Dimensions?.height || 0}
-                              fit="contain"
-                              className="max-w-full max-h-full rounded"
-                            />
-                          )}
-                        </div>
-                        <div className="space-y-2 w-full min-w-0">
-                          <p className="text-sm text-muted-foreground text-center truncate w-full" title={media1[0].name}>{media1[0].name}</p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              removeMedia(setMedia1, setMedia1Dimensions)()
-                            }}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            {t('createVoting.remove')}
-                          </Button>
-                        </div>
+                      <div className="flex flex-col items-center space-y-2 w-full min-w-0">
+                        {getMediaType(media1[0]) === 'image' ? (
+                          <HiDPIImage
+                            src={URL.createObjectURL(media1[0])}
+                            width={media1Dimensions?.width || 0}
+                            height={media1Dimensions?.height || 0}
+                            pixelRatio={parsePixelRatioFromName(media1[0].name)}
+                            fit="contain"
+                            alt={t('createVoting.option1')}
+                            className="max-w-full max-h-full object-contain rounded"
+                          />
+                        ) : (
+                          <VideoPlayer
+                            src={URL.createObjectURL(media1[0])}
+                            width={media1Dimensions?.width || 0}
+                            height={media1Dimensions?.height || 0}
+                            fit="contain"
+                            className="max-w-full max-h-full rounded"
+                          />
+                        )}
+                        <p className="text-sm text-muted-foreground text-center truncate w-full" title={media1[0].name}>{media1[0].name}</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeMedia(setMedia1, setMedia1Dimensions)()
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          {t('createVoting.remove')}
+                        </Button>
                       </div>
                     )}
                   </DropzoneContent>
@@ -320,43 +316,39 @@ export function CreateVoting() {
                   <DropzoneEmptyState />
                   <DropzoneContent>
                     {media2 && media2.length > 0 && (
-                      <div className="space-y-2 h-full flex flex-col w-full min-w-0">
-                        <div className="flex-1 flex items-center justify-center overflow-hidden">
-                          {getMediaType(media2[0]) === 'image' ? (
-                            <HiDPIImage
-                              src={URL.createObjectURL(media2[0])}
-                              width={media2Dimensions?.width || 0}
-                              height={media2Dimensions?.height || 0}
-                              pixelRatio={parsePixelRatioFromName(media2[0].name)}
-                              fit="contain"
-                              alt={t('createVoting.option2')}
-                              className="max-w-full max-h-full object-contain rounded"
-                            />
-                          ) : (
-                            <VideoPlayer
-                              src={URL.createObjectURL(media2[0])}
-                              width={media2Dimensions?.width || 0}
-                              height={media2Dimensions?.height || 0}
-                              fit="contain"
-                              className="max-w-full max-h-full rounded"
-                            />
-                          )}
-                        </div>
-                        <div className="space-y-2 w-full min-w-0">
-                          <p className="text-sm text-muted-foreground text-center truncate w-full" title={media2[0].name}>{media2[0].name}</p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              removeMedia(setMedia2, setMedia2Dimensions)()
-                            }}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            {t('createVoting.remove')}
-                          </Button>
-                        </div>
+                      <div className="flex flex-col items-center space-y-2 w-full min-w-0">
+                        {getMediaType(media2[0]) === 'image' ? (
+                          <HiDPIImage
+                            src={URL.createObjectURL(media2[0])}
+                            width={media2Dimensions?.width || 0}
+                            height={media2Dimensions?.height || 0}
+                            pixelRatio={parsePixelRatioFromName(media2[0].name)}
+                            fit="contain"
+                            alt={t('createVoting.option2')}
+                            className="max-w-full max-h-full object-contain rounded"
+                          />
+                        ) : (
+                          <VideoPlayer
+                            src={URL.createObjectURL(media2[0])}
+                            width={media2Dimensions?.width || 0}
+                            height={media2Dimensions?.height || 0}
+                            fit="contain"
+                            className="max-w-full max-h-full rounded"
+                          />
+                        )}
+                        <p className="text-sm text-muted-foreground text-center truncate w-full" title={media2[0].name}>{media2[0].name}</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeMedia(setMedia2, setMedia2Dimensions)()
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          {t('createVoting.remove')}
+                        </Button>
                       </div>
                     )}
                   </DropzoneContent>
@@ -366,10 +358,10 @@ export function CreateVoting() {
           </div>
 
           {error && (
-            <div className="text-destructive text-sm mb-6">{error}</div>
+            <div className="text-destructive text-sm mb-4">{error}</div>
           )}
 
-          <div className="flex-shrink-0 pb-6">
+          <div className="flex-shrink-0 pb-4">
             <Button
               type="submit"
               disabled={loading || !title.trim() || !media1 || !media2 || media1.length === 0 || media2.length === 0}
