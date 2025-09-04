@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 import { uploadImages } from '../utils/images.js';
+import { NotificationService } from '../notifications/index.js';
 import { 
   createVoting, 
   getVoting, 
@@ -14,6 +15,9 @@ import {
 } from '../db/queries.js';
 
 export const votingRoutes = new Hono();
+
+// Инициализируем сервис уведомлений
+const notificationService = new NotificationService();
 
 // GET /api/votings - список голосований
 votingRoutes.get('/votings', async (c) => {
@@ -125,6 +129,11 @@ votingRoutes.post('/votings', async (c) => {
       { voting_id: votingId, file_path: uploaded[0].filePath, sort_order: 0, pixel_ratio: uploaded[0].pixelRatio, width: uploaded[0].width, height: uploaded[0].height, media_type: uploaded[0].mediaType },
       { voting_id: votingId, file_path: uploaded[1].filePath, sort_order: 1, pixel_ratio: uploaded[1].pixelRatio, width: uploaded[1].width, height: uploaded[1].height, media_type: uploaded[1].mediaType }
     ]);
+
+    // Отправляем уведомление асинхронно (не блокируем ответ)
+    notificationService.sendVotingCreatedNotification(votingId, title).catch(error => {
+      logger.error('Error sending notification:', error);
+    });
 
     return c.json({ 
       voting: { 

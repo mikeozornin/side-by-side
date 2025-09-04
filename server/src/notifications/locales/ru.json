@@ -1,0 +1,42 @@
+{
+  "mattermost": {
+    "providerName": "Mattermost",
+    "webhookNotConfigured": "Mattermost webhook URL не настроен",
+    "webhookInvalidFormat": "Mattermost webhook URL имеет неверный формат",
+    "providerNotConfigured": "Mattermost-провайдер не настроен корректно",
+    "notificationSent": "Уведомление успешно отправлено в Mattermost для голосования {votingId}",
+    "sendError": "Ошибка отправки уведомления в Mattermost: {error}",
+    "messageFormat": "**Новый сайд-бай-сайд для голосования!**\n\n[{title}]({votingUrl})"
+  },
+  "telegram": {
+    "providerName": "Telegram",
+    "notImplemented": "Telegram-провайдер пока не реализован"
+  },
+  "service": {
+    "providersInitialized": "Инициализировано {count} провайдеров уведомлений",
+    "noActiveProviders": "Нет активных провайдеров уведомлений",
+    "notificationSent": "Уведомление успешно отправлено через {provider}",
+    "sendError": "Ошибка отправки через {provider}: {error}",
+    "unexpectedError": "Неожиданная ошибка при отправке через {provider}: {error}",
+    "notificationError": "Ошибка отправки уведомления: {error}"
+  },
+  "test": {
+    "title": "Тестирование системы уведомлений...",
+    "results": "Результаты тестирования:",
+    "noProviders": "Нет активных провайдеров уведомлений",
+    "checkEnv": "Проверьте настройки ENV переменных:",
+    "mattermostEnabled": "- MATTERMOST_ENABLED=true",
+    "mattermostWebhook": "- MATTERMOST_WEBHOOK_URL=your-webhook-url",
+    "telegramEnabled": "- TELEGRAM_ENABLED=true (опционально)",
+    "success": "Уведомление успешно отправлено",
+    "error": "Ошибка: {error}",
+    "summary": "Итоги:",
+    "successful": "Успешно: {count}",
+    "errors": "Ошибок: {count}",
+    "total": "Всего: {count}",
+    "testCompleted": "Тест завершен! Уведомления работают корректно.",
+    "allProvidersFailed": "Все провайдеры вернули ошибки. Проверьте настройки.",
+    "criticalError": "Критическая ошибка при тестировании: {error}",
+    "unexpectedError": "Неожиданная ошибка: {error}"
+  }
+}
