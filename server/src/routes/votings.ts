@@ -232,7 +232,7 @@ votingRoutes.post('/votings', async (c) => {
     ]);
 
     // Отправляем уведомление асинхронно (не блокируем ответ)
-    notificationService.sendVotingCreatedNotification(votingId, title).catch(error => {
+    notificationService.sendVotingCreatedNotification(votingId, title, endAt.toISOString()).catch(error => {
       logger.error('Error sending notification:', error);
     });
 

@@ -58,14 +58,15 @@ export class NotificationService {
     }
   }
 
-  async sendVotingCreatedNotification(votingId: string, title: string): Promise<void> {
+  async sendVotingCreatedNotification(votingId: string, title: string, expiresAt?: string): Promise<void> {
     const votingUrl = `${process.env.VOTING_BASE_URL || 'http://localhost:5173'}/#/v/${votingId}`;
     
     const notificationData: NotificationData = {
       title,
       votingId,
       votingUrl,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      expiresAt
     };
 
     // Отправляем уведомления асинхронно
@@ -113,7 +114,8 @@ export class NotificationService {
       title: 'Тестовое голосование',
       votingId: 'test-123',
       votingUrl: 'http://localhost:5173/#/v/test-123',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // +7 дней
     };
 
     const enabledProviders = this.providers.filter(provider => provider.isEnabled);

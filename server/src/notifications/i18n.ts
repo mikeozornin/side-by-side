@@ -41,7 +41,7 @@ class I18n {
 
     // Заменяем плейсхолдеры
     return value.replace(/\{(\w+)\}/g, (match, paramKey) => {
-      return params[paramKey]?.toString() || match;
+      return params[paramKey]?.toString() || '';
     });
   }
 }

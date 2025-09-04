@@ -77,7 +77,6 @@ export async function uploadImages(votingId: string, files: File[]): Promise<Upl
     if (mediaType === 'image') {
       try {
         await optimizeImage(filePath, extension);
-        logger.info(`Изображение оптимизировано: ${fileName}`);
       } catch (error) {
         logger.warn(`Не удалось оптимизировать изображение ${fileName}, используем оригинал:`, error);
       }

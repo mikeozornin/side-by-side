@@ -2,6 +2,7 @@ import { NotificationProvider } from './base.js';
 import { NotificationData, NotificationResult } from '../types.js';
 import { logger } from '../../utils/logger.js';
 import { i18n } from '../i18n.js';
+import { formatExpirationDate } from '../utils/dateFormatter.js';
 
 export class MattermostProvider extends NotificationProvider {
   get name(): string {
@@ -72,9 +73,12 @@ export class MattermostProvider extends NotificationProvider {
   }
 
   private formatMessage(data: NotificationData): string {
+    const expirationDate = data.expiresAt ? `\n\n${formatExpirationDate(data.expiresAt)}` : '';
+    
     return i18n.t('mattermost.messageFormat', { 
       title: data.title, 
-      votingUrl: data.votingUrl 
+      votingUrl: data.votingUrl,
+      expirationDate: expirationDate
     });
   }
 }

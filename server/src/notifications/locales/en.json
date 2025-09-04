@@ -6,7 +6,7 @@
     "providerNotConfigured": "Mattermost provider not configured correctly",
     "notificationSent": "Notification successfully sent to Mattermost for voting {votingId}",
     "sendError": "Error sending notification to Mattermost: {error}",
-    "messageFormat": "**New side-by-side voting created!**\n\n[{title}]({votingUrl})"
+    "messageFormat": "**New side-by-side voting created!**\n\n[{title}]({votingUrl}){expirationDate}"
   },
   "telegram": {
     "providerName": "Telegram",
