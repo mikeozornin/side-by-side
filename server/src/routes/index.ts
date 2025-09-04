@@ -2,18 +2,19 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { votingRoutes } from './votings.js';
-// import { serveStatic } from '@hono/node-server/serve-static';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { readdirSync, statSync } from 'fs';
 import { extname } from 'path';
+import { configManager } from '../utils/config.js';
 
 export const router = new Hono();
 
 // Middleware
 router.use('*', logger());
 router.use('*', cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'null'],
+  origin: configManager.getCorsOrigins(),
   credentials: true,
 }));
 
@@ -76,7 +77,10 @@ router.get('/api/images/:filename', async (c) => {
 });
 
 // Serve static files in production
-// if (process.env.NODE_ENV === 'production') {
-//   router.get('*', serveStatic({ root: '../client/dist' }));
-//   router.get('*', serveStatic({ path: '../client/dist/index.html' }));
-// }
+const staticConfig = configManager.getStaticConfig();
+if (staticConfig.serveStatic) {
+  // Serve static files from client dist
+  router.get('*', serveStatic({ root: staticConfig.staticPath }));
+  // Fallback to index.html for SPA routing
+  router.get('*', serveStatic({ path: staticConfig.fallbackPath }));
+}

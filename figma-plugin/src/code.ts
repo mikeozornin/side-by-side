@@ -1,6 +1,34 @@
 // This file runs in the Figma plugin sandbox
 // It has access to the Figma Plugin API
 
+// Простая логика определения API и клиентского URL
+function getApiAndClientUrls(serverUrl: string): { apiUrl: string; clientUrl: string } {
+  try {
+    const url = new URL(serverUrl.startsWith('http') ? serverUrl : `http://${serverUrl}`);
+    const hostname = url.hostname;
+    
+    // Если localhost, используем dev логику
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return {
+        apiUrl: `http://localhost:3000/api`,
+        clientUrl: `http://localhost:5173`
+      };
+    }
+    
+    // Если не localhost, используем prod логику
+    return {
+      apiUrl: `${url.protocol}//${url.host}/api`,
+      clientUrl: `${url.protocol}//${url.host}`
+    };
+  } catch (error) {
+    // Fallback к localhost если URL невалидный
+    return {
+      apiUrl: `http://localhost:3000/api`,
+      clientUrl: `http://localhost:5173`
+    };
+  }
+}
+
 // Show the UI when the plugin is launched
 figma.showUI(__html__, { 
   width: 400, 
@@ -90,7 +118,7 @@ function handleSelectionCheck() {
   figma.ui.postMessage(message)
 }
 
-async function handleCreateVoting(data: VotingData) {
+async function handleCreateVoting(data: any) {
   try {
     // Get the selected nodes
     const selection = figma.currentPage.selection
@@ -135,11 +163,12 @@ async function handleCreateVoting(data: VotingData) {
       message: 'Creating voting...'
     })
     
-    // Send to API
-    const serverUrl = data.serverUrl || 'http://localhost:3000'
-    const apiUrl = `${serverUrl}/api/votings`
+    // Get API and client URLs based on server URL
+    const serverUrl = data.serverUrl || 'localhost:3000'
+    const { apiUrl, clientUrl } = getApiAndClientUrls(serverUrl)
+    const fullApiUrl = `${apiUrl}/votings`
 
-    const response = await fetch(apiUrl, {
+    const response = await fetch(fullApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -160,8 +189,8 @@ async function handleCreateVoting(data: VotingData) {
     const result = await response.json()
     const voting = result.voting
 
-    // Show success with URL
-    const votingUrl = `${serverUrl}/voting/${voting.id}`
+    // Generate voting URL using the client URL
+    const votingUrl = `${clientUrl}/#/v/${voting.id}`
     
     // Show Figma toast notification with open button
     figma.notify('Голосование создано! Нажмите для открытия ссылки', {

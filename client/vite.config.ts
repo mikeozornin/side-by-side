@@ -19,6 +19,11 @@ export default defineConfig({
       },
     },
   },
+  define: {
+    // Передаем переменные окружения в клиент
+    __API_URL__: JSON.stringify(process.env.VITE_API_URL || 'http://localhost:3000/api'),
+    __CLIENT_URL__: JSON.stringify(process.env.VITE_CLIENT_URL || 'http://localhost:5173'),
+  },
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
