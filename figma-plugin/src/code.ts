@@ -154,7 +154,7 @@ async function handleCreateVoting(data: any) {
     const image1Base64 = simpleBase64Encode(image1Data)
     const image2Base64 = simpleBase64Encode(image2Data)
     
-    // Add @2x to filenames to indicate 2x pixel ratio for server detection
+    // Create data URLs for images
     const image1DataUrl = `data:image/png;base64,${image1Base64}`
     const image2DataUrl = `data:image/png;base64,${image2Base64}`
     
@@ -177,7 +177,9 @@ async function handleCreateVoting(data: any) {
         title: data.title,
         duration: data.duration,
         image1: image1DataUrl,
-        image2: image2DataUrl
+        image2: image2DataUrl,
+        image1PixelRatio: 2, // Export at 2x scale
+        image2PixelRatio: 2  // Export at 2x scale
       })
     })
     

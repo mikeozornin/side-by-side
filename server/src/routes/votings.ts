@@ -102,6 +102,9 @@ votingRoutes.post('/votings', async (c) => {
     let image2: string | File;
     let durationHours: number;
 
+    let image1PixelRatio = 2;
+    let image2PixelRatio = 2;
+
     if (contentType.includes('application/json')) {
       // Handle JSON request with base64 images
       const jsonData = await c.req.json();
@@ -109,6 +112,8 @@ votingRoutes.post('/votings', async (c) => {
       image1 = jsonData.image1; // base64 string
       image2 = jsonData.image2; // base64 string
       durationHours = parseFloat(jsonData.duration) || 24;
+      image1PixelRatio = jsonData.image1PixelRatio || 2;
+      image2PixelRatio = jsonData.image2PixelRatio || 2;
     } else {
       // Handle FormData request
       const formData = await c.req.formData();
@@ -136,7 +141,7 @@ votingRoutes.post('/votings', async (c) => {
 
     if (contentType.includes('application/json')) {
       // Handle JSON uploads that may contain base64, data URLs, or hex strings
-      const decodeImage = (input: string, fallbackName: string) => {
+      const decodeImage = (input: string, fallbackName: string, pixelRatio: number = 2) => {
         try {
           let data = input.trim();
           let mime = 'image/png';
@@ -192,7 +197,7 @@ votingRoutes.post('/votings', async (c) => {
             }
           }
 
-          const fileName = `${fallbackName}@2x${extension}`;
+          const fileName = `${fallbackName}@${pixelRatio}x${extension}`;
           const u8 = new Uint8Array(buffer);
           // In Node >= 18, File is available (undici); use it to integrate with uploadImages
           const blob = new Blob([u8], { type: mime });
@@ -203,8 +208,8 @@ votingRoutes.post('/votings', async (c) => {
         }
       };
 
-      const image1File = decodeImage(image1 as string, 'image1');
-      const image2File = decodeImage(image2 as string, 'image2');
+      const image1File = decodeImage(image1 as string, 'image1', image1PixelRatio);
+      const image2File = decodeImage(image2 as string, 'image2', image2PixelRatio);
 
       uploaded = await uploadImages(votingId, [image1File, image2File]);
     } else {

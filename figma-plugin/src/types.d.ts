@@ -7,6 +7,8 @@ interface VotingData {
   duration: number
   image1: string
   image2: string
+  image1PixelRatio?: number
+  image2PixelRatio?: number
   serverUrl?: string
 }
 
