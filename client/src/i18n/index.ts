@@ -3,10 +3,14 @@ import { initReactI18next } from 'react-i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 
 import ru from './locales/ru.json'
+import en from './locales/en.json'
 
 const resources = {
   ru: {
     translation: ru
+  },
+  en: {
+    translation: en
   }
 }
 
@@ -15,7 +19,7 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    fallbackLng: 'ru',
+    fallbackLng: 'en',
     debug: false,
     
     interpolation: {
@@ -23,13 +27,13 @@ i18n
     },
     
     detection: {
-      order: ['localStorage', 'navigator', 'htmlTag'],
-      caches: ['localStorage']
+      order: ['navigator', 'htmlTag'],
+      checkWhitelist: true
     },
     
-    // Настройки для русской локализации
-    lng: 'ru',
-    supportedLngs: ['ru'],
+    // Поддерживаемые языки
+    supportedLngs: ['en', 'ru'],
+    whitelist: ['en', 'ru'],
     
     // Настройки для правильного склонения
     pluralSeparator: '_',
