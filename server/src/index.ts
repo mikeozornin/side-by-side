@@ -1,3 +1,6 @@
+// Загружаем .env файлы ПЕРВЫМ ДЕЛОМ
+import './load-env.js';
+
 import { serve } from '@hono/node-server';
 import { router } from './routes/index.js';
 import { initDatabase, closeDatabase } from './db/init.js';

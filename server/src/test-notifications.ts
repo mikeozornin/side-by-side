@@ -1,3 +1,6 @@
+// Загружаем .env файлы
+import './load-env.js';
+
 import { NotificationService } from './notifications/index.js';
 import { logger } from './utils/logger.js';
 import { i18n } from './notifications/i18n.js';

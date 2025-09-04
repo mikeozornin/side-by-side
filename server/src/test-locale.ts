@@ -1,3 +1,6 @@
+// Загружаем .env файлы
+import './load-env.js';
+
 import { i18n } from './notifications/i18n.js';
 
 function testLocale() {

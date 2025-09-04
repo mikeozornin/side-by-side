@@ -15,18 +15,27 @@ export class NotificationService {
 
   private initializeProviders(): void {
     // Mattermost провайдер
+    const mattermostEnabled = process.env.MATTERMOST_ENABLED === 'true';
+    const mattermostWebhookUrl = process.env.MATTERMOST_WEBHOOK_URL;
+    
+    logger.info(`MATTERMOST_ENABLED: ${process.env.MATTERMOST_ENABLED} (parsed: ${mattermostEnabled})`);
+    logger.info(`MATTERMOST_WEBHOOK_URL: ${mattermostWebhookUrl ? 'set' : 'not set'}`);
+
     const mattermostConfig: NotificationConfig = {
-      enabled: process.env.MATTERMOST_ENABLED === 'true',
-      webhookUrl: process.env.MATTERMOST_WEBHOOK_URL
+      enabled: mattermostEnabled,
+      webhookUrl: mattermostWebhookUrl
     };
 
     if (mattermostConfig.enabled) {
-      this.providers.push(new MattermostProvider(mattermostConfig));
+      const mattermostProvider = new MattermostProvider(mattermostConfig);
+      this.providers.push(mattermostProvider);
+      logger.info(`Mattermost provider added. Valid: ${mattermostProvider.validate()}`);
     }
 
     // Telegram провайдер (заготовка)
+    const telegramEnabled = process.env.TELEGRAM_ENABLED === 'true';
     const telegramConfig: NotificationConfig = {
-      enabled: process.env.TELEGRAM_ENABLED === 'true',
+      enabled: telegramEnabled,
       botToken: process.env.TELEGRAM_BOT_TOKEN,
       chatId: process.env.TELEGRAM_CHAT_ID
     };
@@ -66,8 +75,14 @@ export class NotificationService {
   private async sendNotificationsAsync(data: NotificationData): Promise<void> {
     const enabledProviders = this.providers.filter(provider => provider.isEnabled);
     
+    logger.info(`Total providers: ${this.providers.length}, enabled: ${enabledProviders.length}`);
+    
     if (enabledProviders.length === 0) {
       logger.info(i18n.t('service.noActiveProviders'));
+      // Показываем детали о каждом провайдере
+      this.providers.forEach((provider, index) => {
+        logger.info(`Provider ${index + 1}: ${provider.name}, enabled: ${provider.isEnabled}, valid: ${provider.validate()}`);
+      });
       return;
     }
 
