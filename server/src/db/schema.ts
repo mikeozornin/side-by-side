@@ -12,9 +12,9 @@ export function createTables(db: sqlite3.Database): void {
     )
   `);
 
-  // Таблица медиафайлов голосований
+  // Таблица вариантов голосований
   db.exec(`
-    CREATE TABLE IF NOT EXISTS voting_images (
+    CREATE TABLE IF NOT EXISTS voting_options (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       voting_id TEXT NOT NULL,
       file_path TEXT NOT NULL,
@@ -27,34 +27,15 @@ export function createTables(db: sqlite3.Database): void {
     )
   `);
 
-  // Обновляем существующую таблицу voting_images, если она создана ранее без новых столбцов
-  const ensureColumn = (table: string, column: string, definition: string) => {
-    db.all(`PRAGMA table_info(${table})`, (err, rows: any[]) => {
-      if (err) {
-        // Пропускаем в случае ошибки метаданных
-        return;
-      }
-      const hasColumn = rows?.some((r: any) => r.name === column);
-      if (!hasColumn) {
-        db.exec(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
-      }
-    });
-  };
-
-  ensureColumn('voting_images', 'pixel_ratio', 'pixel_ratio REAL NOT NULL DEFAULT 1');
-  ensureColumn('voting_images', 'width', 'width INTEGER NOT NULL DEFAULT 0');
-  ensureColumn('voting_images', 'height', 'height INTEGER NOT NULL DEFAULT 0');
-  ensureColumn('voting_images', 'media_type', 'media_type TEXT NOT NULL DEFAULT \'image\'');
-  ensureColumn('votings', 'duration_hours', 'duration_hours INTEGER NOT NULL DEFAULT 24');
-
   // Таблица голосов
   db.exec(`
     CREATE TABLE IF NOT EXISTS votes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       voting_id TEXT NOT NULL,
-      choice INTEGER NOT NULL CHECK (choice IN (0, 1)),
+      option_id INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (voting_id) REFERENCES votings(id) ON DELETE CASCADE
+      FOREIGN KEY (voting_id) REFERENCES votings(id) ON DELETE CASCADE,
+      FOREIGN KEY (option_id) REFERENCES voting_options(id) ON DELETE CASCADE
     )
   `);
 
@@ -62,7 +43,7 @@ export function createTables(db: sqlite3.Database): void {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_votings_created_at ON votings(created_at);
     CREATE INDEX IF NOT EXISTS idx_votings_end_at ON votings(end_at);
-    CREATE INDEX IF NOT EXISTS idx_voting_images_voting_id ON voting_images(voting_id);
+    CREATE INDEX IF NOT EXISTS idx_voting_options_voting_id ON voting_options(voting_id);
     CREATE INDEX IF NOT EXISTS idx_votes_voting_id ON votes(voting_id);
     CREATE INDEX IF NOT EXISTS idx_votes_created_at ON votes(created_at);
   `);

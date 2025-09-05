@@ -410,7 +410,7 @@
 
     function updateCreateButtonState() {
       var hasTitle = !!(titleInput && titleInput.value && titleInput.value.trim().length > 0);
-      var hasElements = selectedElements.length === 2;
+      var hasElements = selectedElements.length >= 2 && selectedElements.length <= 10;
       var isStatusReady = currentStatus === 'ready';
       if (createButton) {
         createButton.disabled = !hasTitle || !hasElements || !isStatusReady;
@@ -424,8 +424,8 @@
         showStatus('error', 'Enter voting title');
         return;
       }
-      if (selectedElements.length !== 2) {
-        showStatus('error', 'Select exactly two elements');
+      if (selectedElements.length < 2 || selectedElements.length > 10) {
+        showStatus('error', 'Select between 2 and 10 elements');
         return;
       }
       var serverUrl = serverUrlInput && serverUrlInput.value ? serverUrlInput.value.trim() : '';
