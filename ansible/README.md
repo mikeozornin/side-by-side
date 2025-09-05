@@ -1,6 +1,6 @@
-# Ansible Deployment для Side by side
+# Ansible Deployment для Side-by-Side Voting
 
-Этот каталог содержит Ansible playbooks для деплоя веб-приложения Side by side на Ubuntu сервер.
+Этот каталог содержит Ansible playbooks для деплоя веб-приложения Side-by-Side Voting на Ubuntu сервер.
 
 ## Структура
 
