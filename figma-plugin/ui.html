@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Side by Side Voting</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 12px;
+      line-height: 16px;
+      color: #333;
+      background: #ffffff;
+      padding: 16px;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .container { display: flex; flex-direction: column; height: 100%; gap: 16px; }
+    .status { padding: 8px 12px; border-radius: 6px; font-size: 11px; font-weight: 500; margin-bottom: 8px; }
+    .status.info { background: #e3f2fd; color: #1976d2; border: 1px solid #bbdefb; }
+    .status.error { background: #ffebee; color: #d32f2f; border: 1px solid #ffcdd2; }
+    .status.success { background: #e8f5e8; color: #2e7d32; border: 1px solid #c8e6c9; }
+    .status.warning { background: #fff3e0; color: #f57c00; border: 1px solid #ffcc02; }
+    .form-group { margin-bottom: 16px; }
+    .label { display: block; font-size: 11px; font-weight: 500; color: #666; margin-bottom: 6px; }
+    .input { width: 100%; padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 12px; font-family: inherit; background: #fff; transition: border-color 0.2s; }
+    .input:focus { outline: none; border-color: #1976d2; box-shadow: 0 0 0 2px rgba(25,118,210,0.1); }
+    .duration-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+    .duration-option { padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff; cursor: pointer; text-align: center; font-size: 11px; font-weight: 500; transition: all 0.2s; }
+    .duration-option:hover { border-color: #1976d2; background: #f5f5f5; }
+    .duration-option.selected { border-color: #1976d2; background: #1976d2; color: #fff; }
+    .selected-elements { margin-top: 8px; display: flex; gap: 6px; }
+    .element-item { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e0e0e0; flex: 1; box-sizing: border-box; }
+    .element-name { font-size: 11px; color: #333; font-weight: 500; }
+    .element-type { font-size: 10px; color: #666; text-transform: uppercase; }
+    .button { width: 100%; padding: 10px 16px; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+    .button.primary { background: #1976d2; color: white; }
+    .button.primary:hover:not(:disabled) { background: #1565c0; }
+    .button.primary:disabled { background: #ccc; cursor: not-allowed; }
+    .progress { display: none; align-items: center; gap: 8px; padding: 8px 12px; background: #e3f2fd; border-radius: 6px; font-size: 11px; color: #1976d2; }
+    .spinner { width: 12px; height: 12px; border: 2px solid #e3f2fd; border-top: 2px solid #1976d2; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .hidden { display: none !important; }
+    .footer { margin-top: auto; padding-top: 16px; border-top: 1px solid #e0e0e0; }
+    .footer-text { font-size: 10px; color: #999; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="status" class="status info hidden">Checking selected elements...</div>
+
+    <div class="form-group">
+      <label class="label" for="server-url">Server URL</label>
+      <input type="url" id="server-url" class="input" placeholder="localhost:3000 or https://example.com" value="localhost:3000" />
+    </div>
+
+    <div id="selected-elements" class="selected-elements hidden"></div>
+
+    <form id="voting-form" class="hidden">
+      <div class="form-group">
+        <input type="text" id="title" class="input" maxlength="100" />
+      </div>
+
+      <div class="form-group">
+        <div class="duration-options" id="duration-options">
+          <div class="duration-option" data-duration="0.167">10 min</div>
+          <div class="duration-option" data-duration="1">1 h</div>
+          <div class="duration-option" data-duration="2">2 h</div>
+          <div class="duration-option" data-duration="3">3 h</div>
+          <div class="duration-option" data-duration="5">5 h</div>
+          <div class="duration-option" data-duration="8">8 h</div>
+          <div class="duration-option selected" data-duration="24">1 day</div>
+          <div class="duration-option" data-duration="168">7 days</div>
+        </div>
+      </div>
+
+      <div id="progress" class="progress">
+        <div class="spinner"></div>
+        <span id="progress-message">Creating voting...</span>
+      </div>
+
+      <div class="footer">
+        <button type="submit" id="create-button" class="button primary" disabled>Create</button>
+      </div>
+    </form>
+
+    <div class="footer" id="instruction-footer">
+      <div class="footer-text">Select two elements in Figma to create a voting</div>
+    </div>
+  </div>
+
+  <script>
+    var defaultQuestions = [
+      'Which option is better?',
+      'Left or right?',
+      'Right or left?',
+      'Which is better on the left or right?',
+      'Which is better on the right or left?',
+      'Which design do you like more?',
+      'Which option is better?',
+      'What would you choose?',
+      'What would you prefer?'
+    ];
+
+    var statusEl = document.getElementById('status');
+    var selectedElementsEl = document.getElementById('selected-elements');
+    var votingFormEl = document.getElementById('voting-form');
+    var titleInput = document.getElementById('title');
+    var durationOptionsEl = document.getElementById('duration-options');
+    var createButton = document.getElementById('create-button');
+    var progressEl = document.getElementById('progress');
+    var progressMessageEl = document.getElementById('progress-message');
+    var instructionFooterEl = document.getElementById('instruction-footer');
+    var serverUrlInput = document.getElementById('server-url');
+
+    var selectedDuration = 24;
+    var selectedElements = [];
+
+    function extractRootUrl(url) {
+      try {
+        if (url.indexOf('http://') !== 0 && url.indexOf('https://') !== 0) {
+          url = 'https://' + url;
+        }
+        var urlObj = new URL(url);
+        return urlObj.protocol + '//' + urlObj.host;
+      } catch (error) {
+        return url;
+      }
+    }
+
+    function setupEventListeners() {
+      if (votingFormEl) {
+        votingFormEl.addEventListener('submit', handleCreateVotingSubmit);
+      }
+      if (titleInput) {
+        titleInput.addEventListener('input', updateCreateButtonState);
+      }
+      setupTitleSuggestions();
+      setupDurationOptions();
+    }
+
+    function setupTitleSuggestions() {
+      var randomQuestion = defaultQuestions[Math.floor(Math.random() * defaultQuestions.length)];
+      if (titleInput) {
+        titleInput.value = randomQuestion;
+        updateCreateButtonState();
+      }
+    }
+
+    function setupDurationOptions() {
+      if (!durationOptionsEl) return;
+      durationOptionsEl.addEventListener('click', function (e) {
+        var target = e.target;
+        if (target && target.classList && target.classList.contains('duration-option')) {
+          var options = durationOptionsEl.querySelectorAll('.duration-option');
+          for (var i = 0; i < options.length; i++) {
+            options[i].classList.remove('selected');
+          }
+          target.classList.add('selected');
+          selectedDuration = parseFloat(target.getAttribute('data-duration') || '24');
+        }
+      });
+    }
+
+    function updateCreateButtonState() {
+      var hasTitle = !!(titleInput && titleInput.value && titleInput.value.trim().length > 0);
+      var hasElements = selectedElements.length === 2;
+      if (createButton) {
+        createButton.disabled = !hasTitle || !hasElements;
+      }
+    }
+
+    function handleCreateVotingSubmit(e) {
+      e.preventDefault();
+      var title = titleInput && titleInput.value ? titleInput.value.trim() : '';
+      if (!title) {
+        showStatus('error', 'Enter voting title');
+        return;
+      }
+      if (selectedElements.length !== 2) {
+        showStatus('error', 'Select exactly two elements');
+        return;
+      }
+      var serverUrl = serverUrlInput && serverUrlInput.value ? serverUrlInput.value.trim() : '';
+      if (!serverUrl) {
+        showStatus('error', 'Enter server URL');
+        return;
+      }
+      var rootUrl = extractRootUrl(serverUrl);
+      showProgress('Creating voting...');
+      parent.postMessage({
+        pluginMessage: {
+          type: 'create-voting',
+          data: { title: title, duration: selectedDuration, serverUrl: rootUrl }
+        }
+      }, '*');
+    }
+
+    function showStatus(type, message) {
+      if (statusEl) {
+        statusEl.className = 'status ' + type;
+        statusEl.innerHTML = message;
+        statusEl.classList.remove('hidden');
+      }
+      if (progressEl) { progressEl.classList.add('hidden'); }
+    }
+
+    function showProgress(message) {
+      if (progressMessageEl) { progressMessageEl.textContent = message; }
+      if (progressEl) { progressEl.classList.remove('hidden'); }
+      if (statusEl) { statusEl.classList.add('hidden'); }
+    }
+
+    function hideProgress() {
+      if (progressEl) { progressEl.classList.add('hidden'); }
+    }
+
+    function updateSelectedElements(elements) {
+      selectedElements = elements || [];
+      if (selectedElements.length === 0) {
+        if (selectedElementsEl) { selectedElementsEl.classList.add('hidden'); }
+        if (instructionFooterEl) { instructionFooterEl.classList.remove('hidden'); }
+        return;
+      }
+      if (selectedElementsEl) {
+        selectedElementsEl.classList.remove('hidden');
+        var html = '';
+        for (var i = 0; i < selectedElements.length; i++) {
+          var element = selectedElements[i];
+          html += '<div class="element-item">' +
+                  '<div class="element-name">' + element.name + '</div>' +
+                  '<div class="element-type">' + element.type + '</div>' +
+                  '</div>';
+        }
+        selectedElementsEl.innerHTML = html;
+      }
+      if (instructionFooterEl) { instructionFooterEl.classList.add('hidden'); }
+      updateCreateButtonState();
+    }
+
+    window.addEventListener('message', function (event) {
+      var pm = event && event.data ? event.data.pluginMessage : null;
+      if (!pm) return;
+      var type = pm.type;
+      var data = {};
+      for (var key in pm) { if (key !== 'type') { data[key] = pm[key]; } }
+      if (type === 'selection-status') {
+        handleSelectionStatus(pm);
+      } else if (type === 'export-progress') {
+        showProgress(pm.message);
+      } else if (type === 'voting-created') {
+        handleVotingCreated(pm);
+      } else if (type === 'open-url') {
+        handleOpenUrl(pm);
+      } else if (type === 'error') {
+        handleError(pm);
+      }
+    });
+
+    function handleSelectionStatus(data) {
+      var status = data.status;
+      var message = data.message;
+      var elements = data.elements;
+      if (status === 'none') {
+        showStatus('info', message);
+        if (votingFormEl) { votingFormEl.classList.add('hidden'); }
+        updateSelectedElements([]);
+      } else if (status === 'partial') {
+        showStatus('warning', message);
+        if (votingFormEl) { votingFormEl.classList.add('hidden'); }
+        updateSelectedElements([]);
+      } else if (status === 'too-many') {
+        showStatus('error', message);
+        if (votingFormEl) { votingFormEl.classList.add('hidden'); }
+        updateSelectedElements([]);
+      } else if (status === 'ready') {
+        showStatus('success', message);
+        if (votingFormEl) { votingFormEl.classList.remove('hidden'); }
+        updateSelectedElements(elements);
+      }
+      hideProgress();
+    }
+
+    function handleVotingCreated(data) {
+      var url = data.url;
+      showStatus('success', 'Голосование создано! <a href="' + url + '" target="_blank" style="color: #007AFF; text-decoration: underline;">Открыть голосование</a>');
+      setTimeout(function () {
+        parent.postMessage({ pluginMessage: { type: 'close-plugin' } }, '*');
+      }, 5000);
+    }
+
+    function handleOpenUrl(data) {
+      var url = data.url;
+      window.open(url, '_blank');
+      parent.postMessage({ pluginMessage: { type: 'url-opened', message: 'Ссылка открыта в браузере!' } }, '*');
+    }
+
+    function handleError(data) {
+      var message = data.message;
+      showStatus('error', message);
+      hideProgress();
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function () {
+      setupEventListeners();
+      updateCreateButtonState();
+    });
+  </script>
+</body>
+</html>

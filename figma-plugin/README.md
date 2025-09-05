@@ -14,47 +14,27 @@
 ## Установка
 
 1. Скопируйте папку `figma-plugin` в ваш проект
-2. Установите зависимости:
-   ```bash
-   cd figma-plugin
-   npm install
-   ```
-3. Соберите плагин:
-   ```bash
-   npm run build
-   ```
-
-## Разработка
-
-Для разработки с автоматической пересборкой:
-```bash
-npm run dev
-```
+2. Откройте Figma Desktop App
+3. Перейдите в настройки плагинов:
+   - Меню → Plugins → Development → Import plugin from manifest...
+4. Выберите файл `figma-plugin/manifest.json`
 
 ## Использование
 
-1. Откройте Figma
-2. Выберите два элемента на canvas (фреймы, группы или компоненты)
-3. Запустите плагин "Side by Side Voting"
-4. Заполните название голосования (или выберите из предложенных)
-5. Выберите длительность голосования
-6. Нажмите "Создать голосование"
-7. Ссылка на голосование будет скопирована в буфер обмена
+1. Выберите два элемента на canvas (фреймы, группы или компоненты)
+2. Запустите плагин "Side by Side Voting"
+3. Заполните название голосования (или выберите из предложенных)
+4. Выберите длительность голосования
+5. Нажмите "Создать голосование"
+6. Ссылка на голосование будет скопирована в буфер обмена
 
 ## Структура проекта
 
 ```
 figma-plugin/
-├── src/
-│   ├── code.ts          # Основная логика плагина (выполняется в sandbox)
-│   ├── ui.ts            # Логика интерфейса (выполняется в iframe)
-│   ├── ui.html          # HTML интерфейса
-│   └── types.d.ts       # TypeScript типы
-├── dist/                # Собранные файлы
+├── code.js              # Основная логика плагина (выполняется в sandbox)
+├── ui.html              # HTML интерфейса с inline JavaScript
 ├── manifest.json        # Манифест плагина
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
 └── README.md
 ```
 
@@ -65,17 +45,14 @@ figma-plugin/
 {
   "title": "Название голосования",
   "duration": 24,
-  "image1": "base64_encoded_png_data",
-  "image2": "base64_encoded_png_data"
+  "image1": "data:image/png;base64,...",
+  "image2": "data:image/png;base64,...",
+  "image1PixelRatio": 2,
+  "image2PixelRatio": 2
 }
 ```
 
 ## Требования
 
 - Figma Desktop App
-- Node.js 18+
 - Доступ к API серверу side-by-side
-
-## Лицензия
-
-MIT
