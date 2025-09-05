@@ -2,76 +2,243 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Side by Side Voting</title>
+  <title>Side by side voting</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+    }
+    
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 12px;
       line-height: 16px;
-      color: #333;
-      background: #ffffff;
+      color: var(--figma-color-text);
+      background: var(--figma-color-bg);
       padding: 16px;
       height: 100vh;
       overflow: hidden;
     }
-    .container { display: flex; flex-direction: column; height: 100%; gap: 16px; }
-    .status { padding: 8px 12px; border-radius: 6px; font-size: 11px; font-weight: 500; margin-bottom: 8px; }
-    .status.info { background: #e3f2fd; color: #1976d2; border: 1px solid #bbdefb; }
-    .status.error { background: #ffebee; color: #d32f2f; border: 1px solid #ffcdd2; }
-    .status.success { background: #e8f5e8; color: #2e7d32; border: 1px solid #c8e6c9; }
-    .status.warning { background: #fff3e0; color: #f57c00; border: 1px solid #ffcc02; }
-    .form-group { margin-bottom: 16px; }
-    .label { display: block; font-size: 11px; font-weight: 500; color: #666; margin-bottom: 6px; }
-    .input { width: 100%; padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 12px; font-family: inherit; background: #fff; transition: border-color 0.2s; }
-    .input:focus { outline: none; border-color: #1976d2; box-shadow: 0 0 0 2px rgba(25,118,210,0.1); }
-    .duration-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
-    .duration-option { padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff; cursor: pointer; text-align: center; font-size: 11px; font-weight: 500; transition: all 0.2s; }
-    .duration-option:hover { border-color: #1976d2; background: #f5f5f5; }
-    .duration-option.selected { border-color: #1976d2; background: #1976d2; color: #fff; }
-    .selected-elements { margin-top: 8px; display: flex; gap: 6px; }
-    .element-item { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e0e0e0; flex: 1; box-sizing: border-box; }
-    .element-name { font-size: 11px; color: #333; font-weight: 500; }
-    .element-type { font-size: 10px; color: #666; text-transform: uppercase; }
-    .button { width: 100%; padding: 10px 16px; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; font-family: inherit; }
-    .button.primary { background: #1976d2; color: white; }
-    .button.primary:hover:not(:disabled) { background: #1565c0; }
-    .button.primary:disabled { background: #ccc; cursor: not-allowed; }
-    .progress { display: none; align-items: center; gap: 8px; padding: 8px 12px; background: #e3f2fd; border-radius: 6px; font-size: 11px; color: #1976d2; }
-    .spinner { width: 12px; height: 12px; border: 2px solid #e3f2fd; border-top: 2px solid #1976d2; border-radius: 50%; animation: spin 1s linear infinite; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .hidden { display: none !important; }
-    .footer { margin-top: auto; padding-top: 16px; border-top: 1px solid #e0e0e0; }
-    .footer-text { font-size: 10px; color: #999; text-align: center; }
+    
+    .container { 
+      display: flex; 
+      flex-direction: column; 
+      height: 100%; 
+      gap: 16px; 
+    }
+    
+    .status { 
+      padding: 8px 12px; 
+      border-radius: 6px; 
+      font-size: 11px; 
+      font-weight: 500; 
+      margin-bottom: 8px; 
+    }
+    
+    .status.info { 
+      background: var(--figma-color-bg-brand-tertiary); 
+      color: var(--figma-color-text-brand); 
+      border: 1px solid var(--figma-color-border-brand); 
+    }
+    
+    .status.error { 
+      background: var(--figma-color-bg-danger-tertiary); 
+      color: var(--figma-color-text-danger); 
+      border: 1px solid var(--figma-color-border-danger); 
+    }
+    
+    .status.success { 
+      background: var(--figma-color-bg-success-tertiary); 
+      color: var(--figma-color-text-success); 
+      border: 1px solid var(--figma-color-border-success); 
+    }
+    
+    .status.warning { 
+      background: var(--figma-color-bg-warning-tertiary); 
+      color: var(--figma-color-text-warning); 
+      border: 1px solid var(--figma-color-border-warning); 
+    }
+    
+    .label { 
+      display: block; 
+      font-size: 11px; 
+      font-weight: 500; 
+      color: var(--figma-color-text-secondary); 
+      margin-bottom: 6px; 
+    }
+    
+    .input { 
+      width: 100%; 
+      padding: 8px 12px; 
+      border: 1px solid var(--figma-color-border); 
+      border-radius: 6px; 
+      font-size: 12px; 
+      font-family: inherit; 
+      background: var(--figma-color-bg); 
+      color: var(--figma-color-text);
+      transition: border-color 0.2s; 
+    }
+    
+    .input:focus { 
+      outline: none; 
+      border-color: var(--figma-color-border-brand-strong); 
+      box-shadow: 0 0 0 2px var(--figma-color-bg-brand-tertiary); 
+    }
+    
+    .duration-options { 
+      display: grid; 
+      grid-template-columns: repeat(4, 1fr); 
+      gap: 6px; 
+      margin-top: 6px; 
+    }
+    
+    .duration-option { 
+      padding: 8px 12px; 
+      border: 1px solid var(--figma-color-border); 
+      border-radius: 6px; 
+      background: var(--figma-color-bg); 
+      color: var(--figma-color-text);
+      cursor: pointer; 
+      text-align: center; 
+      font-size: 11px; 
+      font-weight: 500; 
+      transition: all 0.2s; 
+    }
+    
+    .duration-option:hover { 
+      border-color: var(--figma-color-border-brand-strong); 
+      background: var(--figma-color-bg-hover); 
+    }
+    
+    .duration-option.selected { 
+      border-color: var(--figma-color-border-selected); 
+      background: var(--figma-color-bg-pressed); 
+      color: var(--figma-color-text); 
+    }
+    
+    .selected-elements { 
+      display: flex; 
+      gap: 6px; 
+    }
+    
+    .element-item { 
+      display: flex; 
+      align-items: center; 
+      gap: 6px; 
+      padding: 6px 10px; 
+      background: var(--figma-color-bg-secondary); 
+      border-radius: 6px; 
+      border: 1px solid var(--figma-color-border); 
+      flex: 1; 
+      box-sizing: border-box; 
+    }
+    
+    .element-name { 
+      font-size: 11px; 
+      color: var(--figma-color-text); 
+      font-weight: 500; 
+    }
+    
+    .element-type { 
+      font-size: 10px; 
+      color: var(--figma-color-text-secondary); 
+      text-transform: uppercase; 
+      letter-spacing: 0.05em;
+    }
+    
+    .button { 
+      width: 100%; 
+      padding: 10px 16px; 
+      border: none; 
+      border-radius: 6px; 
+      font-size: 12px; 
+      font-weight: 500; 
+      cursor: pointer; 
+      transition: all 0.2s; 
+      font-family: inherit; 
+    }
+    
+    .button.primary { 
+      background: var(--figma-color-bg-brand); 
+      color: var(--figma-color-text-onbrand); 
+    }
+    
+    .button.primary:hover:not(:disabled) { 
+      background: var(--figma-color-bg-brand-hover); 
+    }
+    
+    .button.primary:disabled { 
+      background: var(--figma-color-bg-disabled); 
+      color: var(--figma-color-text-disabled);
+      cursor: not-allowed; 
+    }
+    
+    .progress { 
+      display: none; 
+      align-items: center; 
+      gap: 8px; 
+      padding: 8px 12px; 
+      background: var(--figma-color-bg-brand-tertiary); 
+      border-radius: 6px; 
+      font-size: 11px; 
+      color: var(--figma-color-text-brand); 
+    }
+    
+    .spinner { 
+      width: 12px; 
+      height: 12px; 
+      border: 2px solid var(--figma-color-bg-brand-tertiary); 
+      border-top: 2px solid var(--figma-color-icon-brand); 
+      border-radius: 50%; 
+      animation: spin 1s linear infinite; 
+    }
+    
+    @keyframes spin { 
+      0% { transform: rotate(0deg); } 
+      100% { transform: rotate(360deg); } 
+    }
+    
+    .hidden { 
+      display: none !important; 
+    }
+    
+    .footer { 
+      margin-top: auto; 
+      padding-top: 16px; 
+      border-top: 1px solid var(--figma-color-border); 
+    }
+    
+    .footer-text { 
+      font-size: 10px; 
+      color: var(--figma-color-text-tertiary); 
+      text-align: center; 
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div id="status" class="status info hidden">Checking selected elements...</div>
-
     <div class="form-group">
       <label class="label" for="server-url">Server URL</label>
-      <input type="url" id="server-url" class="input" placeholder="localhost:3000 or https://example.com" value="localhost:3000" />
+      <input type="url" id="server-url" class="input" value="localhost:3000" />
     </div>
+
+    <div id="status" class="status info hidden">Checking selected elements...</div>
 
     <div id="selected-elements" class="selected-elements hidden"></div>
 
-    <form id="voting-form" class="hidden">
-      <div class="form-group">
-        <input type="text" id="title" class="input" maxlength="100" />
-      </div>
+    <form id="voting-form" class="hidden form-group">
+      <input type="text" id="title" class="input" maxlength="100" />
 
-      <div class="form-group">
-        <div class="duration-options" id="duration-options">
-          <div class="duration-option" data-duration="0.167">10 min</div>
-          <div class="duration-option" data-duration="1">1 h</div>
-          <div class="duration-option" data-duration="2">2 h</div>
-          <div class="duration-option" data-duration="3">3 h</div>
-          <div class="duration-option" data-duration="5">5 h</div>
-          <div class="duration-option" data-duration="8">8 h</div>
-          <div class="duration-option selected" data-duration="24">1 day</div>
-          <div class="duration-option" data-duration="168">7 days</div>
-        </div>
+      <div class="duration-options" id="duration-options">
+        <div class="duration-option" data-duration="0.167">10 min</div>
+        <div class="duration-option" data-duration="1">1 h</div>
+        <div class="duration-option" data-duration="2">2 h</div>
+        <div class="duration-option" data-duration="3">3 h</div>
+        <div class="duration-option" data-duration="5">5 h</div>
+        <div class="duration-option" data-duration="8">8 h</div>
+        <div class="duration-option selected" data-duration="24">1 day</div>
+        <div class="duration-option" data-duration="168">7 days</div>
       </div>
 
       <div id="progress" class="progress">
@@ -83,10 +250,6 @@
         <button type="submit" id="create-button" class="button primary" disabled>Create</button>
       </div>
     </form>
-
-    <div class="footer" id="instruction-footer">
-      <div class="footer-text">Select two elements in Figma to create a voting</div>
-    </div>
   </div>
 
   <script>
@@ -116,10 +279,59 @@
     var selectedDuration = 24;
     var selectedElements = [];
 
+    // Storage keys
+    var STORAGE_KEYS = {
+      SERVER_URL: 'figma-plugin-server-url',
+      DURATION: 'figma-plugin-duration'
+    };
+
+    // Load settings by requesting from main script
+    function loadSettings() {
+      console.log('Requesting settings from main script...');
+      parent.postMessage({
+        pluginMessage: {
+          type: 'load-settings'
+        }
+      }, '*');
+    }
+
+    // Save settings by sending to main script
+    function saveSettings() {
+      console.log('Saving settings via main script...');
+      var settings = {};
+      
+      if (serverUrlInput && serverUrlInput.value) {
+        settings.serverUrl = serverUrlInput.value;
+      }
+      settings.duration = selectedDuration;
+      
+      parent.postMessage({
+        pluginMessage: {
+          type: 'save-settings',
+          settings: settings
+        }
+      }, '*');
+    }
+
+    // Update duration selection in UI
+    function updateDurationSelection(duration) {
+      if (!durationOptionsEl) return;
+      var options = durationOptionsEl.querySelectorAll('.duration-option');
+      for (var i = 0; i < options.length; i++) {
+        var option = options[i];
+        var optionDuration = parseFloat(option.getAttribute('data-duration'));
+        if (Math.abs(optionDuration - duration) < 0.001) {
+          option.classList.add('selected');
+        } else {
+          option.classList.remove('selected');
+        }
+      }
+    }
+
     function extractRootUrl(url) {
       try {
         if (url.indexOf('http://') !== 0 && url.indexOf('https://') !== 0) {
-          url = 'https://' + url;
+          url = 'http://' + url;
         }
         var urlObj = new URL(url);
         return urlObj.protocol + '//' + urlObj.host;
@@ -134,6 +346,10 @@
       }
       if (titleInput) {
         titleInput.addEventListener('input', updateCreateButtonState);
+      }
+      if (serverUrlInput) {
+        serverUrlInput.addEventListener('input', saveSettings);
+        serverUrlInput.addEventListener('blur', saveSettings);
       }
       setupTitleSuggestions();
       setupDurationOptions();
@@ -158,6 +374,7 @@
           }
           target.classList.add('selected');
           selectedDuration = parseFloat(target.getAttribute('data-duration') || '24');
+          saveSettings(); // Save duration when changed
         }
       });
     }
@@ -254,6 +471,8 @@
         handleOpenUrl(pm);
       } else if (type === 'error') {
         handleError(pm);
+      } else if (type === 'settings-loaded') {
+        handleSettingsLoaded(pm);
       }
     });
 
@@ -274,7 +493,8 @@
         if (votingFormEl) { votingFormEl.classList.add('hidden'); }
         updateSelectedElements([]);
       } else if (status === 'ready') {
-        showStatus('success', message);
+        // Hide status - just show form and update elements
+        if (statusEl) { statusEl.classList.add('hidden'); }
         if (votingFormEl) { votingFormEl.classList.remove('hidden'); }
         updateSelectedElements(elements);
       }
@@ -283,7 +503,7 @@
 
     function handleVotingCreated(data) {
       var url = data.url;
-      showStatus('success', 'Голосование создано! <a href="' + url + '" target="_blank" style="color: #007AFF; text-decoration: underline;">Открыть голосование</a>');
+      showStatus('success', 'Voting created! <a href="' + url + '" target="_blank" style="color: #007AFF; text-decoration: underline;">Open voting</a>');
       setTimeout(function () {
         parent.postMessage({ pluginMessage: { type: 'close-plugin' } }, '*');
       }, 5000);
@@ -292,7 +512,7 @@
     function handleOpenUrl(data) {
       var url = data.url;
       window.open(url, '_blank');
-      parent.postMessage({ pluginMessage: { type: 'url-opened', message: 'Ссылка открыта в браузере!' } }, '*');
+      parent.postMessage({ pluginMessage: { type: 'url-opened', message: 'Link opened in browser!' } }, '*');
     }
 
     function handleError(data) {
@@ -301,8 +521,27 @@
       hideProgress();
     }
 
+    function handleSettingsLoaded(data) {
+      console.log('Settings loaded:', data.settings);
+      var settings = data.settings || {};
+      
+      // Load server URL
+      if (settings.serverUrl && serverUrlInput) {
+        serverUrlInput.value = settings.serverUrl;
+        console.log('Set server URL input to:', settings.serverUrl);
+      }
+      
+      // Load duration
+      if (settings.duration) {
+        selectedDuration = parseFloat(settings.duration);
+        updateDurationSelection(selectedDuration);
+        console.log('Set duration to:', selectedDuration);
+      }
+    }
+
     // Initialize
     document.addEventListener('DOMContentLoaded', function () {
+      loadSettings(); // Load saved settings first
       setupEventListeners();
       updateCreateButtonState();
     });

@@ -5,17 +5,35 @@ function getApiAndClientUrls(serverUrl) {
     var normalized = serverUrl && (serverUrl.startsWith('http://') || serverUrl.startsWith('https://'))
       ? serverUrl
       : ('http://' + serverUrl);
-    var url = new URL(normalized);
-    var hostname = url.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    
+    // Parse URL manually since URL constructor is not available in Figma plugin sandbox
+    var protocol, host;
+    if (normalized.startsWith('http://')) {
+      protocol = 'http://';
+      host = normalized.substring(7);
+    } else if (normalized.startsWith('https://')) {
+      protocol = 'https://';
+      host = normalized.substring(8);
+    } else {
+      throw new Error('Invalid URL format');
+    }
+    
+    // Remove path if present
+    var slashIndex = host.indexOf('/');
+    if (slashIndex !== -1) {
+      host = host.substring(0, slashIndex);
+    }
+    
+    if (host === 'localhost' || host === '127.0.0.1') {
       return {
         apiUrl: 'http://localhost:3000/api',
         clientUrl: 'http://localhost:5173'
       };
     }
+    
     return {
-      apiUrl: url.protocol + '//' + url.host + '/api',
-      clientUrl: url.protocol + '//' + url.host
+      apiUrl: protocol + host + '/api',
+      clientUrl: protocol + host
     };
   } catch (e) {
     return {
@@ -129,7 +147,6 @@ function handleSelectionCheck() {
   figma.ui.postMessage({
     type: 'selection-status',
     status: 'ready',
-    message: 'Ready to create voting',
     elements: elements
   });
 }
@@ -191,9 +208,9 @@ async function handleCreateVoting(data) {
 
     var votingUrl = clientUrl + '/#/v/' + voting.id;
 
-    figma.notify('Голосование создано! Нажмите для открытия ссылки', {
+    figma.notify('Voting created! Click to open link', {
       button: {
-        text: 'Открыть',
+        text: 'Open',
         action: function () {
           figma.ui.postMessage({ type: 'open-url', url: votingUrl });
         }
@@ -213,6 +230,54 @@ async function handleCreateVoting(data) {
   }
 }
 
+async function handleLoadSettings() {
+  try {
+    console.log('Loading settings from figma.clientStorage...');
+    
+    var serverUrl = await figma.clientStorage.getAsync('figma-plugin-server-url');
+    var duration = await figma.clientStorage.getAsync('figma-plugin-duration');
+    
+    console.log('Loaded settings:', { serverUrl: serverUrl, duration: duration });
+    
+    figma.ui.postMessage({
+      type: 'settings-loaded',
+      settings: {
+        serverUrl: serverUrl || 'localhost:3000',
+        duration: duration || 24
+      }
+    });
+  } catch (error) {
+    console.warn('Failed to load settings:', error);
+    figma.ui.postMessage({
+      type: 'settings-loaded',
+      settings: {
+        serverUrl: 'localhost:3000',
+        duration: 24
+      }
+    });
+  }
+}
+
+async function handleSaveSettings(settings) {
+  try {
+    console.log('Saving settings to figma.clientStorage:', settings);
+    
+    if (settings.serverUrl) {
+      await figma.clientStorage.setAsync('figma-plugin-server-url', settings.serverUrl);
+      console.log('Server URL saved:', settings.serverUrl);
+    }
+    
+    if (settings.duration) {
+      await figma.clientStorage.setAsync('figma-plugin-duration', settings.duration.toString());
+      console.log('Duration saved:', settings.duration);
+    }
+    
+    console.log('Settings saved successfully');
+  } catch (error) {
+    console.warn('Failed to save settings:', error);
+  }
+}
+
 // Initialize UI
 figma.showUI(__html__, { width: 400, height: 600, themeColors: true });
 
@@ -228,6 +293,12 @@ figma.ui.onmessage = async function (msg) {
         break;
       case 'close-plugin':
         figma.closePlugin();
+        break;
+      case 'load-settings':
+        await handleLoadSettings();
+        break;
+      case 'save-settings':
+        await handleSaveSettings(msg.settings);
         break;
     }
   } catch (e) {
