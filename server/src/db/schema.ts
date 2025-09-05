@@ -8,7 +8,8 @@ export function createTables(db: sqlite3.Database): void {
       title TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       end_at DATETIME NOT NULL,
-      duration_hours INTEGER NOT NULL DEFAULT 24
+      duration_hours INTEGER NOT NULL DEFAULT 24,
+      is_public BOOLEAN NOT NULL DEFAULT 1
     )
   `);
 

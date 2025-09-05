@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { X, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Toggle } from '@/components/ui/toggle'
@@ -24,6 +24,7 @@ export function CreateVoting() {
   })
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
   const [duration, setDuration] = useState<number>(24) // По умолчанию 1 сутки (24 часа)
+  const [isPublic, setIsPublic] = useState<boolean>(true) // По умолчанию публичное
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -39,6 +40,12 @@ export function CreateVoting() {
     { value: 8, label: t('createVoting.durationOptions.8h') },
     { value: 24, label: t('createVoting.durationOptions.1d') },
     { value: 168, label: t('createVoting.durationOptions.7d') }
+  ]
+
+  // Опции видимости
+  const privacyOptions = [
+    { value: true, label: t('createVoting.privacyOptions.public') },
+    { value: false, label: t('createVoting.privacyOptions.private'), icon: EyeOff }
   ]
 
   useEffect(() => {
@@ -119,6 +126,7 @@ export function CreateVoting() {
       const formData = new FormData()
       formData.append('title', title)
       formData.append('duration', duration.toString())
+      formData.append('isPublic', isPublic.toString())
       mediaFiles.forEach(mediaFile => {
         formData.append('images', mediaFile.file)
       })
@@ -152,6 +160,11 @@ export function CreateVoting() {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && title.trim() && mediaFiles.length >= 2 && !loading) {
+                handleSubmit(e as any)
+              }
+            }}
             className="text-3xl h-16 flex-1 mr-4"
             required
           />
@@ -177,6 +190,26 @@ export function CreateVoting() {
                 {option.label}
               </Toggle>
             ))}
+            
+            <div className="w-6"></div>
+            
+            {privacyOptions.map((option, index) => {
+              const IconComponent = option.icon
+              return (
+                <Toggle
+                  key={option.value.toString()}
+                  pressed={isPublic === option.value}
+                  onPressedChange={() => setIsPublic(option.value)}
+                  variant="outline"
+                  className={`px-4 py-2 ${index === 0 ? 'rounded-l-md rounded-r-none' : ''} ${index === privacyOptions.length - 1 ? 'rounded-r-md rounded-l-none' : ''} ${index > 0 && index < privacyOptions.length - 1 ? 'rounded-none' : ''} ${index > 0 ? '-ml-px' : ''}`}
+                >
+                  <div className="flex items-center gap-2">
+                    {IconComponent && <IconComponent className="h-4 w-4" />}
+                    {option.label}
+                  </div>
+                </Toggle>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -201,7 +234,7 @@ export function CreateVoting() {
             </div>
 
             {mediaFiles.length > 0 && (
-              <div className="overflow-x-auto bg-background/80 backdrop-blur-sm mt-4">
+              <div className="overflow-x-auto bg-background/80 backdrop-blur-sm mt-4 scrollbar-adaptive">
                 <div className="flex gap-4 py-2">
                   {mediaFiles.map((media, index) => (
                     <div key={index} className="relative group flex-shrink-0 max-h-60">

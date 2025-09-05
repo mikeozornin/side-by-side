@@ -180,6 +180,7 @@ async function handleCreateVoting(data) {
       body: JSON.stringify({
         title: data.title,
         duration: data.duration,
+        isPublic: data.privacy !== false, // Default to true if not specified
         images: imageDataUrls,
         pixelRatios: imageDataUrls.map(function() { return 2; })
       })
@@ -227,14 +228,16 @@ async function handleLoadSettings() {
     
     var serverUrl = await figma.clientStorage.getAsync('figma-plugin-server-url');
     var duration = await figma.clientStorage.getAsync('figma-plugin-duration');
+    var privacy = await figma.clientStorage.getAsync('figma-plugin-privacy');
     
-    console.log('Loaded settings:', { serverUrl: serverUrl, duration: duration });
+    console.log('Loaded settings:', { serverUrl: serverUrl, duration: duration, privacy: privacy });
     
     figma.ui.postMessage({
       type: 'settings-loaded',
       settings: {
         serverUrl: serverUrl || 'localhost:3000',
-        duration: duration || 24
+        duration: duration || 24,
+        privacy: privacy !== false // Default to true if not set
       }
     });
   } catch (error) {
@@ -243,7 +246,8 @@ async function handleLoadSettings() {
       type: 'settings-loaded',
       settings: {
         serverUrl: 'localhost:3000',
-        duration: 24
+        duration: 24,
+        privacy: true
       }
     });
   }
@@ -261,6 +265,11 @@ async function handleSaveSettings(settings) {
     if (settings.duration) {
       await figma.clientStorage.setAsync('figma-plugin-duration', settings.duration.toString());
       console.log('Duration saved:', settings.duration);
+    }
+    
+    if (settings.privacy !== undefined) {
+      await figma.clientStorage.setAsync('figma-plugin-privacy', settings.privacy);
+      console.log('Privacy saved:', settings.privacy);
     }
     
     console.log('Settings saved successfully');

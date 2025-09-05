@@ -8,6 +8,7 @@
     "build": "tsc && node dist/index.js",
     "start": "node dist/index.js",
     "db:migrate": "tsx src/db/migrate.ts",
+    "db:migrate:add-is-public": "tsx src/db/migrate.ts add-is-public",
     "db:seed": "tsx src/db/seed.ts",
     "test:notifications": "tsx src/test-notifications.ts",
     "test:locale": "tsx src/test-locale.ts",

@@ -1,5 +1,5 @@
 import { readFile } from 'fs/promises';
-import { initDatabase, closeDatabase } from './init.js';
+import { initDatabase, closeDatabase, getDatabase } from './init.js';
 import { createVoting, createVotingOptions, createVote } from './queries.js';
 import { logger } from '../utils/logger.js';
 
@@ -106,4 +106,69 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     });
 }
 
-export { migrateData };
+async function addIsPublicColumn() {
+  try {
+    logger.info('Добавляем поле is_public в таблицу votings...');
+    
+    const db = getDatabase();
+    
+    // Проверяем, существует ли уже поле is_public
+    const tableInfo = await new Promise<any[]>((resolve, reject) => {
+      db.all("PRAGMA table_info(votings)", (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+    
+    const hasIsPublic = tableInfo.some(col => col.name === 'is_public');
+    
+    if (!hasIsPublic) {
+      // Добавляем поле is_public со значением по умолчанию true
+      await new Promise<void>((resolve, reject) => {
+        db.exec(`
+          ALTER TABLE votings ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT 1;
+        `, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      
+      logger.info('Поле is_public успешно добавлено в таблицу votings');
+    } else {
+      logger.info('Поле is_public уже существует в таблице votings');
+    }
+    
+  } catch (error) {
+    logger.error('Ошибка при добавлении поля is_public:', error);
+    throw error;
+  }
+}
+
+// Запускаем миграцию, если файл выполняется напрямую
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const command = process.argv[2];
+  
+  if (command === 'add-is-public') {
+    addIsPublicColumn()
+      .then(() => {
+        logger.info('Миграция поля is_public завершена');
+        process.exit(0);
+      })
+      .catch((error) => {
+        logger.error('Ошибка миграции поля is_public:', error);
+        process.exit(1);
+      });
+  } else {
+    migrateData()
+      .then(() => {
+        logger.info('Миграция завершена');
+        process.exit(0);
+      })
+      .catch((error) => {
+        logger.error('Ошибка миграции:', error);
+        process.exit(1);
+      });
+  }
+}
+
+export { migrateData, addIsPublicColumn };

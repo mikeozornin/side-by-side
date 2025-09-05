@@ -49,6 +49,7 @@ export interface Voting {
   created_at: string;
   end_at: string;
   duration_hours: number;
+  is_public: boolean;
 }
 
 export interface VotingOption {
@@ -73,8 +74,8 @@ export interface Vote {
 export async function createVoting(voting: Omit<Voting, 'id'>): Promise<string> {
   const id = uuidv4();
   await runQuery(
-    'INSERT INTO votings (id, title, created_at, end_at, duration_hours) VALUES (?, ?, ?, ?, ?)',
-    [id, voting.title, voting.created_at, voting.end_at, voting.duration_hours]
+    'INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, voting.title, voting.created_at, voting.end_at, voting.duration_hours, voting.is_public]
   );
   return id;
 }
@@ -85,6 +86,10 @@ export async function getVoting(id: string): Promise<Voting | undefined> {
 
 export async function getAllVotings(): Promise<Voting[]> {
   return allQuery<Voting>('SELECT * FROM votings ORDER BY created_at DESC');
+}
+
+export async function getPublicVotings(): Promise<Voting[]> {
+  return allQuery<Voting>('SELECT * FROM votings WHERE is_public = 1 ORDER BY created_at DESC');
 }
 
 // Функции для работы с вариантами голосования

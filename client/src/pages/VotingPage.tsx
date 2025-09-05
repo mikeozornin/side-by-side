@@ -206,12 +206,13 @@ export function VotingPage() {
   return (
     <div className="h-screen flex flex-col">
       <div className="max-w-none mx-auto pt-6 px-6 w-full flex-shrink-0">
-        <div className="flex justify-between items-center h-16">
-          <h1 className="text-3xl font-bold truncate pr-4" title={voting.title}>{voting.title}</h1>
+        <div className="flex justify-between items-start">
+          <h1 className="text-3xl font-bold pr-4 flex-1" title={voting.title}>{voting.title}</h1>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/')}
+            className="flex-shrink-0"
           >
             <X className="h-6 w-6" />
           </Button>
@@ -220,7 +221,7 @@ export function VotingPage() {
 
       <div className="flex-1 max-w-none mx-auto px-6 w-full overflow-hidden">
         <div className="h-full flex flex-col">
-          <div className="flex-1 flex items-center gap-6 mb-6 overflow-x-auto pb-4">
+          <div className="flex-1 flex items-center gap-6 mb-6 overflow-x-auto pb-4 scrollbar-adaptive">
             {shuffledOptions.map((option) => {
               const result = results?.results.find(r => r.option_id === option.id)
               

@@ -6,7 +6,8 @@ import { NotificationService } from '../notifications/index.js';
 import { 
   createVoting, 
   getVoting, 
-  getAllVotings, 
+  getAllVotings,
+  getPublicVotings, 
   createVotingOptions, 
   getVotingOptions, 
   createVote,
@@ -20,10 +21,10 @@ export const votingRoutes = new Hono();
 // Инициализируем сервис уведомлений
 const notificationService = new NotificationService();
 
-// GET /api/votings - список голосований
+// GET /api/votings - список публичных голосований
 votingRoutes.get('/votings', async (c) => {
   try {
-    const votings = await getAllVotings();
+    const votings = await getPublicVotings();
     
     const votingsWithOptions = await Promise.all(
       votings.map(async (voting) => {
@@ -79,6 +80,7 @@ votingRoutes.post('/votings', async (c) => {
     let images: (string | File)[] = [];
     let durationHours: number;
     let pixelRatios: number[] = [];
+    let isPublic: boolean = true; // Default to public
 
     if (contentType.includes('application/json')) {
       const jsonData = await c.req.json();
@@ -86,11 +88,14 @@ votingRoutes.post('/votings', async (c) => {
       images = jsonData.images || []; // Expect an array of base64 strings
       durationHours = parseFloat(jsonData.duration) || 24;
       pixelRatios = jsonData.pixelRatios || []; // Expect an array of pixel ratios
+      isPublic = jsonData.isPublic !== false; // Default to true if not specified
     } else {
       const formData = await c.req.formData();
       title = formData.get('title') as string;
       images = formData.getAll('images') as File[];
       durationHours = parseFloat(formData.get('duration') as string) || 24;
+      const isPublicStr = formData.get('isPublic') as string;
+      isPublic = isPublicStr !== 'false'; // Default to true if not specified
     }
 
     if (!title || !images || images.length < 2) {
@@ -107,7 +112,8 @@ votingRoutes.post('/votings', async (c) => {
       title,
       created_at: new Date().toISOString(),
       end_at: endAt.toISOString(),
-      duration_hours: durationHours
+      duration_hours: durationHours,
+      is_public: isPublic
     });
 
     let uploaded: any[] = [];
@@ -211,8 +217,8 @@ votingRoutes.post('/votings', async (c) => {
 
     await createVotingOptions(optionsToCreate);
     
-    // Отправляем уведомление асинхронно
-    notificationService.sendVotingCreatedNotification(votingId, title, endAt.toISOString()).catch(error => {
+    // Отправляем уведомление асинхронно (только для публичных голосований)
+    notificationService.sendVotingCreatedNotification(votingId, title, endAt.toISOString(), isPublic).catch(error => {
       logger.error('Error sending notification:', error);
     });
 
@@ -221,7 +227,8 @@ votingRoutes.post('/votings', async (c) => {
         id: votingId,
         title,
         end_at: endAt.toISOString(),
-        duration_hours: durationHours
+        duration_hours: durationHours,
+        is_public: isPublic
       }
     });
   } catch (error) {
