@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Toggle } from '@/components/ui/toggle'
@@ -145,100 +145,101 @@ export function CreateVoting() {
   return (
     <div className="h-screen flex flex-col">
       <div className="max-w-none mx-auto p-4 w-full flex-shrink-0">
-        <div className="flex items-center mb-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/')}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div className="space-y-4">
+        <div className="flex justify-between items-center h-16 mb-4">
           <Input
             ref={titleInputRef}
             id="title"
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="text-3xl h-16"
+            className="text-3xl h-16 flex-1 mr-4"
             required
           />
-          
-          <div className="space-y-2">
-            <div className="flex flex-wrap">
-              {durationOptions.map((option, index) => (
-                <Toggle
-                  key={option.value}
-                  pressed={duration === option.value}
-                  onPressedChange={() => setDuration(option.value)}
-                  variant="outline"
-                  className={`px-4 py-2 ${index === 0 ? 'rounded-l-md rounded-r-none' : ''} ${index === durationOptions.length - 1 ? 'rounded-r-md rounded-l-none' : ''} ${index > 0 && index < durationOptions.length - 1 ? 'rounded-none' : ''} ${index > 0 ? '-ml-px' : ''}`}
-                >
-                  {option.label}
-                </Toggle>
-              ))}
-            </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/')}
+          >
+            <X className="h-6 w-6" />
+          </Button>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex flex-wrap">
+            {durationOptions.map((option, index) => (
+              <Toggle
+                key={option.value}
+                pressed={duration === option.value}
+                onPressedChange={() => setDuration(option.value)}
+                variant="outline"
+                className={`px-4 py-2 ${index === 0 ? 'rounded-l-md rounded-r-none' : ''} ${index === durationOptions.length - 1 ? 'rounded-r-md rounded-l-none' : ''} ${index > 0 && index < durationOptions.length - 1 ? 'rounded-none' : ''} ${index > 0 ? '-ml-px' : ''}`}
+              >
+                {option.label}
+              </Toggle>
+            ))}
           </div>
         </div>
       </div>
 
       <div className="flex-1 max-w-none mx-auto px-4 w-full flex flex-col">
         <form onSubmit={handleSubmit} className="h-full flex flex-col">
-          <div className="flex-1 mb-4">
-            <Dropzone
-              accept={{ 
-                'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
-                'video/*': ['.mp4', '.webm', '.mov', '.avi']
-              }}
-              maxFiles={10}
-              maxSize={20 * 1024 * 1024} // 20MB
-              onDrop={handleDrop}
-              onError={handleError}
-              className="h-48"
-            >
-              <DropzoneEmptyState />
-            </Dropzone>
+          <div className="flex-1 mb-4 flex flex-col">
+            <div className="relative flex-1">
+              <Dropzone
+                accept={{
+                  'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
+                  'video/*': ['.mp4', '.webm', '.mov', '.avi']
+                }}
+                maxFiles={10}
+                maxSize={20 * 1024 * 1024} // 20MB
+                onDrop={handleDrop}
+                onError={handleError}
+                className="absolute inset-0"
+              >
+                <DropzoneEmptyState />
+              </Dropzone>
 
-            {mediaFiles.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
-                {mediaFiles.map((media, index) => (
-                  <div key={index} className="relative group aspect-square">
-                    {getMediaType(media.file) === 'image' ? (
-                      <HiDPIImage
-                        src={URL.createObjectURL(media.file)}
-                        width={media.dimensions?.width || 0}
-                        height={media.dimensions?.height || 0}
-                        pixelRatio={parsePixelRatioFromName(media.file.name)}
-                        fit="cover"
-                        alt={`${t('createVoting.option')} ${index + 1}`}
-                        className="w-full h-full object-cover rounded"
-                      />
-                    ) : (
-                      <VideoPlayer
-                        src={URL.createObjectURL(media.file)}
-                        width={media.dimensions?.width || 0}
-                        height={media.dimensions?.height || 0}
-                        fit="cover"
-                        className="w-full h-full rounded"
-                      />
-                    )}
-                    <div className="absolute top-1 right-1">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => removeMedia(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+              {mediaFiles.length > 0 && (
+                <div className="absolute bottom-0 left-0 right-0 overflow-x-auto bg-background/80 backdrop-blur-sm">
+                  <div className="flex gap-4 px-4 py-2">
+                    {mediaFiles.map((media, index) => (
+                      <div key={index} className="relative group flex-shrink-0 max-h-60">
+                      {getMediaType(media.file) === 'image' ? (
+                        <HiDPIImage
+                          src={URL.createObjectURL(media.file)}
+                          width={media.dimensions?.width || 0}
+                          height={media.dimensions?.height || 0}
+                          pixelRatio={parsePixelRatioFromName(media.file.name)}
+                          fit="contain"
+                          alt={`${t('createVoting.option')} ${index + 1}`}
+                          className="max-h-60 w-auto object-contain rounded"
+                        />
+                      ) : (
+                        <VideoPlayer
+                          src={URL.createObjectURL(media.file)}
+                          width={media.dimensions?.width || 0}
+                          height={media.dimensions?.height || 0}
+                          fit="contain"
+                          className="max-h-60 w-auto rounded"
+                        />
+                      )}
+                      <div className="absolute top-1 right-1">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => removeMedia(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
+            </div>
           </div>
 
           {error && (
