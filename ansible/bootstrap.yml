@@ -1,5 +1,5 @@
 ---
-- name: Bootstrap server for Side by side
+- name: Bootstrap server for Side-by-Side Voting
   hosts: web
   become: true
   vars:
@@ -130,7 +130,7 @@
         mode: "0644"
         content: |
           [Unit]
-          Description=Side by side API
+          Description=Side-by-Side Voting API
           After=network.target
 
           [Service]

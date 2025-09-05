@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Скрипт для быстрого деплоя Side by side
+# Скрипт для быстрого деплоя Side-by-Side Voting
 
 set -e
 
@@ -10,7 +10,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}🚀 Side by side Deployment Script${NC}"
+echo -e "${GREEN}🚀 Side-by-Side Voting Deployment Script${NC}"
 echo "=================================="
 
 # Проверяем, что мы в корне проекта

@@ -1,5 +1,5 @@
 ---
-- name: Deploy Side by side release
+- name: Deploy Side-by-Side Voting release
 
   hosts: web
   become: true
