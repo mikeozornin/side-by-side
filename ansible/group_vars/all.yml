@@ -1,0 +1,44 @@
+# Домен для side-by-side
+domain: side-by-side.mikeozornin.ru
+
+# Email для Let's Encrypt сертификата
+ssl_email: admin@side-by-side.mikeozornin.ru
+
+# Пути для релизов
+release_root: /opt/side-by-side/releases
+current_link: /opt/side-by-side/current
+
+# Nginx настройки
+nginx_web_root: /usr/share/nginx/side-by-side
+
+# Сервис
+service_name: side-by-side
+backend_workdir: /opt/side-by-side/current/server
+node_path: /usr/bin/node
+
+# Конфигурация
+env_file_path: /etc/side-by-side/server.env
+cors_allowed_origins: side-by-side.mikeozornin.ru
+host_bind: 127.0.0.1
+port: 3000
+
+# API пути
+api_prefix: /api
+health_path: /health
+
+# Управление релизами
+releases_to_keep: 10
+restart_service: false
+
+# Локальные пути
+local_env_src: "{{ playbook_dir }}/../server/.env.production"
+
+# Обновление env файла (по умолчанию отключено)
+update_env: false
+
+# Системные зависимости для оптимизации изображений
+image_optimization_packages:
+  - imagemagick
+  - jpegoptim
+  - pngquant
+  - webp

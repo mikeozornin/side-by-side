@@ -104,14 +104,24 @@ export class ConfigManager {
         // Проверяем User-Agent для дополнительной защиты
         if (c?.req?.header) {
           const userAgent = c.req.header('User-Agent');
-          const expectedUA = 'Figma-SideBySide-Plugin/1.0';
+          const figmaPluginHeader = c.req.header('X-Figma-Plugin');
 
-          if (userAgent === expectedUA) {
+          // Проверяем, что User-Agent содержит "Figma" И есть кастомный заголовок
+          const hasValidUserAgent = userAgent && userAgent.includes('Figma');
+          const hasValidHeader = figmaPluginHeader === 'SideBySide/1.0';
+
+          if (hasValidUserAgent && hasValidHeader) {
+            console.log(`✅ Valid Figma plugin CORS request - UA: "${userAgent}", Header: "${figmaPluginHeader}"`);
             return 'null';
           }
 
           // Логируем подозрительный запрос
-          console.warn(`Blocked CORS request with null origin but invalid User-Agent: ${userAgent}`);
+          console.warn(`Blocked CORS request with null origin:`, {
+            userAgent: userAgent,
+            figmaPluginHeader: figmaPluginHeader,
+            hasValidUserAgent: hasValidUserAgent,
+            hasValidHeader: hasValidHeader
+          });
           return undefined;
         }
 
@@ -130,8 +140,8 @@ export class ConfigManager {
     if (this.isProduction()) {
       return {
         serveStatic: true,
-        staticPath: '../client/dist',
-        fallbackPath: '../client/dist/index.html'
+        staticPath: '../frontend',
+        fallbackPath: '../frontend/index.html'
       };
     } else {
       return {
