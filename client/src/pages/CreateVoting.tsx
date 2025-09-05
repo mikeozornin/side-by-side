@@ -188,8 +188,8 @@ export function CreateVoting() {
         throw new Error(errorData.error || 'Ошибка создания голосования')
       }
 
-      await response.json()
-      navigate('/')
+      const data = await response.json()
+      navigate(`/v/${data.voting.id}`)
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Ошибка создания голосования')
     } finally {
