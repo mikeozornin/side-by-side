@@ -45,7 +45,7 @@ export const Dropzone = ({
   children,
   ...props
 }: DropzoneProps) => {
-  const dropzoneRef = useRef<HTMLDivElement>(null)
+  const dropzoneRef = useRef<HTMLButtonElement>(null)
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept,

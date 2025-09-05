@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
 import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
-import { getMediaType } from '@/lib/mediaUtils'
 
 interface VotingOption {
   id: number;
