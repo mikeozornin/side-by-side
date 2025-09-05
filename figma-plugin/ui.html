@@ -268,7 +268,7 @@
     </div>
 
     <div class="footer">
-      <button type="submit" id="create-button" class="button primary" disabled>Create</button>
+      <button type="button" id="create-button" class="button primary" disabled>Create</button>
     </div>
   </div>
 
@@ -365,8 +365,16 @@
       if (votingFormEl) {
         votingFormEl.addEventListener('submit', handleCreateVotingSubmit);
       }
+      if (createButton) {
+        createButton.addEventListener('click', handleCreateVotingSubmit);
+      }
       if (titleInput) {
         titleInput.addEventListener('input', updateCreateButtonState);
+        titleInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' && !createButton.disabled) {
+            handleCreateVotingSubmit(e);
+          }
+        });
       }
       if (serverUrlInput) {
         serverUrlInput.addEventListener('input', saveSettings);
@@ -527,7 +535,7 @@
 
     function handleVotingCreated(data) {
       var url = data.url;
-      showStatus('success', 'Voting created! <a href="' + url + '" target="_blank" style="color: #007AFF; text-decoration: underline;">Open in browser</a>');
+      showStatus('success', 'Voting created! <a href="' + url + '" target="_blank" style="color: #007AFF; text-decoration: underline;">Open in browser</a>');
       setTimeout(function () {
         parent.postMessage({ pluginMessage: { type: 'close-plugin' } }, '*');
       }, 5000);

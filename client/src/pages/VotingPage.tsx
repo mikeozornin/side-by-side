@@ -237,7 +237,7 @@ export function VotingPage() {
                             pixelRatio={voting.image1_pixel_ratio}
                             fit="contain"
                             alt="Вариант 1"
-                            className="max-w-full max-h-full object-contain rounded-lg"
+                            className="max-w-full max-h-full object-contain shadow-[0_0_0_1px_rgba(0,0,0,0.1)]"
                           />
                         ) : (
                           <VideoPlayer
@@ -248,7 +248,7 @@ export function VotingPage() {
                             autoPlay={true}
                             loop={true}
                             muted={true}
-                            className="max-w-full max-h-full rounded-lg"
+                            className="max-w-full max-h-full shadow-[0_0_0_1px_rgba(0,0,0,0.1)]"
                           />
                         )}
                       </div>
@@ -304,7 +304,7 @@ export function VotingPage() {
                             pixelRatio={voting.image2_pixel_ratio}
                             fit="contain"
                             alt="Вариант 2"
-                            className="max-w-full max-h-full object-contain rounded-lg"
+                            className="max-w-full max-h-full object-contain shadow-[0_0_0_1px_rgba(0,0,0,0.1)]"
                           />
                         ) : (
                           <VideoPlayer
@@ -315,7 +315,7 @@ export function VotingPage() {
                             autoPlay={true}
                             loop={true}
                             muted={true}
-                            className="max-w-full max-h-full rounded-lg"
+                            className="max-w-full max-h-full shadow-[0_0_0_1px_rgba(0,0,0,0.1)]"
                           />
                         )}
                       </div>
