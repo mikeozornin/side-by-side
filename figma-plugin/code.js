@@ -176,7 +176,12 @@ async function handleCreateVoting(data) {
 
     var response = await fetch(apiUrl + '/votings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Figma-Plugin': 'SideBySide/1.0'
+        // User-Agent будет установлен браузером автоматически
+        // Сервер проверяет наличие "Figma" в User-Agent + кастомный заголовок
+      },
       body: JSON.stringify({
         title: data.title,
         duration: data.duration,

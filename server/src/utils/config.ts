@@ -81,6 +81,42 @@ export class ConfigManager {
     }
   }
 
+  // Более безопасная функция для проверки CORS origin
+  getCorsOriginFunction(): (origin: string, c?: any) => string | undefined {
+    return (origin: string, c?: any) => {
+      const allowedOrigins = this.getCorsOrigins();
+
+      // Прямое совпадение с разрешенными origins
+      if (allowedOrigins.includes(origin)) {
+        return origin;
+      }
+
+      // Специальная обработка для null origin (Figma плагин)
+      if (origin === 'null') {
+        // Проверяем User-Agent для дополнительной защиты
+        if (c?.req?.header) {
+          const userAgent = c.req.header('User-Agent');
+          const expectedUA = 'Figma-SideBySide-Plugin/1.0';
+
+          if (userAgent === expectedUA) {
+            return 'null';
+          }
+
+          // Логируем подозрительный запрос
+          console.warn(`Blocked CORS request with null origin but invalid User-Agent: ${userAgent}`);
+          return undefined;
+        }
+
+        // Если контекст недоступен, разрешаем для обратной совместимости
+        // (но это менее безопасно)
+        return 'null';
+      }
+
+      // Для всех остальных origins - запрет
+      return undefined;
+    };
+  }
+
   // Получить настройки для статических файлов
   getStaticConfig() {
     if (this.isProduction()) {
