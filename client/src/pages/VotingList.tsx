@@ -211,7 +211,7 @@ export function VotingList() {
                                 width={voting.image1_width}
                                 height={voting.image1_height}
                                 pixelRatio={voting.image1_pixel_ratio}
-                                fit="contain"
+                                fit="cover"
                                 alt={t('voting.option1') as string}
                                 style={{ width: '100%', height: '100%', objectPosition: 'left top' }}
                               />
@@ -220,7 +220,7 @@ export function VotingList() {
                                 src={`/api/images/${voting.image1_path.split('/').pop()}`}
                                 width={voting.image1_width}
                                 height={voting.image1_height}
-                                fit="contain"
+                                fit="cover"
                                 controls={false}
                                 muted={true}
                                 className="w-full h-full object-left-top"
@@ -240,7 +240,7 @@ export function VotingList() {
                                 width={voting.image2_width}
                                 height={voting.image2_height}
                                 pixelRatio={voting.image2_pixel_ratio}
-                                fit="contain"
+                                fit="cover"
                                 alt={t('voting.option2') as string}
                                 style={{ width: '100%', height: '100%', objectPosition: 'right bottom' }}
                               />
@@ -249,7 +249,7 @@ export function VotingList() {
                                 src={`/api/images/${voting.image2_path.split('/').pop()}`}
                                 width={voting.image2_width}
                                 height={voting.image2_height}
-                                fit="contain"
+                                fit="cover"
                                 controls={false}
                                 muted={true}
                                 className="w-full h-full object-right-bottom"
@@ -326,7 +326,7 @@ export function VotingList() {
                                 width={voting.image1_width}
                                 height={voting.image1_height}
                                 pixelRatio={voting.image1_pixel_ratio}
-                                fit="contain"
+                                fit="cover"
                                 alt={t('voting.option1') as string}
                                 style={{ width: '100%', height: '100%', objectPosition: 'left top' }}
                               />
@@ -335,7 +335,7 @@ export function VotingList() {
                                 src={`/api/images/${voting.image1_path.split('/').pop()}`}
                                 width={voting.image1_width}
                                 height={voting.image1_height}
-                                fit="contain"
+                                fit="cover"
                                 controls={false}
                                 muted={true}
                                 className="w-full h-full object-left-top"
@@ -355,7 +355,7 @@ export function VotingList() {
                                 width={voting.image2_width}
                                 height={voting.image2_height}
                                 pixelRatio={voting.image2_pixel_ratio}
-                                fit="contain"
+                                fit="cover"
                                 alt={t('voting.option2') as string}
                                 style={{ width: '100%', height: '100%', objectPosition: 'right bottom' }}
                               />
@@ -364,7 +364,7 @@ export function VotingList() {
                                 src={`/api/images/${voting.image2_path.split('/').pop()}`}
                                 width={voting.image2_width}
                                 height={voting.image2_height}
-                                fit="contain"
+                                fit="cover"
                                 controls={false}
                                 muted={true}
                                 className="w-full h-full object-right-bottom"
