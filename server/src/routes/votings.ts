@@ -124,6 +124,7 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, as
       // Handle JSON uploads that may contain base64, data URLs, or hex strings
       const decodeImage = (input: string, fallbackName: string, pixelRatio: number = 2) => {
         try {
+          logger.info('Decoding image:', { input: input.substring(0, 100) + '...', fallbackName, pixelRatio });
           let data = input.trim();
           let mime = 'image/png';
           let extension = '.png';
@@ -132,6 +133,7 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, as
           if (dataUrlMatch) {
             mime = dataUrlMatch[1] || 'image/png';
             data = dataUrlMatch[2] || '';
+            logger.info('Data URL parsed:', { mime, dataLength: data.length });
             if (mime.includes('jpeg')) extension = '.jpg';
             else if (mime.includes('webp')) extension = '.webp';
             else if (mime.includes('avif')) extension = '.avif';
@@ -142,21 +144,29 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, as
           // Try base64 first
           try {
             buffer = Buffer.from(data, 'base64');
-            // Heuristic: if base64 decoding fails it often results in empty or very small buffer
-            if (!buffer || buffer.length < 10) buffer = null;
-          } catch {
+            logger.info('Base64 decoded:', { bufferLength: buffer.length });
+            // Heuristic: if base64 decoding fails it often results in empty buffer
+            if (!buffer || buffer.length === 0) {
+              logger.warn('Empty buffer after base64 decode');
+              buffer = null;
+            }
+          } catch (error) {
+            logger.warn('Base64 decode failed:', error);
             buffer = null;
           }
 
           // If not base64, try hex
           if (!buffer) {
             const isHex = /^[0-9a-fA-F]+$/.test(data) && data.length % 2 === 0;
+            logger.info('Trying hex decode:', { isHex, dataLength: data.length });
             if (isHex) {
               buffer = Buffer.from(data, 'hex');
+              logger.info('Hex decoded:', { bufferLength: buffer.length });
             }
           }
 
           if (!buffer) {
+            logger.error('Failed to decode image data:', { data: data.substring(0, 50) + '...' });
             throw new Error('Unsupported image encoding');
           }
 
@@ -179,12 +189,16 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, as
           }
 
           const fileName = `${fallbackName}@${pixelRatio}x${extension}`;
-          const u8 = new Uint8Array(buffer);
-          // In Node >= 18, File is available (undici); use it to integrate with uploadImages
-          const blob = new Blob([u8], { type: mime });
+          logger.info('Creating File object:', { fileName, mime, bufferLength: buffer.length });
+          
+          // Create File object using Blob (available in Node.js 20+)
+          const u8Array = new Uint8Array(buffer);
+          const blob = new Blob([u8Array], { type: mime });
           const file = new File([blob], fileName, { type: mime });
+          logger.info('File created:', { fileName: file.name, fileSize: file.size, fileType: file.type });
           return file;
         } catch (error) {
+          logger.error('Error in decodeImage:', error);
           throw new Error('Failed to decode image payload');
         }
       };
@@ -266,6 +280,8 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, as
     });
   } catch (error) {
     logger.error('Ошибка создания голосования:', error);
+    logger.error('Тип ошибки:', typeof error);
+    logger.error('Стек ошибки:', error instanceof Error ? error.stack : 'Не Error объект');
 
     // Для отладки в development режиме показываем детали ошибки
     if (process.env.NODE_ENV === 'development' && error instanceof Error) {
