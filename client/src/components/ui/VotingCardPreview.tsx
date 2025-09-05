@@ -20,29 +20,67 @@ const VotingCardPreview = ({ options }: VotingCardPreviewProps) => {
     return <div className="w-full h-full bg-muted" />;
   }
 
-  // Slant amount for the diagonal effect, as a percentage of the width
-  const slant = 30; 
-  // Gap between images, as a percentage of the width
-  const gap = 1.5; 
+  const slant = 10; // Slant amount for the diagonal effect
+  const gap = 1; // Gap between images
 
   const getClipPath = (i: number) => {
-    if (n <= 1) {
-      return 'none';
+    if (n <= 1) return 'none';
+
+    // Handle two images separately for a simple diagonal split
+    if (n === 2) {
+      // The geometric angle of a true diagonal is different from the `slant` angle.
+      // To make the visual gap appear consistent, we apply a correction factor.
+      // This is an empirical value that works well for typical aspect ratios.
+      const correctionFactor = 2.5;
+      const g = (gap * correctionFactor);
+
+      if (i === 0) {
+        return `polygon(0% 0%, calc(100% - ${g}%) 0%, 0% 100%)`;
+      } else {
+        return `polygon(100% 0%, 100% 100%, ${g}% 100%)`;
+      }
     }
-    
-    // x coordinates at the top
-    const top_x_start = (i / n) * 100;
-    const top_x_end = ((i + 1) / n) * 100;
 
-    // Apply gap
-    const gapped_top_x_start = i === 0 ? top_x_start : top_x_start + gap / 2;
-    const gapped_top_x_end = i === n - 1 ? top_x_end : top_x_end - gap / 2;
+    // Equal distribution for n > 2
+    const totalGap = (n - 1) * gap;
+    const totalShapeWidth = 100 - totalGap;
+    const avgWidth = totalShapeWidth / n;
 
-    // Corresponding x coordinates at the bottom
-    const bottom_x_start = gapped_top_x_start - slant;
-    const bottom_x_end = gapped_top_x_end - slant;
+    // Calculate the positions of the dividers on the top edge
+    // to achieve equal average width
+    const T = [0];
+    T[1] = avgWidth + slant / 2;
+    for (let j = 2; j < n; j++) {
+      T[j] = T[j-1] + avgWidth;
+    }
 
-    return `polygon(${gapped_top_x_start}% 0%, ${gapped_top_x_end}% 0%, ${bottom_x_end}% 100%, ${bottom_x_start}% 100%)`;
+    // Define polygon points
+    let p1_x, p2_x, p3_x, p4_x;
+
+    if (i === 0) { // First shape (left trapezoid/triangle)
+      p1_x = 0;
+      p2_x = T[1];
+      p4_x = 0;
+      p3_x = T[1] - slant;
+    } else { // Middle or last shape
+      // Add gap from the previous shape
+      const start_x = T[i] + i * gap;
+      
+      if (i === n - 1) { // Last shape (right trapezoid/triangle)
+        p1_x = start_x;
+        p2_x = 100;
+        p4_x = start_x - slant;
+        p3_x = 100;
+      } else { // Middle shape (parallelogram)
+        const end_x = T[i+1] + i * gap;
+        p1_x = start_x;
+        p2_x = end_x;
+        p4_x = start_x - slant;
+        p3_x = end_x - slant;
+      }
+    }
+
+    return `polygon(${p1_x}% 0%, ${p2_x}% 0%, ${p3_x}% 100%, ${p4_x}% 100%)`;
   };
 
   return (
@@ -83,19 +121,35 @@ const VotingCardPreview = ({ options }: VotingCardPreviewProps) => {
       ))}
       {/* Divider lines */}
       {n > 1 && Array.from({ length: n - 1 }).map((_, i) => {
-         const left_offset = ((i + 1) / n) * 100;
-         const right_offset = 100 - left_offset;
+        if (n === 2) {
+          // The diagonal line for n=2 is handled by the clip-path gap,
+          // drawing a separate divider line is complex and visually noisy.
+          // We can return null to not render a divider in this specific case.
+          return null;
+        }
+        
+        const totalGap = (n - 1) * gap;
+        const totalShapeWidth = 100 - totalGap;
+        const avgWidth = totalShapeWidth / n;
 
-         return (
-            <div 
-              key={`line-${i}`}
-              className="absolute top-0 h-full w-px bg-background opacity-50"
-              style={{ 
-                left: `calc(${left_offset}% - ${slant / n * (i+1)}px)`, // Approximation for slant correction
-                transform: `skewX(-15deg)` // Approximate angle based on slant
-              }} 
-            />
-         )
+        const T = [0];
+        T[1] = avgWidth + slant / 2;
+        for (let j = 2; j <= i + 1; j++) {
+          T[j] = T[j - 1] + avgWidth;
+        }
+
+        const left_offset = T[i+1] + (i * gap) + (gap / 2);
+
+        return (
+           <div
+             key={`line-${i}`}
+             className="absolute top-0 h-full w-px bg-background opacity-50"
+             style={{
+               left: `calc(${left_offset}% - ${slant / 2}px)`,
+               transform: `skewX(-15deg)`
+             }}
+           />
+        )
       })}
     </div>
   );

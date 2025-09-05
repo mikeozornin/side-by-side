@@ -178,7 +178,7 @@ export function VotingList() {
                   <Link key={voting.id} to={`/v/${voting.id}`} className="block">
                     <Card 
                       className={`transition-all hover:bg-muted cursor-pointer ${
-                        hasVoted(voting.id) ? 'opacity-60' : ''
+                        hasVoted(voting.id) ? 'opacity-60 grayscale bg-muted/30' : ''
                       }`}
                     >
                       <CardHeader>
@@ -219,7 +219,7 @@ export function VotingList() {
                   <Link key={voting.id} to={`/v/${voting.id}`} className="block">
                     <Card 
                       className={`transition-all hover:bg-muted cursor-pointer ${
-                        hasVoted(voting.id) ? 'opacity-60 grayscale' : 'opacity-60 grayscale'
+                        hasVoted(voting.id) ? 'opacity-60 grayscale bg-muted/30' : 'opacity-60 grayscale bg-muted/30'
                       }`}
                     >
                       <CardHeader>
