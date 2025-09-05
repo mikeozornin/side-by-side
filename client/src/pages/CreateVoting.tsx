@@ -184,7 +184,7 @@ export function CreateVoting() {
       <div className="flex-1 max-w-none mx-auto px-4 w-full flex flex-col">
         <form onSubmit={handleSubmit} className="h-full flex flex-col">
           <div className="flex-1 mb-4 flex flex-col">
-            <div className="relative flex-1">
+            <div className="flex-1 relative">
               <Dropzone
                 accept={{
                   'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
@@ -198,12 +198,13 @@ export function CreateVoting() {
               >
                 <DropzoneEmptyState />
               </Dropzone>
+            </div>
 
-              {mediaFiles.length > 0 && (
-                <div className="absolute bottom-0 left-0 right-0 overflow-x-auto bg-background/80 backdrop-blur-sm">
-                  <div className="flex gap-4 px-4 py-2">
-                    {mediaFiles.map((media, index) => (
-                      <div key={index} className="relative group flex-shrink-0 max-h-60">
+            {mediaFiles.length > 0 && (
+              <div className="overflow-x-auto bg-background/80 backdrop-blur-sm mt-4">
+                <div className="flex gap-4 py-2">
+                  {mediaFiles.map((media, index) => (
+                    <div key={index} className="relative group flex-shrink-0 max-h-60">
                       {getMediaType(media.file) === 'image' ? (
                         <HiDPIImage
                           src={URL.createObjectURL(media.file)}
@@ -239,7 +240,6 @@ export function CreateVoting() {
                 </div>
               </div>
             )}
-            </div>
           </div>
 
           {error && (

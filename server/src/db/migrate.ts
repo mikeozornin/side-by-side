@@ -1,6 +1,6 @@
 import { readFile } from 'fs/promises';
 import { initDatabase, closeDatabase } from './init.js';
-import { createVoting, createVotingImages, createVote } from './queries.js';
+import { createVoting, createVotingOptions, createVote } from './queries.js';
 import { logger } from '../utils/logger.js';
 
 interface JsonDatabase {
@@ -57,7 +57,7 @@ async function migrateData() {
     for (const image of data.voting_images) {
       const newVotingId = idMapping[image.voting_id];
       if (newVotingId) {
-        await createVotingImages([{
+        await createVotingOptions([{
           voting_id: newVotingId,
           file_path: image.file_path,
           sort_order: image.sort_order,
@@ -76,7 +76,7 @@ async function migrateData() {
       if (newVotingId) {
         await createVote({
           voting_id: newVotingId,
-          choice: vote.choice,
+          option_id: vote.choice,
           created_at: vote.created_at
         });
       }

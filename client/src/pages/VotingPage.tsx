@@ -236,7 +236,7 @@ export function VotingPage() {
                     >
                       <CardContent className="p-0 h-full">
                         <div className="relative h-full">
-                          <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-full h-full flex items-center justify-center p-0.5">
                             {option.media_type === 'image' ? (
                               <HiDPIImage
                                 src={getImageUrl(option.file_path)}

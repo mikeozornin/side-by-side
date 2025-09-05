@@ -1,5 +1,5 @@
 import { initDatabase, closeDatabase } from './init.js';
-import { getAllVotings, getVotingImages, getVotesForVoting } from './queries.js';
+import { getAllVotings, getVotingOptions, getVotesForVoting } from './queries.js';
 import { logger } from '../utils/logger.js';
 
 async function checkData() {
@@ -14,8 +14,8 @@ async function checkData() {
     for (const voting of votings) {
       logger.info(`- ${voting.title} (${voting.id})`);
       
-      const images = await getVotingImages(voting.id);
-      logger.info(`  Изображений: ${images.length}`);
+      const images = await getVotingOptions(voting.id);
+      logger.info(`  Вариантов: ${images.length}`);
       
       const votes = await getVotesForVoting(voting.id);
       logger.info(`  Голосов: ${votes.length}`);
