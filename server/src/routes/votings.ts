@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 import { uploadImages } from '../utils/images.js';
 import { NotificationService } from '../notifications/index.js';
+import { createVotingLimiter, createVotingHourlyLimiter } from '../utils/rateLimit.js';
 import { 
   createVoting, 
   getVoting, 
@@ -72,7 +73,7 @@ votingRoutes.get('/votings/:id', async (c) => {
 });
 
 // POST /api/votings - создание голосования
-votingRoutes.post('/votings', async (c) => {
+votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, async (c) => {
   try {
     const contentType = c.req.header('Content-Type') || '';
 

@@ -138,7 +138,19 @@ export function CreateVoting() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Ошибка создания голосования')
+        
+        // Handle rate limiting errors with localized messages
+        let errorMessage = errorData.error || 'Ошибка создания голосования'
+        
+        if (errorData.error === 'RATE_LIMIT_MINUTE_EXCEEDED') {
+          errorMessage = t('createVoting.rateLimitMinuteExceeded')
+        } else if (errorData.error === 'RATE_LIMIT_HOUR_EXCEEDED') {
+          errorMessage = t('createVoting.rateLimitHourExceeded')
+        } else if (errorData.error === 'RATE_LIMIT_EXCEEDED') {
+          errorMessage = t('createVoting.rateLimitExceeded')
+        }
+        
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()

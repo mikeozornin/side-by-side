@@ -594,6 +594,16 @@
 
     function handleError(data) {
       var message = data.message;
+      
+      // Handle rate limiting errors with localized messages
+      if (message === 'RATE_LIMIT_MINUTE_EXCEEDED') {
+        message = 'Too many voting creation requests. Please try again in a minute.';
+      } else if (message === 'RATE_LIMIT_HOUR_EXCEEDED') {
+        message = 'Voting creation limit exceeded for the hour. Please try again later.';
+      } else if (message === 'RATE_LIMIT_EXCEEDED') {
+        message = 'Request limit exceeded. Please try again later.';
+      }
+      
       showStatus('error', message);
       hideProgress();
     }

@@ -8,6 +8,10 @@ export interface ServerConfig {
   dataDir: string;
   logDir: string;
   dbPath: string;
+  rateLimit: {
+    votingPerMinute: number;
+    votingPerHour: number;
+  };
 }
 
 export class ConfigManager {
@@ -25,7 +29,11 @@ export class ConfigManager {
       votingBaseUrl: process.env.VOTING_BASE_URL || 'http://localhost:5173',
       dataDir: process.env.DATA_DIR || './data',
       logDir: process.env.LOG_DIR || './logs',
-      dbPath: process.env.DB_PATH || './app.db'
+      dbPath: process.env.DB_PATH || './app.db',
+      rateLimit: {
+        votingPerMinute: parseInt(process.env.RATE_LIMIT_VOTING_PER_MINUTE || '6'),
+        votingPerHour: parseInt(process.env.RATE_LIMIT_VOTING_PER_HOUR || '60')
+      }
     };
   }
 
