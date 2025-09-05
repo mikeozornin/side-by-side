@@ -47,7 +47,8 @@ async function migrateData() {
       const { id: oldId, ...votingData } = voting;
       const newId = await createVoting({
         ...votingData,
-        duration_hours: 24 // Значение по умолчанию для старых данных
+        duration_hours: 24, // Значение по умолчанию для старых данных
+        is_public: true // Значение по умолчанию для старых данных
       });
       idMapping[oldId] = newId;
       logger.info(`Мигрировано голосование: ${voting.title} (${oldId} -> ${newId})`);

@@ -203,7 +203,39 @@ votingRoutes.post('/votings', async (c) => {
       }
     }
 
-    uploaded = await uploadImages(votingId, filesToUpload);
+    try {
+      uploaded = await uploadImages(votingId, filesToUpload);
+    } catch (error) {
+      logger.error('Ошибка загрузки изображений:', error);
+
+      // Определяем тип ошибки и возвращаем понятное сообщение
+      if (error instanceof Error) {
+        const message = error.message.toLowerCase();
+
+        if (message.includes('не является допустимым медиафайлом')) {
+          return c.json({
+            error: 'Один или несколько файлов не являются допустимыми изображениями или видео. ' +
+                   'Пожалуйста, загрузите только файлы в форматах: JPG, PNG, WebP, AVIF, MP4, WebM, MOV, AVI.'
+          }, 400);
+        }
+
+        if (message.includes('неподдерживаемый формат файла')) {
+          return c.json({
+            error: 'Формат одного из файлов не поддерживается. ' +
+                   'Разрешены только: JPG, PNG, WebP, AVIF, MP4, WebM, MOV, AVI.'
+          }, 400);
+        }
+
+        if (message.includes('неподдерживаемое расширение файла')) {
+          return c.json({
+            error: 'Расширение файла не поддерживается. ' +
+                   'Используйте файлы с расширениями: .jpg, .png, .webp, .avif, .mp4, .webm, .mov, .avi.'
+          }, 400);
+        }
+      }
+
+      return c.json({ error: 'Ошибка при обработке файлов. Проверьте, что все файлы являются корректными изображениями или видео.' }, 400);
+    }
 
     const optionsToCreate: Omit<VotingOption, 'id'>[] = uploaded.map((upload, index) => ({
       voting_id: votingId,
@@ -233,7 +265,16 @@ votingRoutes.post('/votings', async (c) => {
     });
   } catch (error) {
     logger.error('Ошибка создания голосования:', error);
-    return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
+
+    // Для отладки в development режиме показываем детали ошибки
+    if (process.env.NODE_ENV === 'development' && error instanceof Error) {
+      return c.json({
+        error: 'Ошибка при создании голосования',
+        details: error.message
+      }, 500);
+    }
+
+    return c.json({ error: 'Произошла ошибка при создании голосования. Попробуйте еще раз.' }, 500);
   }
 });
 

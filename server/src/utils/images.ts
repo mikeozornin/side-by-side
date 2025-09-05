@@ -6,6 +6,7 @@ import { logger } from './logger.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import sharp from 'sharp';
+import { fileTypeFromBuffer } from 'file-type';
 
 const execAsync = promisify(exec);
 const DATA_DIR = process.env.DATA_DIR || './data';
@@ -70,11 +71,20 @@ async function uploadImagesSync(votingId: string, files: File[]): Promise<Upload
       throw new Error(`Неподдерживаемое расширение файла: ${extension}`);
     }
 
-    // Определяем тип медиафайла
-    const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
-
     // Читаем содержимое файла
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Проверяем реальный MIME тип файла по содержимому
+    const detectedFileType = await fileTypeFromBuffer(buffer);
+    if (!detectedFileType) {
+      throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Файл поврежден или имеет неизвестный формат. Разрешены только: JPG, PNG, WebP, AVIF, MP4, WebM, MOV, AVI.`);
+    }
+    if (!ALLOWED_MIME_TYPES.includes(detectedFileType.mime)) {
+      throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Обнаружен тип: ${detectedFileType.mime}. Разрешены только: JPG, PNG, WebP, AVIF, MP4, WebM, MOV, AVI.`);
+    }
+
+    // Определяем тип медиафайла на основе реального MIME типа
+    const mediaType = detectedFileType.mime.startsWith('video/') ? 'video' : 'image';
 
     // Создаем хэш для имени файла
     const hash = createHash('sha256').update(buffer).digest('hex');
