@@ -180,7 +180,7 @@ export function VotingList() {
                   <Link key={voting.id} to={`/v/${voting.id}`} className="block">
                     <Card 
                       className={`transition-all hover:bg-muted cursor-pointer ${
-                        hasVoted(voting.id) ? 'opacity-60 grayscale' : ''
+                        hasVoted(voting.id) ? 'opacity-60' : ''
                       }`}
                     >
                       <CardHeader>
@@ -211,18 +211,19 @@ export function VotingList() {
                                 width={voting.image1_width}
                                 height={voting.image1_height}
                                 pixelRatio={voting.image1_pixel_ratio}
-                                fit="cover"
+                                fit="contain"
                                 alt={t('voting.option1') as string}
+                                style={{ width: '100%', height: '100%', objectPosition: 'left top' }}
                               />
                             ) : (
                               <VideoPlayer
                                 src={`/api/images/${voting.image1_path.split('/').pop()}`}
                                 width={voting.image1_width}
                                 height={voting.image1_height}
-                                fit="cover"
+                                fit="contain"
                                 controls={false}
                                 muted={true}
-                                className="w-full h-full"
+                                className="w-full h-full object-left-top"
                               />
                             )}
                           </div>
@@ -239,18 +240,19 @@ export function VotingList() {
                                 width={voting.image2_width}
                                 height={voting.image2_height}
                                 pixelRatio={voting.image2_pixel_ratio}
-                                fit="cover"
+                                fit="contain"
                                 alt={t('voting.option2') as string}
+                                style={{ width: '100%', height: '100%', objectPosition: 'right bottom' }}
                               />
                             ) : (
                               <VideoPlayer
                                 src={`/api/images/${voting.image2_path.split('/').pop()}`}
                                 width={voting.image2_width}
                                 height={voting.image2_height}
-                                fit="cover"
+                                fit="contain"
                                 controls={false}
                                 muted={true}
-                                className="w-full h-full"
+                                className="w-full h-full object-right-bottom"
                               />
                             )}
                           </div>
@@ -319,20 +321,24 @@ export function VotingList() {
                             }}
                           >
                             {voting.image1_media_type === 'image' ? (
-                              <img
+                              <HiDPIImage
                                 src={`/api/images/${voting.image1_path.split('/').pop()}`}
-                                alt={t('voting.option1')}
-                                className="w-full h-full object-cover"
+                                width={voting.image1_width}
+                                height={voting.image1_height}
+                                pixelRatio={voting.image1_pixel_ratio}
+                                fit="contain"
+                                alt={t('voting.option1') as string}
+                                style={{ width: '100%', height: '100%', objectPosition: 'left top' }}
                               />
                             ) : (
                               <VideoPlayer
                                 src={`/api/images/${voting.image1_path.split('/').pop()}`}
                                 width={voting.image1_width}
                                 height={voting.image1_height}
-                                fit="cover"
+                                fit="contain"
                                 controls={false}
                                 muted={true}
-                                className="w-full h-full"
+                                className="w-full h-full object-left-top"
                               />
                             )}
                           </div>
@@ -344,20 +350,24 @@ export function VotingList() {
                             }}
                           >
                             {voting.image2_media_type === 'image' ? (
-                              <img
+                              <HiDPIImage
                                 src={`/api/images/${voting.image2_path.split('/').pop()}`}
-                                alt={t('voting.option2')}
-                                className="w-full h-full object-cover"
+                                width={voting.image2_width}
+                                height={voting.image2_height}
+                                pixelRatio={voting.image2_pixel_ratio}
+                                fit="contain"
+                                alt={t('voting.option2') as string}
+                                style={{ width: '100%', height: '100%', objectPosition: 'right bottom' }}
                               />
                             ) : (
                               <VideoPlayer
                                 src={`/api/images/${voting.image2_path.split('/').pop()}`}
                                 width={voting.image2_width}
                                 height={voting.image2_height}
-                                fit="cover"
+                                fit="contain"
                                 controls={false}
                                 muted={true}
-                                className="w-full h-full"
+                                className="w-full h-full object-right-bottom"
                               />
                             )}
                           </div>
