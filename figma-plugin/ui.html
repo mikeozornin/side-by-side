@@ -245,7 +245,7 @@
 
     <div class="form-group">
       <label class="label" for="title">Question</label>
-      <input type="text" id="title" class="input" maxlength="100" />
+      <input type="text" id="title" class="input" maxlength="100" autofocus />
     </div>
 
     <div class="form-group">
@@ -576,6 +576,13 @@
       loadSettings(); // Load saved settings first
       setupEventListeners();
       updateCreateButtonState();
+      
+      // Set focus to title input after a short delay to ensure it's ready
+      setTimeout(function() {
+        if (titleInput) {
+          titleInput.focus();
+        }
+      }, 100);
     });
   </script>
 </body>
