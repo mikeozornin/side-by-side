@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, X, Check, Medal, Clock, Share } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,6 +23,7 @@ interface Voting {
   title: string
   created_at: string
   end_at: string
+  isPublic: boolean
   options: VotingOption[]
 }
 
@@ -43,6 +44,7 @@ export function VotingPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const [voting, setVoting] = useState<Voting | null>(null)
   const [results, setResults] = useState<Results | null>(null)
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null)
@@ -51,6 +53,7 @@ export function VotingPage() {
   const [error, setError] = useState('')
   const [hasVoted, setHasVoted] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [notificationShown, setNotificationShown] = useState(false)
 
   const shuffledOptions = useMemo(() => {
     if (!voting) return []
@@ -102,6 +105,18 @@ export function VotingPage() {
       checkVotedStatus()
     }
   }, [id])
+
+  // Показываем уведомление для приватных голосований
+  useEffect(() => {
+    // Проверяем, пришли ли мы с CreateVoting с информацией о приватности
+    const isPrivateFromNavigation = location.state?.isPrivate
+    if (isPrivateFromNavigation && !notificationShown) {
+      toast.info(t('createVoting.privateVotingNotification'), {
+        duration: 10000 // 10 секунд вместо стандартных 4
+      })
+      setNotificationShown(true)
+    }
+  }, [location.state, t, notificationShown])
 
   useEffect(() => {
     const timer = setInterval(() => {
