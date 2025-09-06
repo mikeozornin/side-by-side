@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, X, Check, Medal, Clock, Share } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -54,6 +54,10 @@ export function VotingPage() {
   const [hasVoted, setHasVoted] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [notificationShown, setNotificationShown] = useState(false)
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [showLeftShadow, setShowLeftShadow] = useState(false)
+  const [showRightShadow, setShowRightShadow] = useState(false)
 
   const shuffledOptions = useMemo(() => {
     if (!voting) return []
@@ -143,6 +147,34 @@ export function VotingPage() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [finished, hasVoted, selectedChoice])
+
+  const checkScroll = () => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
+      const tolerance = 1
+      setShowLeftShadow(scrollLeft > tolerance)
+      setShowRightShadow(scrollLeft < scrollWidth - clientWidth - tolerance)
+    }
+  }
+
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (container) {
+      // Use a timeout to ensure layout is stable after options render
+      const timer = setTimeout(() => {
+        checkScroll()
+      }, 100)
+
+      container.addEventListener('scroll', checkScroll)
+      window.addEventListener('resize', checkScroll)
+
+      return () => {
+        clearTimeout(timer)
+        container.removeEventListener('scroll', checkScroll)
+        window.removeEventListener('resize', checkScroll)
+      }
+    }
+  }, [shuffledOptions])
 
   const fetchVoting = async () => {
     try {
@@ -284,7 +316,7 @@ export function VotingPage() {
               className="gap-2"
             >
               <Share className="h-4 w-4" />
-              {t('voting.share')}
+              <span className="hidden sm:inline">{t('voting.share')}</span>
             </Button>
             <Button
               variant="ghost"
@@ -299,78 +331,82 @@ export function VotingPage() {
 
       <div className="flex-1 max-w-none mx-auto px-6 w-full overflow-hidden">
         <div className="h-full flex flex-col">
-          <div className="flex-1 flex items-center gap-6 mb-6 overflow-x-auto pb-4 scrollbar-adaptive">
-            {shuffledOptions.map((option) => {
-              const result = results?.results.find(r => r.option_id === option.id)
-              
-              return (
-                <div key={option.id} className="flex flex-col h-full flex-shrink-0 w-full md:w-1/2 lg:w-1/3">
-                  <div className="flex-1">
-                    <Card 
-                      className={`h-full transition-all duration-300 ${
-                        !finished ? 'cursor-pointer' : ''
-                      } ${selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
-                      } ${finished && results && (results.winner === 'tie' || (typeof results.winner === 'number' && results.winner !== option.id)) ? 'opacity-50 grayscale' : ''}`}
-                      onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
-                    >
-                      <CardContent className="p-0 h-full">
-                        <div className="relative h-full">
-                          <div className="w-full h-full flex items-center justify-center p-0.5">
-                            {option.media_type === 'image' ? (
-                              <HiDPIImage
-                                src={getImageUrl(option.file_path)}
-                                width={option.width}
-                                height={option.height}
-                                pixelRatio={option.pixel_ratio}
-                                fit="contain"
-                                alt={`Вариант ${option.id}`}
-                                className="max-w-full max-h-full object-contain shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]"
-                              />
-                            ) : (
-                              <VideoPlayer
-                                src={getImageUrl(option.file_path)}
-                                width={option.width}
-                                height={option.height}
-                                fit="contain"
-                                autoPlay={true}
-                                loop={true}
-                                muted={true}
-                                className="max-w-full max-h-full shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]"
-                              />
+          <div className="flex-1 relative mb-6">
+            {showLeftShadow && <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-10" />}
+            <div ref={scrollContainerRef} className="h-full flex items-center gap-6 overflow-x-auto pb-4 scrollbar-adaptive">
+              {shuffledOptions.map((option) => {
+                const result = results?.results.find(r => r.option_id === option.id)
+                
+                return (
+                  <div key={option.id} className="flex flex-col h-full flex-shrink-0 w-full md:w-1/2 lg:w-1/3">
+                    <div className="flex-1">
+                      <Card 
+                        className={`h-full transition-all duration-300 ${
+                          !finished ? 'cursor-pointer' : ''
+                        } ${selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
+                        } ${finished && results && (results.winner === 'tie' || (typeof results.winner === 'number' && results.winner !== option.id)) ? 'opacity-50 grayscale' : ''}`}
+                        onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
+                      >
+                        <CardContent className="p-0 h-full">
+                          <div className="relative h-full">
+                            <div className="w-full h-full flex items-center justify-center p-0.5">
+                              {option.media_type === 'image' ? (
+                                <HiDPIImage
+                                  src={getImageUrl(option.file_path)}
+                                  width={option.width}
+                                  height={option.height}
+                                  pixelRatio={option.pixel_ratio}
+                                  fit="contain"
+                                  alt={`Вариант ${option.id}`}
+                                  className="max-w-full max-h-full object-contain shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]"
+                                />
+                              ) : (
+                                <VideoPlayer
+                                  src={getImageUrl(option.file_path)}
+                                  width={option.width}
+                                  height={option.height}
+                                  fit="contain"
+                                  autoPlay={true}
+                                  loop={true}
+                                  muted={true}
+                                  className="max-w-full max-h-full shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]"
+                                />
+                              )}
+                            </div>
+                            {selectedChoice === option.id && !finished && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <Check className="h-60 w-60 text-primary stroke-[0.5]" />
+                              </div>
+                            )}
+                            {selectedChoice === option.id && finished && (
+                              <div className="absolute top-4 left-4">
+                                <Check className="h-6 w-6 text-primary" />
+                              </div>
+                            )}
+                            {results && results.winner === option.id && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="bg-green-500 rounded-full p-8">
+                                  <Medal className="h-40 w-40 text-white stroke-[0.5]" />
+                                </div>
+                              </div>
                             )}
                           </div>
-                          {selectedChoice === option.id && !finished && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <Check className="h-60 w-60 text-primary stroke-[0.5]" />
-                            </div>
-                          )}
-                          {selectedChoice === option.id && finished && (
-                            <div className="absolute top-4 left-4">
-                              <Check className="h-6 w-6 text-primary" />
-                            </div>
-                          )}
-                          {results && results.winner === option.id && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="bg-green-500 rounded-full p-8">
-                                <Medal className="h-40 w-40 text-white stroke-[0.5]" />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                  {results && result && (
-                    <div className="mt-4 text-center">
-                      <div className="text-2xl font-bold">{result.percentage}%</div>
-                      <div className="text-sm text-muted-foreground">
-                        {t('votes', { count: result.count })}
-                      </div>
+                        </CardContent>
+                      </Card>
                     </div>
-                  )}
-                </div>
-              )
-            })}
+                    {results && result && (
+                      <div className="mt-4 text-center">
+                        <div className="text-2xl font-bold">{result.percentage}%</div>
+                        <div className="text-sm text-muted-foreground">
+                          {t('votes', { count: result.count })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            {showRightShadow && <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-10" />}
           </div>
 
           {error && (
@@ -382,14 +418,14 @@ export function VotingPage() {
               <Button
                 onClick={handleVote}
                 disabled={selectedChoice === null || votingLoading}
-                className="w-full h-40 text-xl font-semibold"
+                className="w-full h-20 sm:h-40 text-xl font-semibold"
               >
                 {votingLoading ? t('voting.votingInProgress') : t('voting.confirmChoice')}
               </Button>
             )}
 
             {hasVoted && !finished && (
-              <div className="w-full h-40 flex items-center justify-center">
+              <div className="w-full h-20 sm:h-40 flex items-center justify-center">
                 <p className="text-foreground text-center">{t('voting.voteCounted')}</p>
               </div>
             )}
