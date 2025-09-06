@@ -290,8 +290,9 @@ async function handleSaveSettings(settings) {
   }
 }
 
-async function handleVerifyAuthCode(data) {
+async function handleLogin(data) {
   try {
+    console.log('Starting login process with data:', data);
     var authCode = data.authCode;
     var serverUrl = data.serverUrl;
     
@@ -301,6 +302,12 @@ async function handleVerifyAuthCode(data) {
     
     var urls = getApiAndClientUrls(serverUrl);
     var apiUrl = urls.apiUrl;
+    console.log('API URL:', apiUrl);
+    
+    var requestBody = {
+      code: authCode
+    };
+    console.log('Request body:', requestBody);
     
     var response = await fetch(apiUrl + '/auth/figma-verify', {
       method: 'POST',
@@ -308,39 +315,99 @@ async function handleVerifyAuthCode(data) {
         'Content-Type': 'application/json',
         'X-Figma-Plugin': 'SideBySide/1.0'
       },
-      body: JSON.stringify({
-        code: authCode
-      })
+      body: JSON.stringify(requestBody)
     });
+    
+    console.log('Response status:', response.status);
     
     if (!response.ok) {
       var errorData = {};
-      try { errorData = await response.json(); } catch (e) {}
+      try { 
+        errorData = await response.json(); 
+        console.log('Error response data:', errorData);
+      } catch (e) {
+        console.log('Failed to parse error response:', e);
+      }
       throw new Error(errorData.error || ('HTTP error: ' + response.status));
     }
     
     var result = await response.json();
     var accessToken = result.accessToken;
+    var refreshToken = result.refreshToken;
+    var user = result.user;
     
     if (!accessToken) {
       throw new Error('Invalid response from server');
     }
     
-    // Store access token for future use
+    // Store access token, refresh token and user data for future use
     await figma.clientStorage.setAsync('figma-plugin-access-token', accessToken);
-    console.log('Access token stored successfully');
+    if (refreshToken) {
+      await figma.clientStorage.setAsync('figma-plugin-refresh-token', refreshToken);
+    }
+    if (user) {
+      await figma.clientStorage.setAsync('figma-plugin-user', JSON.stringify(user));
+    }
+    await figma.clientStorage.setAsync('figma-plugin-server-url', serverUrl);
+    console.log('Access token, refresh token and user data stored successfully');
     
     figma.ui.postMessage({
-      type: 'auth-verified',
-      message: 'Authentication successful!'
+      type: 'login-success',
+      message: 'Login successful!',
+      user: user,
+      serverUrl: serverUrl
     });
     
   } catch (error) {
-    console.error('Auth verification error:', error);
+    console.error('Login error:', error);
     figma.ui.postMessage({
-      type: 'auth-error',
-      message: (error && error.message) ? error.message : 'Authentication failed'
+      type: 'login-error',
+      message: (error && error.message) ? error.message : 'Login failed'
     });
+  }
+}
+
+async function handleCheckAuthStatus() {
+  try {
+    var accessToken = await figma.clientStorage.getAsync('figma-plugin-access-token');
+    var user = await figma.clientStorage.getAsync('figma-plugin-user');
+    var serverUrl = await figma.clientStorage.getAsync('figma-plugin-server-url');
+    
+    if (accessToken && user && serverUrl) {
+      figma.ui.postMessage({
+        type: 'auth-status',
+        authenticated: true,
+        user: JSON.parse(user),
+        serverUrl: serverUrl
+      });
+    } else {
+      figma.ui.postMessage({
+        type: 'auth-status',
+        authenticated: false
+      });
+    }
+  } catch (error) {
+    console.error('Auth status check error:', error);
+    figma.ui.postMessage({
+      type: 'auth-status',
+      authenticated: false
+    });
+  }
+}
+
+async function handleLogout() {
+  try {
+    await figma.clientStorage.deleteAsync('figma-plugin-access-token');
+    await figma.clientStorage.deleteAsync('figma-plugin-refresh-token');
+    await figma.clientStorage.deleteAsync('figma-plugin-user');
+    console.log('Logged out successfully');
+    
+    figma.ui.postMessage({
+      type: 'logout-success',
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
   }
 }
 
@@ -366,8 +433,14 @@ figma.ui.onmessage = async function (msg) {
       case 'save-settings':
         await handleSaveSettings(msg.settings);
         break;
-      case 'verify-auth-code':
-        await handleVerifyAuthCode(msg.data);
+      case 'login':
+        await handleLogin(msg.data);
+        break;
+      case 'check-auth-status':
+        await handleCheckAuthStatus();
+        break;
+      case 'logout':
+        await handleLogout();
         break;
     }
   } catch (e) {

@@ -302,8 +302,7 @@ authRoutes.post('/figma-verify', figmaPluginMiddleware, async (c) => {
       return c.json({ error: 'Code is required' }, 400);
     }
     
-    const codeHash = await hashToken(code);
-    const { user, success } = verifyAndUseFigmaCode(codeHash);
+    const { user, success } = await verifyAndUseFigmaCode(code);
     
     if (!success || !user) {
       return c.json({ error: 'Invalid or expired code' }, 400);
@@ -321,13 +320,7 @@ authRoutes.post('/figma-verify', figmaPluginMiddleware, async (c) => {
     const accessToken = createAccessToken({ userId: user.id, email: user.email });
     
     // Устанавливаем refresh token в HttpOnly cookie
-    c.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 365 * 24 * 60 * 60,
-      path: '/'
-    });
+    c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${365 * 24 * 60 * 60}; Path=/`);
     
     return c.json({
       accessToken,

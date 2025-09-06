@@ -31,7 +31,13 @@
     "option1": "Вариант 1",
     "option2": "Вариант 2",
     "share": "Поделиться",
-    "linkCopied": "Ссылка скопирована"
+    "linkCopied": "Ссылка скопирована",
+    "timeRemaining": {
+      "days": "{{days}}д {{hours}}ч {{minutes}}м",
+      "hours": "{{hours}}ч {{minutes}}м {{seconds}}с",
+      "minutes": "{{minutes}}м {{seconds}}с",
+      "seconds": "{{seconds}}с"
+    }
   },
   "dropzone": {
     "uploadFile": "Загрузите файлы",

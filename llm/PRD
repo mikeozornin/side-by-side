@@ -117,3 +117,42 @@
 ## Прочее
 - Локализуемость заложить; стартовая локаль — русская.
 - Open Graph теги не требуются. Rate limit не включаем.
+
+## Система авторизации
+
+### Роли и доступ
+- **Авторы** (требуют авторизации): создание и удаление голосований
+- **Голосующие** (анонимные): участие в голосованиях без регистрации
+- **Figma плагин**: авторизация через код с веб-страницы
+
+### Аутентификация
+- **Magic Link** (веб): email → письмо со ссылкой → автоматическая авторизация
+- **Pairing Code** (Figma): веб-страница генерирует код → ввод в плагин → авторизация
+- **Сессии**: JWT access token (15 мин) + refresh token (30 дней, HttpOnly cookie)
+- **Dev режим**: автоматическая авторизация без отправки email при `NODE_ENV=development`
+
+### API эндпоинты авторизации
+- `POST /api/auth/magic-link` — запрос magic link
+- `POST /api/auth/verify-token` — верификация magic link
+- `POST /api/auth/refresh` — обновление access token
+- `POST /api/auth/logout` — выход из системы
+- `GET /api/auth/figma-code` — генерация кода для Figma
+- `POST /api/auth/figma-verify` — верификация кода Figma
+
+### Защищенные эндпоинты
+- `POST /api/votings` — создание голосования (требует авторизации)
+- `DELETE /api/votings/:id` — удаление голосования (только автор)
+
+### База данных (дополнительные таблицы)
+- `users(id, email, created_at)` — пользователи
+- `sessions(id, user_id, refresh_token_hash, expires_at, created_at)` — сессии
+- `magic_tokens(token_hash, email, expires_at, created_at)` — токены magic link
+- `figma_auth_codes(code_hash, user_id, expires_at, created_at)` — коды для Figma
+- `votings.user_id` — связь голосования с автором
+
+### Безопасность
+- Refresh token ротация при каждом обновлении
+- Хеширование токенов в БД (bcrypt)
+- HttpOnly cookies для refresh token
+- Валидация Figma плагина через заголовок `X-Figma-Plugin`
+- Защита от CSRF через SameSite cookies
