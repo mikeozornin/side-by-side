@@ -26,6 +26,7 @@ export interface Voting {
   duration_hours: number;
   is_public: boolean;
   user_id: string | null;
+  user_email?: string | null;
 }
 
 export interface VotingOption {
@@ -44,6 +45,7 @@ export interface Vote {
   voting_id: string;
   option_id: number;
   created_at: string;
+  user_id?: string | null;
 }
 
 // Функции для работы с голосованиями
@@ -57,7 +59,12 @@ export function createVoting(voting: Omit<Voting, 'id'>): string {
 }
 
 export function getVoting(id: string): Voting | undefined {
-  return getQuery<Voting>('SELECT * FROM votings WHERE id = ?', [id]);
+  return getQuery<Voting>(`
+    SELECT v.*, u.email as user_email 
+    FROM votings v 
+    LEFT JOIN users u ON v.user_id = u.id 
+    WHERE v.id = ?
+  `, [id]);
 }
 
 export function getAllVotings(): Voting[] {
@@ -93,8 +100,8 @@ export function getVotingOptions(votingId: string): VotingOption[] {
 // Функции для работы с голосами
 export function createVote(vote: Omit<Vote, 'id'>): number {
   const result = runQuery<{ lastInsertRowid: number }>(
-    'INSERT INTO votes (voting_id, option_id, created_at) VALUES (?, ?, ?)',
-    [vote.voting_id, vote.option_id, vote.created_at]
+    'INSERT INTO votes (voting_id, option_id, created_at, user_id) VALUES (?, ?, ?, ?)',
+    [vote.voting_id, vote.option_id, vote.created_at, vote.user_id || null]
   );
   return result.lastInsertRowid;
 }

@@ -15,7 +15,7 @@ interface AuthContextType {
   login: (accessToken: string, user: User) => void;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
-  checkAuthMode: () => Promise<void>;
+  checkAuthMode: () => Promise<{ authMode: 'anonymous' | 'magic-links'; isAnonymous: boolean }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

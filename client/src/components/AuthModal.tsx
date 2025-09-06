@@ -9,9 +9,10 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   returnTo?: string;
+  onSuccess?: () => void;
 }
 
-export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, returnTo, onSuccess }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -45,6 +46,11 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
         if (data.accessToken && data.user) {
           login(data.accessToken, data.user);
           onClose();
+          
+          // Вызываем callback успешной авторизации
+          if (onSuccess) {
+            onSuccess();
+          }
           
           // Перенаправляем на нужную страницу
           if (data.returnTo) {
@@ -83,6 +89,11 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
         const data = await response.json();
         login(data.accessToken, data.user);
         onClose();
+        
+        // Вызываем callback успешной авторизации
+        if (onSuccess) {
+          onSuccess();
+        }
         
         // Перенаправляем на нужную страницу
         if (returnTo) {

@@ -4,7 +4,7 @@ import { logger } from '../utils/logger.js';
 import { uploadImages } from '../utils/images.js';
 import { NotificationService } from '../notifications/index.js';
 import { createVotingLimiter, createVotingHourlyLimiter } from '../utils/rateLimit.js';
-import { requireAuth, requireVotingOwner, AuthContext } from '../middleware/auth.js';
+import { requireAuth, requireVotingOwner, requireVotingAuth, AuthContext } from '../middleware/auth.js';
 import { 
   createVoting, 
   getVoting, 
@@ -346,7 +346,7 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, re
 });
 
 // POST /api/votings/:id/vote - голосование
-votingRoutes.post('/votings/:id/vote', async (c) => {
+votingRoutes.post('/votings/:id/vote', requireVotingAuth, async (c: AuthContext) => {
   try {
     const id = c.req.param('id');
     const { optionId } = await c.req.json();
@@ -372,7 +372,8 @@ votingRoutes.post('/votings/:id/vote', async (c) => {
     createVote({
       voting_id: id,
       option_id: optionId,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      user_id: c.user?.id || null
     });
 
     return c.json({ success: true });
