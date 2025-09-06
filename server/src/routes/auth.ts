@@ -62,9 +62,10 @@ authRoutes.post('/magic-link', async (c) => {
     // Логируем переменную окружения для отладки
     console.log('NODE_ENV:', env.NODE_ENV);
     console.log('BUN_ENV:', env.BUN_ENV);
+    console.log('AUTO_APPROVE_SESSIONS:', env.AUTO_APPROVE_SESSIONS);
     
-    // В dev режиме автоматически авторизуем пользователя
-    if (env.NODE_ENV === 'development') {
+    // Автоматически авторизуем пользователя если включен автоапрув
+    if (env.AUTO_APPROVE_SESSIONS) {
       const accessToken = createAccessToken({ userId: user.id, email: user.email });
       const sessionId = generateId();
       const refreshToken = createRefreshToken({ sessionId, userId: user.id });
@@ -81,7 +82,7 @@ authRoutes.post('/magic-link', async (c) => {
       c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}`);
       
       return c.json({ 
-        message: 'Auto-login in development mode',
+        message: 'Auto-login enabled',
         accessToken,
         refreshToken,
         user,
@@ -142,13 +143,7 @@ authRoutes.post('/verify-token', async (c) => {
     const accessToken = createAccessToken({ userId: user.id, email: user.email });
     
     // Устанавливаем refresh token в HttpOnly cookie
-    c.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 365 * 24 * 60 * 60, // 1 год
-      path: '/'
-    });
+    c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${365 * 24 * 60 * 60}; Path=/`);
     
     return c.json({
       accessToken,
@@ -169,7 +164,8 @@ authRoutes.post('/verify-token', async (c) => {
 authRoutes.post('/refresh', async (c) => {
   try {
     // Try to get refresh token from cookie first, then from body
-    let refreshToken = c.req.header('Cookie')?.split(';')
+    const cookieHeader = c.req.header('Cookie');
+    let refreshToken = cookieHeader?.split(';')
       .find(cookie => cookie.trim().startsWith('refreshToken='))
       ?.split('=')[1];
     
@@ -249,7 +245,11 @@ authRoutes.post('/refresh', async (c) => {
 // POST /api/auth/logout - Выход из системы
 authRoutes.post('/logout', async (c) => {
   try {
-    const refreshToken = c.req.cookie('refreshToken');
+    // Получаем refresh token из cookie используя парсинг заголовка
+    const cookieHeader = c.req.header('Cookie');
+    const refreshToken = cookieHeader?.split(';')
+      .find(cookie => cookie.trim().startsWith('refreshToken='))
+      ?.split('=')[1];
     
     if (refreshToken) {
       const payload = verifyRefreshToken(refreshToken);
@@ -258,14 +258,8 @@ authRoutes.post('/logout', async (c) => {
       }
     }
     
-    // Очищаем cookie
-    c.cookie('refreshToken', '', {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 0,
-      path: '/'
-    });
+    // Очищаем cookie через заголовок Set-Cookie
+    c.header('Set-Cookie', `refreshToken=; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Strict; Max-Age=0; Path=/`);
     
     return c.json({ message: 'Logged out successfully' });
     
