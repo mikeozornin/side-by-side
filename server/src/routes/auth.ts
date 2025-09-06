@@ -20,7 +20,8 @@ import {
   deleteSession,
   createFigmaCode,
   verifyAndUseFigmaCode,
-  getUserById
+  getUserById,
+  cleanupFigmaCodes
 } from '../db/auth-queries.js';
 import { env } from '../load-env.js';
 
@@ -365,5 +366,34 @@ authRoutes.post('/figma-verify', figmaPluginMiddleware, async (c) => {
   } catch (error) {
     console.error('Error verifying Figma code:', error);
     return c.json({ error: 'Failed to verify code' }, 500);
+  }
+});
+
+// POST /api/auth/cleanup-figma-codes - Очистка истекших кодов Figma (требует авторизации)
+authRoutes.post('/cleanup-figma-codes', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return c.json({ error: 'Authorization required' }, 401);
+    }
+    
+    const accessToken = authHeader.substring(7);
+    const payload = verifyAccessToken(accessToken);
+    
+    if (!payload) {
+      return c.json({ error: 'Invalid access token' }, 401);
+    }
+    
+    // Очищаем коды
+    const deletedCount = cleanupFigmaCodes();
+    
+    return c.json({
+      message: 'Cleanup completed',
+      deletedCodes: deletedCount
+    });
+    
+  } catch (error) {
+    console.error('Error cleaning up Figma codes:', error);
+    return c.json({ error: 'Failed to cleanup codes' }, 500);
   }
 });

@@ -10,7 +10,6 @@ import VideoPlayer from '@/components/ui/VideoPlayer'
 import { getMediaType, getMediaDimensions, parsePixelRatioFromName } from '@/lib/mediaUtils'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
-import { AuthButton } from '@/components/AuthButton'
 
 interface MediaFile {
   file: File;
@@ -31,7 +30,6 @@ export function CreateVoting() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-  const [createdVotingId, setCreatedVotingId] = useState<string | null>(null)
   const navigate = useNavigate()
   const titleInputRef = useRef<HTMLInputElement>(null)
 
@@ -90,7 +88,6 @@ export function CreateVoting() {
   const handleDrop = async (acceptedFiles: File[]) => {
     setError('')
     setSuccess(false)
-    setCreatedVotingId(null)
     const newMediaFiles: MediaFile[] = [...mediaFiles]
 
     for (const file of acceptedFiles) {
@@ -235,9 +232,7 @@ export function CreateVoting() {
           state: { isPrivate: !isPublic } 
         })
       } else {
-        // Если пользователь не авторизован, сохраняем ID голосования
-        // и показываем сообщение с кнопкой входа
-        setCreatedVotingId(data.voting.id)
+        // Если пользователь не авторизован, показываем сообщение с кнопкой входа
         setError('') // Очищаем ошибки
         setSuccess(true)
         // Очищаем форму после успешного создания

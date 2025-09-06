@@ -64,6 +64,7 @@ export function Settings() {
     }
   };
 
+
   // Автоматически генерируем код при загрузке страницы
   useEffect(() => {
     if (accessToken && !figmaCode) {

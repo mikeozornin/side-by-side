@@ -15,7 +15,7 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const { login, isAnonymous, authMode } = useAuth();
+  const { login, isAnonymous } = useAuth();
   const emailInputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
 
