@@ -49,9 +49,10 @@ export interface Voting {
   created_at: string;
   end_at: string;
   duration_hours: number;
+  is_public: boolean;
 }
 
-export interface VotingImage {
+export interface VotingOption {
   id: number;
   voting_id: string;
   file_path: string;
@@ -65,7 +66,7 @@ export interface VotingImage {
 export interface Vote {
   id: number;
   voting_id: string;
-  choice: number;
+  option_id: number;
   created_at: string;
 }
 
@@ -73,8 +74,8 @@ export interface Vote {
 export async function createVoting(voting: Omit<Voting, 'id'>): Promise<string> {
   const id = uuidv4();
   await runQuery(
-    'INSERT INTO votings (id, title, created_at, end_at, duration_hours) VALUES (?, ?, ?, ?, ?)',
-    [id, voting.title, voting.created_at, voting.end_at, voting.duration_hours]
+    'INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, voting.title, voting.created_at, voting.end_at, voting.duration_hours, voting.is_public]
   );
   return id;
 }
@@ -87,19 +88,23 @@ export async function getAllVotings(): Promise<Voting[]> {
   return allQuery<Voting>('SELECT * FROM votings ORDER BY created_at DESC');
 }
 
-// Функции для работы с изображениями
-export async function createVotingImages(images: Omit<VotingImage, 'id'>[]): Promise<void> {
-  for (const image of images) {
+export async function getPublicVotings(): Promise<Voting[]> {
+  return allQuery<Voting>('SELECT * FROM votings WHERE is_public = 1 ORDER BY created_at DESC');
+}
+
+// Функции для работы с вариантами голосования
+export async function createVotingOptions(options: Omit<VotingOption, 'id'>[]): Promise<void> {
+  for (const option of options) {
     await runQuery(
-      'INSERT INTO voting_images (voting_id, file_path, sort_order, pixel_ratio, width, height, media_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [image.voting_id, image.file_path, image.sort_order, image.pixel_ratio, image.width, image.height, image.media_type]
+      'INSERT INTO voting_options (voting_id, file_path, sort_order, pixel_ratio, width, height, media_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [option.voting_id, option.file_path, option.sort_order, option.pixel_ratio, option.width, option.height, option.media_type]
     );
   }
 }
 
-export async function getVotingImages(votingId: string): Promise<VotingImage[]> {
-  return allQuery<VotingImage>(
-    'SELECT * FROM voting_images WHERE voting_id = ? ORDER BY sort_order',
+export async function getVotingOptions(votingId: string): Promise<VotingOption[]> {
+  return allQuery<VotingOption>(
+    'SELECT * FROM voting_options WHERE voting_id = ? ORDER BY sort_order',
     [votingId]
   );
 }
@@ -107,8 +112,8 @@ export async function getVotingImages(votingId: string): Promise<VotingImage[]> 
 // Функции для работы с голосами
 export async function createVote(vote: Omit<Vote, 'id'>): Promise<number> {
   const result = await runQuery<{ lastID: number }>(
-    'INSERT INTO votes (voting_id, choice, created_at) VALUES (?, ?, ?)',
-    [vote.voting_id, vote.choice, vote.created_at]
+    'INSERT INTO votes (voting_id, option_id, created_at) VALUES (?, ?, ?)',
+    [vote.voting_id, vote.option_id, vote.created_at]
   );
   return result.lastID;
 }
@@ -123,4 +128,11 @@ export async function getVoteCountForVoting(votingId: string): Promise<number> {
     [votingId]
   );
   return result?.count || 0;
+}
+
+export async function getVoteCounts(votingId: string): Promise<{ option_id: number; count: number }[]> {
+  return allQuery<{ option_id: number; count: number }>(
+    'SELECT option_id, COUNT(*) as count FROM votes WHERE voting_id = ? GROUP BY option_id',
+    [votingId]
+  );
 }

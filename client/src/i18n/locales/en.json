@@ -65,6 +65,14 @@
       "8h": "8 h",
       "1d": "1 day",
       "7d": "7 days"
-    }
+    },
+    "privacyOptions": {
+      "public": "Public",
+      "private": "Private"
+    },
+    "privacyLabel": "Visibility",
+    "rateLimitMinuteExceeded": "Too many voting creation requests. Please try again in a minute.",
+    "rateLimitHourExceeded": "Voting creation limit exceeded for the hour. Please try again later.",
+    "rateLimitExceeded": "Request limit exceeded. Please try again later."
   }
 }

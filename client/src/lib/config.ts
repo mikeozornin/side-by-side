@@ -1,8 +1,5 @@
 // Конфигурация клиентского приложения
 
-declare const __API_URL__: string;
-declare const __CLIENT_URL__: string;
-
 export interface ClientConfig {
   apiUrl: string;
   clientUrl: string;
@@ -23,8 +20,8 @@ class ConfigManager {
     
     if (isDev) {
       return {
-        apiUrl: __API_URL__ || 'http://localhost:3000/api',
-        clientUrl: __CLIENT_URL__ || 'http://localhost:5173',
+        apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+        clientUrl: import.meta.env.VITE_CLIENT_URL || 'http://localhost:5173',
         mode: 'development'
       };
     } else {

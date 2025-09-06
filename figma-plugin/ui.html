@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8">
-  <title>Side by side voting</title>
+  <title>Side-by-Side Voting</title>
   <style>
     *, *::before, *::after {
       box-sizing: border-box;
@@ -262,6 +262,14 @@
       </div>
     </div>
 
+    <div class="form-group">
+      <label class="label" for="privacy-options">Visibility</label>
+      <div class="duration-options" id="privacy-options">
+      <div class="duration-option selected" data-privacy="true">Public</div>
+      <div class="duration-option" data-privacy="false">Private</div>
+      </div>
+    </div>
+
     <div id="progress" class="progress">
       <div class="spinner"></div>
       <span id="progress-message">Creating voting...</span>
@@ -297,13 +305,15 @@
     var serverUrlInput = document.getElementById('server-url');
 
     var selectedDuration = 24;
+    var selectedPrivacy = true; // true = public, false = private
     var selectedElements = [];
     var currentStatus = 'ready'; // Track current selection status
 
     // Storage keys
     var STORAGE_KEYS = {
       SERVER_URL: 'figma-plugin-server-url',
-      DURATION: 'figma-plugin-duration'
+      DURATION: 'figma-plugin-duration',
+      PRIVACY: 'figma-plugin-privacy'
     };
 
     // Load settings by requesting from main script
@@ -325,6 +335,7 @@
         settings.serverUrl = serverUrlInput.value;
       }
       settings.duration = selectedDuration;
+      settings.privacy = selectedPrivacy;
 
       parent.postMessage({
         pluginMessage: {
@@ -342,6 +353,22 @@
         var option = options[i];
         var optionDuration = parseFloat(option.getAttribute('data-duration'));
         if (Math.abs(optionDuration - duration) < 0.001) {
+          option.classList.add('selected');
+        } else {
+          option.classList.remove('selected');
+        }
+      }
+    }
+
+    // Update privacy selection in UI
+    function updatePrivacySelection(privacy) {
+      var privacyOptionsEl = document.getElementById('privacy-options');
+      if (!privacyOptionsEl) return;
+      var options = privacyOptionsEl.querySelectorAll('.duration-option');
+      for (var i = 0; i < options.length; i++) {
+        var option = options[i];
+        var optionPrivacy = option.getAttribute('data-privacy') === 'true';
+        if (optionPrivacy === privacy) {
           option.classList.add('selected');
         } else {
           option.classList.remove('selected');
@@ -382,6 +409,7 @@
       }
       setupTitleSuggestions();
       setupDurationOptions();
+      setupPrivacyOptions();
     }
 
     function setupTitleSuggestions() {
@@ -408,9 +436,26 @@
       });
     }
 
+    function setupPrivacyOptions() {
+      var privacyOptionsEl = document.getElementById('privacy-options');
+      if (!privacyOptionsEl) return;
+      privacyOptionsEl.addEventListener('click', function (e) {
+        var target = e.target;
+        if (target && target.classList && target.classList.contains('duration-option')) {
+          var options = privacyOptionsEl.querySelectorAll('.duration-option');
+          for (var i = 0; i < options.length; i++) {
+            options[i].classList.remove('selected');
+          }
+          target.classList.add('selected');
+          selectedPrivacy = target.getAttribute('data-privacy') === 'true';
+          saveSettings(); // Save privacy when changed
+        }
+      });
+    }
+
     function updateCreateButtonState() {
       var hasTitle = !!(titleInput && titleInput.value && titleInput.value.trim().length > 0);
-      var hasElements = selectedElements.length === 2;
+      var hasElements = selectedElements.length >= 2 && selectedElements.length <= 10;
       var isStatusReady = currentStatus === 'ready';
       if (createButton) {
         createButton.disabled = !hasTitle || !hasElements || !isStatusReady;
@@ -424,8 +469,8 @@
         showStatus('error', 'Enter voting title');
         return;
       }
-      if (selectedElements.length !== 2) {
-        showStatus('error', 'Select exactly two elements');
+      if (selectedElements.length < 2 || selectedElements.length > 10) {
+        showStatus('error', 'Select between 2 and 10 elements');
         return;
       }
       var serverUrl = serverUrlInput && serverUrlInput.value ? serverUrlInput.value.trim() : '';
@@ -438,7 +483,7 @@
       parent.postMessage({
         pluginMessage: {
           type: 'create-voting',
-          data: { title: title, duration: selectedDuration, serverUrl: rootUrl }
+          data: { title: title, duration: selectedDuration, privacy: selectedPrivacy, serverUrl: rootUrl }
         }
       }, '*');
     }
@@ -549,6 +594,16 @@
 
     function handleError(data) {
       var message = data.message;
+      
+      // Handle rate limiting errors with localized messages
+      if (message === 'RATE_LIMIT_MINUTE_EXCEEDED') {
+        message = 'Too many voting creation requests. Please try again in a minute.';
+      } else if (message === 'RATE_LIMIT_HOUR_EXCEEDED') {
+        message = 'Voting creation limit exceeded for the hour. Please try again later.';
+      } else if (message === 'RATE_LIMIT_EXCEEDED') {
+        message = 'Request limit exceeded. Please try again later.';
+      }
+      
       showStatus('error', message);
       hideProgress();
     }
@@ -568,6 +623,13 @@
         selectedDuration = parseFloat(settings.duration);
         updateDurationSelection(selectedDuration);
         console.log('Set duration to:', selectedDuration);
+      }
+
+      // Load privacy
+      if (settings.privacy !== undefined) {
+        selectedPrivacy = settings.privacy === true || settings.privacy === 'true';
+        updatePrivacySelection(selectedPrivacy);
+        console.log('Set privacy to:', selectedPrivacy);
       }
     }
 

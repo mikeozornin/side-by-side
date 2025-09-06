@@ -27,13 +27,11 @@ i18n
     },
     
     detection: {
-      order: ['navigator', 'htmlTag'],
-      checkWhitelist: true
+      order: ['navigator', 'htmlTag']
     },
     
     // Поддерживаемые языки
     supportedLngs: ['en', 'ru'],
-    whitelist: ['en', 'ru'],
     
     // Настройки для правильного склонения
     pluralSeparator: '_',

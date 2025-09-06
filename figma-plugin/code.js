@@ -113,29 +113,20 @@ function simpleBase64Encode(data) {
 function handleSelectionCheck() {
   var selection = figma.currentPage.selection;
 
-  if (selection.length === 0) {
+  if (selection.length < 2) {
     figma.ui.postMessage({
       type: 'selection-status',
-      status: 'none',
-      message: 'Select two frames, groups or components to create a voting'
+      status: selection.length === 0 ? 'none' : 'partial',
+      message: 'Select at least two layers to create a voting'
     });
     return;
   }
 
-  if (selection.length === 1) {
-    figma.ui.postMessage({
-      type: 'selection-status',
-      status: 'partial',
-      message: 'Select one more element to create a voting'
-    });
-    return;
-  }
-
-  if (selection.length > 2) {
+  if (selection.length > 10) {
     figma.ui.postMessage({
       type: 'selection-status',
       status: 'too-many',
-      message: 'Select exactly two elements to create a voting'
+      message: 'You can select a maximum of 10 layers'
     });
     return;
   }
@@ -154,8 +145,8 @@ function handleSelectionCheck() {
 async function handleCreateVoting(data) {
   try {
     var selection = figma.currentPage.selection;
-    if (selection.length !== 2) {
-      throw new Error('Exactly two elements must be selected');
+    if (selection.length < 2 || selection.length > 10) {
+      throw new Error('Select between 2 and 10 layers');
     }
 
     var exportSettings = {
@@ -165,14 +156,16 @@ async function handleCreateVoting(data) {
 
     figma.ui.postMessage({ type: 'export-progress', message: 'Exporting images...' });
 
-    var image1Data = await selection[0].exportAsync(exportSettings);
-    var image2Data = await selection[1].exportAsync(exportSettings);
+    var imagePromises = selection.map(function(node) {
+      return node.exportAsync(exportSettings);
+    });
 
-    var image1Base64 = simpleBase64Encode(image1Data);
-    var image2Base64 = simpleBase64Encode(image2Data);
+    var resolvedImages = await Promise.all(imagePromises);
 
-    var image1DataUrl = 'data:image/png;base64,' + image1Base64;
-    var image2DataUrl = 'data:image/png;base64,' + image2Base64;
+    var imageDataUrls = resolvedImages.map(function(imageData) {
+      var base64 = simpleBase64Encode(imageData);
+      return 'data:image/png;base64,' + base64;
+    });
 
     figma.ui.postMessage({ type: 'export-progress', message: 'Creating voting...' });
 
@@ -183,14 +176,18 @@ async function handleCreateVoting(data) {
 
     var response = await fetch(apiUrl + '/votings', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Figma-Plugin': 'SideBySide/1.0'
+        // User-Agent будет установлен браузером автоматически
+        // Сервер проверяет наличие "Figma" в User-Agent + кастомный заголовок
+      },
       body: JSON.stringify({
         title: data.title,
         duration: data.duration,
-        image1: image1DataUrl,
-        image2: image2DataUrl,
-        image1PixelRatio: 2,
-        image2PixelRatio: 2
+        isPublic: data.privacy !== false, // Default to true if not specified
+        images: imageDataUrls,
+        pixelRatios: imageDataUrls.map(function() { return 2; })
       })
     });
 
@@ -236,14 +233,16 @@ async function handleLoadSettings() {
     
     var serverUrl = await figma.clientStorage.getAsync('figma-plugin-server-url');
     var duration = await figma.clientStorage.getAsync('figma-plugin-duration');
+    var privacy = await figma.clientStorage.getAsync('figma-plugin-privacy');
     
-    console.log('Loaded settings:', { serverUrl: serverUrl, duration: duration });
+    console.log('Loaded settings:', { serverUrl: serverUrl, duration: duration, privacy: privacy });
     
     figma.ui.postMessage({
       type: 'settings-loaded',
       settings: {
         serverUrl: serverUrl || 'localhost:3000',
-        duration: duration || 24
+        duration: duration || 24,
+        privacy: privacy !== false // Default to true if not set
       }
     });
   } catch (error) {
@@ -252,7 +251,8 @@ async function handleLoadSettings() {
       type: 'settings-loaded',
       settings: {
         serverUrl: 'localhost:3000',
-        duration: 24
+        duration: 24,
+        privacy: true
       }
     });
   }
@@ -270,6 +270,11 @@ async function handleSaveSettings(settings) {
     if (settings.duration) {
       await figma.clientStorage.setAsync('figma-plugin-duration', settings.duration.toString());
       console.log('Duration saved:', settings.duration);
+    }
+    
+    if (settings.privacy !== undefined) {
+      await figma.clientStorage.setAsync('figma-plugin-privacy', settings.privacy);
+      console.log('Privacy saved:', settings.privacy);
     }
     
     console.log('Settings saved successfully');

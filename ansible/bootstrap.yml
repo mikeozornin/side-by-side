@@ -1,0 +1,297 @@
+---
+- name: Bootstrap server for Side-by-Side Voting
+  hosts: web
+  become: true
+  vars:
+    nginx_site_path: "/etc/nginx/sites-available/{{ domain }}"
+    nginx_site_link: "/etc/nginx/sites-enabled/{{ domain }}"
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+
+    - name: Install curl and ca-certificates
+      apt:
+        name:
+          - curl
+          - ca-certificates
+        state: present
+
+    - name: Remove old Node.js packages completely
+      apt:
+        name:
+          - nodejs
+          - npm
+          - libnode-dev
+          - libnode72
+          - node-gyp
+        state: absent
+        purge: yes
+      ignore_errors: yes
+
+    - name: Clean up any remaining Node.js files
+      shell: |
+        rm -rf /usr/include/node
+        rm -rf /usr/lib/node_modules
+        rm -rf /usr/share/node
+        rm -rf /var/lib/nodejs
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+
+    - name: Clean apt cache after removal
+      command: apt-get autoremove -y
+      ignore_errors: yes
+
+    - name: Install Node.js 20+ via NodeSource
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+        apt-get install -y nodejs
+      args:
+        executable: /bin/bash
+
+    - name: Verify Node.js version
+      command: node --version
+      register: node_version
+      changed_when: false
+
+    - name: Display Node.js version
+      debug:
+        msg: "Node.js version: {{ node_version.stdout }}"
+
+    - name: Reset npm configuration completely
+      shell: |
+        rm -rf ~/.npm
+        rm -rf /root/.npm
+        rm -rf /root/.npmrc
+        rm -rf /etc/npmrc
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+
+    - name: Configure npm to use standard registry
+      shell: |
+        npm config set registry https://registry.npmjs.org/
+        npm config set strict-ssl true
+        npm config delete proxy
+        npm config delete https-proxy
+        npm config delete http-proxy
+      args:
+        executable: /bin/bash
+
+    - name: Install system dependencies for image optimization
+      apt:
+        name: "{{ image_optimization_packages }}"
+        state: present
+
+    - name: Install certbot for Let's Encrypt
+      apt:
+        name: 
+          - certbot
+          - python3-certbot-nginx
+        state: present
+
+    - name: Ensure base directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+      loop:
+        - "{{ release_root }}"
+        - "{{ current_link | dirname }}"
+        - "{{ nginx_web_root | dirname }}"
+
+    - name: Ensure data and logs directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+      loop:
+        - "{{ current_link | dirname }}/data"
+        - "{{ current_link | dirname }}/logs"
+
+    - name: Ensure env directory exists
+      file:
+        path: "{{ env_file_path | dirname }}"
+        state: directory
+        owner: root
+        group: www-data
+        mode: "0750"
+
+    - name: Place systemd unit
+      copy:
+        dest: "/etc/systemd/system/{{ service_name }}.service"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Side-by-Side Voting API
+          After=network.target
+
+          [Service]
+          WorkingDirectory={{ backend_workdir }}
+          ExecStart={{ node_path }} dist/index.js
+          EnvironmentFile={{ env_file_path }}
+          Restart=always
+          RestartSec=5
+          User=www-data
+          Group=www-data
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      command: systemctl daemon-reload
+
+    - name: Enable service on boot
+      systemd:
+        name: "{{ service_name }}"
+        enabled: true
+
+    - name: Place nginx site config
+      copy:
+        dest: "{{ nginx_site_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          server {
+              listen 80;
+              server_name {{ domain }};
+
+              root {{ nginx_web_root }};
+              index index.html;
+
+              # API
+              location {{ api_prefix }}/ {
+                  proxy_pass http://{{ host_bind }}:{{ port }}/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+
+                  # CORS headers
+                  add_header Access-Control-Allow-Origin "https://{{ cors_allowed_origins }}" always;
+                  add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+                  add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
+                  add_header Access-Control-Allow-Credentials "true" always;
+
+                  # Handle preflight requests
+                  if ($request_method = 'OPTIONS') {
+                      add_header Access-Control-Allow-Origin "https://{{ cors_allowed_origins }}" always;
+                      add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+                      add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
+                      add_header Access-Control-Allow-Credentials "true" always;
+                      add_header Content-Length 0;
+                      add_header Content-Type text/plain;
+                      return 204;
+                  }
+
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_read_timeout 300s;
+              }
+
+              # Health check
+              location = {{ health_path }} {
+                  proxy_pass http://{{ host_bind }}:{{ port }}{{ health_path }};
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+              }
+
+              # Cache immutable assets (Vite)
+              location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|webp|woff2?)$ {
+                  expires 1y;
+                  add_header Cache-Control "public, max-age=31536000, immutable";
+                  try_files $uri =404;
+              }
+
+              # SPA fallback
+              location / {
+                  try_files $uri /index.html;
+              }
+
+              # Do not cache index.html
+              location = /index.html {
+                  add_header Cache-Control "no-cache";
+              }
+          }
+
+    - name: Enable nginx site
+      file:
+        src: "{{ nginx_site_path }}"
+        dest: "{{ nginx_site_link }}"
+        state: link
+
+    - name: Test nginx config
+      command: nginx -t
+
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: reloaded
+
+    - name: Obtain Let's Encrypt SSL certificate
+      command: >
+        certbot --nginx 
+        -d {{ domain }} 
+        --non-interactive 
+        --agree-tos 
+        --email {{ ssl_email }}
+        --redirect
+      register: certbot_result
+      ignore_errors: yes
+
+    - name: Display SSL certificate status
+      debug:
+        msg: |
+          SSL certificate status:
+          {% if certbot_result.rc == 0 %}
+          ✅ SSL certificate obtained successfully!
+          {% else %}
+          ⚠️  SSL certificate not obtained. You may need to:
+          1. Ensure domain {{ domain }} points to this server
+          2. Run manually: certbot --nginx -d {{ domain }}
+          {% endif %}
+
+    - name: Setup automatic SSL certificate renewal
+      cron:
+        name: "Renew Let's Encrypt SSL certificates"
+        job: "0 12 * * * /usr/bin/certbot renew --quiet"
+        user: root
+
+    - name: Ensure env file exists with secure perms (placeholder)
+      copy:
+        dest: "{{ env_file_path }}"
+        content: |
+          DATA_DIR={{ current_link | dirname }}/data
+          LOG_DIR={{ current_link | dirname }}/logs
+          DB_PATH={{ current_link | dirname }}/app.db
+          PORT={{ port }}
+          BASE_URL=https://{{ domain }}
+          NODE_ENV=production
+          VOTING_BASE_URL=https://{{ domain }}
+          SERVER_MODE=production
+          NOTIFICATIONS_LOCALE=ru
+          MATTERMOST_ENABLED=false
+          TELEGRAM_ENABLED=false
+          RATE_LIMIT_VOTING_PER_MINUTE=6
+          RATE_LIMIT_VOTING_PER_HOUR=60
+        owner: root
+        group: www-data
+        mode: "0640"
+        force: no
+
+    - name: Display next steps
+      debug:
+        msg: |
+          Bootstrap completed! Next steps:
+          1. Update /etc/side-by-side/server.env with your real configuration
+          2. Run the deploy playbook to deploy your application:
+             ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e restart_service=true

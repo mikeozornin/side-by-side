@@ -45,10 +45,9 @@ figma-plugin/
 {
   "title": "Название голосования",
   "duration": 24,
-  "image1": "data:image/png;base64,...",
-  "image2": "data:image/png;base64,...",
-  "image1PixelRatio": 2,
-  "image2PixelRatio": 2
+  "isPublic": true,
+  "images": ["data:image/png;base64,...", "data:image/png;base64,..."],
+  "pixelRatios": [2, 2]
 }
 ```
 

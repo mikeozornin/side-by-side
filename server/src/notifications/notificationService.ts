@@ -58,7 +58,13 @@ export class NotificationService {
     }
   }
 
-  async sendVotingCreatedNotification(votingId: string, title: string, expiresAt?: string): Promise<void> {
+  async sendVotingCreatedNotification(votingId: string, title: string, expiresAt?: string, isPublic: boolean = true): Promise<void> {
+    // Не отправляем уведомления для приватных голосований
+    if (!isPublic) {
+      logger.info(`Skipping notification for private voting: ${votingId}`);
+      return;
+    }
+
     const votingUrl = `${process.env.VOTING_BASE_URL || 'http://localhost:5173'}/#/v/${votingId}`;
     
     const notificationData: NotificationData = {

@@ -14,9 +14,37 @@ export const router = new Hono();
 // Middleware
 router.use('*', logger());
 router.use('*', cors({
-  origin: configManager.getCorsOrigins(),
+  origin: configManager.getCorsOriginFunction(),
   credentials: true,
 }));
+
+// Дополнительная проверка для Figma плагина
+router.use('/api/*', async (c, next) => {
+  const origin = c.req.header('Origin');
+
+  if (origin === 'null') {
+    const userAgent = c.req.header('User-Agent');
+    const figmaPluginHeader = c.req.header('X-Figma-Plugin');
+
+    // Двойная проверка: User-Agent содержит "Figma" И кастомный заголовок
+    const hasValidUserAgent = userAgent && userAgent.includes('Figma');
+    const hasValidHeader = figmaPluginHeader === 'SideBySide/1.0';
+
+    if (!hasValidUserAgent || !hasValidHeader) {
+      console.warn(`Blocked suspicious request with null origin:`, {
+        userAgent: userAgent,
+        figmaPluginHeader: figmaPluginHeader,
+        hasValidUserAgent: hasValidUserAgent,
+        hasValidHeader: hasValidHeader
+      });
+      return c.text('Forbidden - Suspicious request detected', 403);
+    }
+
+    console.log(`✅ Valid Figma plugin request - UA: "${userAgent}", Header: "${figmaPluginHeader}"`);
+  }
+
+  await next();
+});
 
 // API routes
 router.route('/api', votingRoutes);
