@@ -1,6 +1,6 @@
 import { readFile } from 'fs/promises';
-import { initDatabase, closeDatabase } from './init.js';
-import { createVoting, createVotingImages, createVote } from './queries.js';
+import { initDatabase, closeDatabase, getDatabase } from './init.js';
+import { createVoting, createVotingOptions, createVote } from './queries.js';
 import { logger } from '../utils/logger.js';
 
 interface JsonDatabase {
@@ -47,7 +47,8 @@ async function migrateData() {
       const { id: oldId, ...votingData } = voting;
       const newId = await createVoting({
         ...votingData,
-        duration_hours: 24 // Значение по умолчанию для старых данных
+        duration_hours: 24, // Значение по умолчанию для старых данных
+        is_public: true // Значение по умолчанию для старых данных
       });
       idMapping[oldId] = newId;
       logger.info(`Мигрировано голосование: ${voting.title} (${oldId} -> ${newId})`);
@@ -57,7 +58,7 @@ async function migrateData() {
     for (const image of data.voting_images) {
       const newVotingId = idMapping[image.voting_id];
       if (newVotingId) {
-        await createVotingImages([{
+        await createVotingOptions([{
           voting_id: newVotingId,
           file_path: image.file_path,
           sort_order: image.sort_order,
@@ -76,7 +77,7 @@ async function migrateData() {
       if (newVotingId) {
         await createVote({
           voting_id: newVotingId,
-          choice: vote.choice,
+          option_id: vote.choice,
           created_at: vote.created_at
         });
       }
@@ -106,4 +107,69 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     });
 }
 
-export { migrateData };
+async function addIsPublicColumn() {
+  try {
+    logger.info('Добавляем поле is_public в таблицу votings...');
+    
+    const db = getDatabase();
+    
+    // Проверяем, существует ли уже поле is_public
+    const tableInfo = await new Promise<any[]>((resolve, reject) => {
+      db.all("PRAGMA table_info(votings)", (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+    
+    const hasIsPublic = tableInfo.some(col => col.name === 'is_public');
+    
+    if (!hasIsPublic) {
+      // Добавляем поле is_public со значением по умолчанию true
+      await new Promise<void>((resolve, reject) => {
+        db.exec(`
+          ALTER TABLE votings ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT 1;
+        `, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      
+      logger.info('Поле is_public успешно добавлено в таблицу votings');
+    } else {
+      logger.info('Поле is_public уже существует в таблице votings');
+    }
+    
+  } catch (error) {
+    logger.error('Ошибка при добавлении поля is_public:', error);
+    throw error;
+  }
+}
+
+// Запускаем миграцию, если файл выполняется напрямую
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const command = process.argv[2];
+  
+  if (command === 'add-is-public') {
+    addIsPublicColumn()
+      .then(() => {
+        logger.info('Миграция поля is_public завершена');
+        process.exit(0);
+      })
+      .catch((error) => {
+        logger.error('Ошибка миграции поля is_public:', error);
+        process.exit(1);
+      });
+  } else {
+    migrateData()
+      .then(() => {
+        logger.info('Миграция завершена');
+        process.exit(0);
+      })
+      .catch((error) => {
+        logger.error('Ошибка миграции:', error);
+        process.exit(1);
+      });
+  }
+}
+
+export { migrateData, addIsPublicColumn };

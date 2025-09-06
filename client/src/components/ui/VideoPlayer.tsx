@@ -16,8 +16,6 @@ interface VideoPlayerProps {
 
 export default function VideoPlayer({
   src,
-  width,
-  height,
   fit = 'contain',
   alt,
   className,

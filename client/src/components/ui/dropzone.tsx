@@ -34,7 +34,7 @@ export type DropzoneProps = Omit<DropzoneOptions, 'onDrop'> & {
 
 export const Dropzone = ({
   accept,
-  maxFiles = 1,
+  maxFiles = 10,
   maxSize,
   minSize,
   onDrop,
@@ -45,7 +45,7 @@ export const Dropzone = ({
   children,
   ...props
 }: DropzoneProps) => {
-  const dropzoneRef = useRef<HTMLDivElement>(null)
+  const dropzoneRef = useRef<HTMLButtonElement>(null)
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept,
@@ -75,18 +75,17 @@ export const Dropzone = ({
       const items = event.clipboardData?.items
       if (!items) return
 
+      const files: File[] = []
       for (let i = 0; i < items.length; i++) {
         const item = items[i]
         if (item.type.startsWith('image/') || item.type.startsWith('video/')) {
-          event.preventDefault()
-          
           const file = item.getAsFile()
           if (!file) continue
 
           // Проверяем размер файла
           if (maxSize && file.size > maxSize) {
             onError?.(new Error('Размер файла превышает допустимый лимит'))
-            return
+            continue // Пропускаем этот файл, но продолжаем проверять остальные
           }
 
           // Проверяем тип файла
@@ -99,23 +98,28 @@ export const Dropzone = ({
 
           if (!isAccepted) {
             onError?.(new Error('Неподдерживаемый тип файла'))
-            return
+            continue // Пропускаем
           }
 
-          // Создаем FileList-like объект
-          const dataTransfer = new DataTransfer()
-          dataTransfer.items.add(file)
-          
-          // Вызываем onDrop с файлом из буфера
-          onDrop?.([file], [], { dataTransfer } as any)
-          break
+          files.push(file)
         }
+      }
+
+      if (files.length > 0) {
+        event.preventDefault()
+        // Проверяем максимальное количество файлов
+        if (maxFiles && files.length > maxFiles) {
+          onError?.(new Error(`Можно вставить не более ${maxFiles} файлов`))
+          return
+        }
+        
+        onDrop?.(files, [], event as any)
       }
     }
 
     document.addEventListener('paste', handlePaste)
     return () => document.removeEventListener('paste', handlePaste)
-  }, [disabled, maxSize, accept, onDrop, onError])
+  }, [disabled, maxSize, accept, onDrop, onError, maxFiles])
 
   return (
     <DropzoneContext.Provider

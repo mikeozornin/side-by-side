@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc && node dist/index.js",
+    "build": "tsc",
     "start": "node dist/index.js",
     "db:migrate": "tsx src/db/migrate.ts",
+    "db:migrate:add-is-public": "tsx src/db/migrate.ts add-is-public",
     "db:seed": "tsx src/db/seed.ts",
     "test:notifications": "tsx src/test-notifications.ts",
     "test:locale": "tsx src/test-locale.ts",
@@ -16,6 +17,7 @@
   "dependencies": {
     "@hono/node-server": "^1.19.1",
     "dotenv": "^16.3.1",
+    "file-type": "^18.7.0",
     "hono": "^4.0.0",
     "sharp": "^0.34.3",
     "sqlite3": "^5.1.6",

@@ -3,15 +3,18 @@ import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 import { uploadImages } from '../utils/images.js';
 import { NotificationService } from '../notifications/index.js';
+import { createVotingLimiter, createVotingHourlyLimiter } from '../utils/rateLimit.js';
 import { 
   createVoting, 
   getVoting, 
-  getAllVotings, 
-  createVotingImages, 
-  getVotingImages, 
-  createVote, 
-  getVotesForVoting,
-  getVoteCountForVoting 
+  getAllVotings,
+  getPublicVotings, 
+  createVotingOptions, 
+  getVotingOptions, 
+  createVote,
+  getVoteCounts,
+  getVoteCountForVoting,
+  VotingOption
 } from '../db/queries.js';
 
 export const votingRoutes = new Hono();
@@ -19,37 +22,25 @@ export const votingRoutes = new Hono();
 // Инициализируем сервис уведомлений
 const notificationService = new NotificationService();
 
-// GET /api/votings - список голосований
+// GET /api/votings - список публичных голосований
 votingRoutes.get('/votings', async (c) => {
   try {
-    const votings = await getAllVotings();
+    const votings = await getPublicVotings();
     
-    const votingsWithImages = await Promise.all(
+    const votingsWithOptions = await Promise.all(
       votings.map(async (voting) => {
-        const images = await getVotingImages(voting.id);
+        const options = await getVotingOptions(voting.id);
         const voteCount = await getVoteCountForVoting(voting.id);
-        
-        const image1 = images.find(img => img.sort_order === 0);
-        const image2 = images.find(img => img.sort_order === 1);
         
         return {
           ...voting,
-          image1_path: image1?.file_path || '',
-          image1_pixel_ratio: image1?.pixel_ratio ?? 1,
-          image1_width: image1?.width ?? 0,
-          image1_height: image1?.height ?? 0,
-          image1_media_type: image1?.media_type ?? 'image',
-          image2_path: image2?.file_path || '',
-          image2_pixel_ratio: image2?.pixel_ratio ?? 1,
-          image2_width: image2?.width ?? 0,
-          image2_height: image2?.height ?? 0,
-          image2_media_type: image2?.media_type ?? 'image',
+          options,
           vote_count: voteCount
         };
       })
     );
 
-    return c.json({ votings: votingsWithImages });
+    return c.json({ votings: votingsWithOptions });
   } catch (error) {
     logger.error('Ошибка получения списка голосований:', error);
     return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
@@ -67,23 +58,12 @@ votingRoutes.get('/votings/:id', async (c) => {
       return c.json({ error: 'Голосование не найдено' }, 404);
     }
 
-    const images = await getVotingImages(id);
-    const image1 = images.find(img => img.sort_order === 0);
-    const image2 = images.find(img => img.sort_order === 1);
+    const options = await getVotingOptions(id);
 
     return c.json({ 
       voting: {
         ...voting,
-        image1_path: image1?.file_path || '',
-        image1_pixel_ratio: image1?.pixel_ratio ?? 1,
-        image1_width: image1?.width ?? 0,
-        image1_height: image1?.height ?? 0,
-        image1_media_type: image1?.media_type ?? 'image',
-        image2_path: image2?.file_path || '',
-        image2_pixel_ratio: image2?.pixel_ratio ?? 1,
-        image2_width: image2?.width ?? 0,
-        image2_height: image2?.height ?? 0,
-        image2_media_type: image2?.media_type ?? 'image'
+        options
       }
     });
   } catch (error) {
@@ -93,56 +73,58 @@ votingRoutes.get('/votings/:id', async (c) => {
 });
 
 // POST /api/votings - создание голосования
-votingRoutes.post('/votings', async (c) => {
+votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, async (c) => {
   try {
     const contentType = c.req.header('Content-Type') || '';
 
     let title: string;
-    let image1: string | File;
-    let image2: string | File;
+    let images: (string | File)[] = [];
     let durationHours: number;
-
-    let image1PixelRatio = 2;
-    let image2PixelRatio = 2;
+    let pixelRatios: number[] = [];
+    let isPublic: boolean = true; // Default to public
 
     if (contentType.includes('application/json')) {
-      // Handle JSON request with base64 images
       const jsonData = await c.req.json();
       title = jsonData.title;
-      image1 = jsonData.image1; // base64 string
-      image2 = jsonData.image2; // base64 string
+      images = jsonData.images || []; // Expect an array of base64 strings
       durationHours = parseFloat(jsonData.duration) || 24;
-      image1PixelRatio = jsonData.image1PixelRatio || 2;
-      image2PixelRatio = jsonData.image2PixelRatio || 2;
+      pixelRatios = jsonData.pixelRatios || []; // Expect an array of pixel ratios
+      isPublic = jsonData.isPublic !== false; // Default to true if not specified
     } else {
-      // Handle FormData request
       const formData = await c.req.formData();
       title = formData.get('title') as string;
-      image1 = formData.get('image1') as File;
-      image2 = formData.get('image2') as File;
+      images = formData.getAll('images') as File[];
       durationHours = parseFloat(formData.get('duration') as string) || 24;
+      const isPublicStr = formData.get('isPublic') as string;
+      isPublic = isPublicStr !== 'false'; // Default to true if not specified
     }
 
-    if (!title || !image1 || !image2) {
-      return c.json({ error: 'Необходимо указать название и загрузить два медиафайла' }, 400);
+    if (!title || !images || images.length < 2) {
+      return c.json({ error: 'Необходимо указать название и загрузить от 2 до 10 медиафайлов' }, 400);
+    }
+
+    if (images.length > 10) {
+      return c.json({ error: 'Можно загрузить не более 10 медиафайлов' }, 400);
     }
 
     const endAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
 
-    // Создание голосования
     const votingId = await createVoting({
       title,
       created_at: new Date().toISOString(),
       end_at: endAt.toISOString(),
-      duration_hours: durationHours
+      duration_hours: durationHours,
+      is_public: isPublic
     });
 
     let uploaded: any[] = [];
+    let filesToUpload: File[] = [];
 
     if (contentType.includes('application/json')) {
       // Handle JSON uploads that may contain base64, data URLs, or hex strings
       const decodeImage = (input: string, fallbackName: string, pixelRatio: number = 2) => {
         try {
+          logger.info('Decoding image:', { input: input.substring(0, 100) + '...', fallbackName, pixelRatio });
           let data = input.trim();
           let mime = 'image/png';
           let extension = '.png';
@@ -151,6 +133,7 @@ votingRoutes.post('/votings', async (c) => {
           if (dataUrlMatch) {
             mime = dataUrlMatch[1] || 'image/png';
             data = dataUrlMatch[2] || '';
+            logger.info('Data URL parsed:', { mime, dataLength: data.length });
             if (mime.includes('jpeg')) extension = '.jpg';
             else if (mime.includes('webp')) extension = '.webp';
             else if (mime.includes('avif')) extension = '.avif';
@@ -161,21 +144,29 @@ votingRoutes.post('/votings', async (c) => {
           // Try base64 first
           try {
             buffer = Buffer.from(data, 'base64');
-            // Heuristic: if base64 decoding fails it often results in empty or very small buffer
-            if (!buffer || buffer.length < 10) buffer = null;
-          } catch {
+            logger.info('Base64 decoded:', { bufferLength: buffer.length });
+            // Heuristic: if base64 decoding fails it often results in empty buffer
+            if (!buffer || buffer.length === 0) {
+              logger.warn('Empty buffer after base64 decode');
+              buffer = null;
+            }
+          } catch (error) {
+            logger.warn('Base64 decode failed:', error);
             buffer = null;
           }
 
           // If not base64, try hex
           if (!buffer) {
             const isHex = /^[0-9a-fA-F]+$/.test(data) && data.length % 2 === 0;
+            logger.info('Trying hex decode:', { isHex, dataLength: data.length });
             if (isHex) {
               buffer = Buffer.from(data, 'hex');
+              logger.info('Hex decoded:', { bufferLength: buffer.length });
             }
           }
 
           if (!buffer) {
+            logger.error('Failed to decode image data:', { data: data.substring(0, 50) + '...' });
             throw new Error('Unsupported image encoding');
           }
 
@@ -198,41 +189,83 @@ votingRoutes.post('/votings', async (c) => {
           }
 
           const fileName = `${fallbackName}@${pixelRatio}x${extension}`;
-          const u8 = new Uint8Array(buffer);
-          // In Node >= 18, File is available (undici); use it to integrate with uploadImages
-          const blob = new Blob([u8], { type: mime });
+          logger.info('Creating File object:', { fileName, mime, bufferLength: buffer.length });
+          
+          // Create File object using Blob (available in Node.js 20+)
+          const u8Array = new Uint8Array(buffer);
+          const blob = new Blob([u8Array], { type: mime });
           const file = new File([blob], fileName, { type: mime });
+          logger.info('File created:', { fileName: file.name, fileSize: file.size, fileType: file.type });
           return file;
         } catch (error) {
+          logger.error('Error in decodeImage:', error);
           throw new Error('Failed to decode image payload');
         }
       };
-
-      const image1File = decodeImage(image1 as string, 'image1', image1PixelRatio);
-      const image2File = decodeImage(image2 as string, 'image2', image2PixelRatio);
-
-      uploaded = await uploadImages(votingId, [image1File, image2File]);
+      
+      filesToUpload = images.map((img, index) => 
+        decodeImage(img as string, `image${index}`, pixelRatios[index] || 2)
+      );
+      
     } else {
-      // Handle file uploads
-      const maxSize = 20 * 1024 * 1024;
-      const image1File = image1 as File;
-      const image2File = image2 as File;
-
-      if (image1File.size > maxSize || image2File.size > maxSize) {
-        return c.json({ error: 'Размер файла не должен превышать 20 МБ' }, 400);
-      }
-
-      uploaded = await uploadImages(votingId, [image1File, image2File]);
+      filesToUpload = images as File[];
     }
 
-    // Сохранение путей и метаданных к медиафайлам
-    await createVotingImages([
-      { voting_id: votingId, file_path: uploaded[0].filePath, sort_order: 0, pixel_ratio: uploaded[0].pixelRatio, width: uploaded[0].width, height: uploaded[0].height, media_type: uploaded[0].mediaType },
-      { voting_id: votingId, file_path: uploaded[1].filePath, sort_order: 1, pixel_ratio: uploaded[1].pixelRatio, width: uploaded[1].width, height: uploaded[1].height, media_type: uploaded[1].mediaType }
-    ]);
+    const maxSize = 20 * 1024 * 1024; // 20 MB
+    for (const file of filesToUpload) {
+      if (file.size > maxSize) {
+        return c.json({ error: `Размер файла ${file.name} не должен превышать 20 МБ` }, 400);
+      }
+    }
 
-    // Отправляем уведомление асинхронно (не блокируем ответ)
-    notificationService.sendVotingCreatedNotification(votingId, title, endAt.toISOString()).catch(error => {
+    try {
+      uploaded = await uploadImages(votingId, filesToUpload);
+    } catch (error) {
+      logger.error('Ошибка загрузки изображений:', error);
+
+      // Определяем тип ошибки и возвращаем понятное сообщение
+      if (error instanceof Error) {
+        const message = error.message.toLowerCase();
+
+        if (message.includes('не является допустимым медиафайлом')) {
+          return c.json({
+            error: 'Один или несколько файлов не являются допустимыми изображениями или видео. ' +
+                   'Пожалуйста, загрузите только файлы в форматах: JPG, PNG, WebP, AVIF, MP4, WebM, MOV, AVI.'
+          }, 400);
+        }
+
+        if (message.includes('неподдерживаемый формат файла')) {
+          return c.json({
+            error: 'Формат одного из файлов не поддерживается. ' +
+                   'Разрешены только: JPG, PNG, WebP, AVIF, MP4, WebM, MOV, AVI.'
+          }, 400);
+        }
+
+        if (message.includes('неподдерживаемое расширение файла')) {
+          return c.json({
+            error: 'Расширение файла не поддерживается. ' +
+                   'Используйте файлы с расширениями: .jpg, .png, .webp, .avif, .mp4, .webm, .mov, .avi.'
+          }, 400);
+        }
+      }
+
+      return c.json({ error: 'Ошибка при обработке файлов. Проверьте, что все файлы являются корректными изображениями или видео.' }, 400);
+    }
+
+    const optionsToCreate: Omit<VotingOption, 'id'>[] = uploaded.map((upload, index) => ({
+      voting_id: votingId,
+      file_path: upload.filePath,
+      sort_order: index,
+      pixel_ratio: upload.pixelRatio,
+      width: upload.width,
+      height: upload.height,
+      media_type: upload.mediaType
+    }));
+
+    await createVotingOptions(optionsToCreate);
+    
+    // Отправляем уведомление асинхронно (только для публичных голосований)
+    notificationService.sendVotingCreatedNotification(votingId, title, endAt.toISOString(), isPublic).catch(error => {
       logger.error('Error sending notification:', error);
     });
 
@@ -241,12 +274,24 @@ votingRoutes.post('/votings', async (c) => {
         id: votingId,
         title,
         end_at: endAt.toISOString(),
-        duration_hours: durationHours
+        duration_hours: durationHours,
+        is_public: isPublic
       }
     });
   } catch (error) {
     logger.error('Ошибка создания голосования:', error);
-    return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
+    logger.error('Тип ошибки:', typeof error);
+    logger.error('Стек ошибки:', error instanceof Error ? error.stack : 'Не Error объект');
+
+    // Для отладки в development режиме показываем детали ошибки
+    if (process.env.NODE_ENV === 'development' && error instanceof Error) {
+      return c.json({
+        error: 'Ошибка при создании голосования',
+        details: error.message
+      }, 500);
+    }
+
+    return c.json({ error: 'Произошла ошибка при создании голосования. Попробуйте еще раз.' }, 500);
   }
 });
 
@@ -254,15 +299,13 @@ votingRoutes.post('/votings', async (c) => {
 votingRoutes.post('/votings/:id/vote', async (c) => {
   try {
     const id = c.req.param('id');
-    const { choice } = await c.req.json();
+    const { optionId } = await c.req.json();
 
-    if (choice !== 0 && choice !== 1) {
+    if (typeof optionId !== 'number') {
       return c.json({ error: 'Неверный выбор' }, 400);
     }
 
-    // Проверяем, не закончилось ли голосование
     const voting = await getVoting(id);
-
     if (!voting) {
       return c.json({ error: 'Голосование не найдено' }, 404);
     }
@@ -271,10 +314,14 @@ votingRoutes.post('/votings/:id/vote', async (c) => {
       return c.json({ error: 'Голосование завершено' }, 400);
     }
 
-    // Сохраняем голос
+    const options = await getVotingOptions(id);
+    if (!options.some(o => o.id === optionId)) {
+      return c.json({ error: 'Выбранный вариант не существует' }, 400);
+    }
+
     await createVote({
       voting_id: id,
-      choice,
+      option_id: optionId,
       created_at: new Date().toISOString()
     });
 
@@ -303,38 +350,44 @@ votingRoutes.get('/votings/:id/results', async (c) => {
       return c.json({ error: 'Голосование еще не завершено' }, 400);
     }
 
-    const votes = await getVotesForVoting(id);
-    const results = [
-      { choice: 0, count: votes.filter(v => v.choice === 0).length },
-      { choice: 1, count: votes.filter(v => v.choice === 1).length }
-    ];
+    const voteCounts = await getVoteCounts(id);
+    const options = await getVotingOptions(id);
+    const totalVotes = voteCounts.reduce((sum, r) => sum + r.count, 0);
 
-    const totalVotes = results.reduce((sum, r) => sum + r.count, 0);
-    
-    // Вычисляем проценты
-    const percentages = [0, 0];
-    if (totalVotes > 0) {
-      percentages[0] = Math.round((results.find(r => r.choice === 0)?.count || 0) / totalVotes * 100);
-      percentages[1] = Math.round((results.find(r => r.choice === 1)?.count || 0) / totalVotes * 100);
-      
-      // Добиваем до 100%
-      const sum = percentages[0] + percentages[1];
-      if (sum < 100) {
-        percentages[1] += (100 - sum);
-      }
+    const results = options.map(option => {
+      const voteInfo = voteCounts.find(vc => vc.option_id === option.id);
+      return {
+        option_id: option.id,
+        file_path: option.file_path,
+        count: voteInfo?.count || 0,
+        percentage: totalVotes > 0 ? Math.round(((voteInfo?.count || 0) / totalVotes) * 100) : 0
+      };
+    });
+
+    // Коррекция процентов, чтобы в сумме было 100%
+    let percentageSum = results.reduce((sum, r) => sum + r.percentage, 0);
+    if (totalVotes > 0 && percentageSum < 100) {
+      const diff = 100 - percentageSum;
+      const maxPercentageItem = results.reduce((max, item) => (item.percentage > max.percentage ? item : max), results[0]);
+      maxPercentageItem.percentage += diff;
     }
 
-    // Определяем победителя
-    const winner = totalVotes === 0 ? null : 
-      percentages[0] > percentages[1] ? 0 :
-      percentages[1] > percentages[0] ? 1 : 
-      'tie'; // ничья
-
+    // Определение победителя
+    let winner: number | 'tie' | null = null;
+    if (totalVotes > 0) {
+      const maxVotes = Math.max(...results.map(r => r.count));
+      const winners = results.filter(r => r.count === maxVotes);
+      if (winners.length === 1) {
+        winner = winners[0].option_id;
+      } else {
+        winner = 'tie';
+      }
+    }
+    
     return c.json({
       totalVotes,
-      percentages,
-      winner,
-      results: results.map(r => ({ choice: r.choice, count: r.count }))
+      results,
+      winner
     });
   } catch (error) {
     logger.error('Ошибка получения результатов:', error);

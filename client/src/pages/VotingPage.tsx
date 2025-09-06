@@ -1,35 +1,41 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Check, Medal } from 'lucide-react'
+import { ArrowLeft, X, Check, Medal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
 import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
-import { getMediaType } from '@/lib/mediaUtils'
+
+interface VotingOption {
+  id: number;
+  voting_id: string;
+  file_path: string;
+  pixel_ratio: number;
+  width: number;
+  height: number;
+  media_type: 'image' | 'video';
+}
 
 interface Voting {
   id: string
   title: string
   created_at: string
   end_at: string
-  image1_path: string
-  image1_pixel_ratio: number
-  image1_width: number
-  image1_height: number
-  image1_media_type: 'image' | 'video'
-  image2_path: string
-  image2_pixel_ratio: number
-  image2_width: number
-  image2_height: number
-  image2_media_type: 'image' | 'video'
+  options: VotingOption[]
+}
+
+interface Result {
+  option_id: number;
+  file_path: string;
+  count: number;
+  percentage: number;
 }
 
 interface Results {
   totalVotes: number
-  percentages: [number, number]
+  results: Result[]
   winner: number | 'tie' | null
-  results: Array<{ choice: number; count: number }>
 }
 
 export function VotingPage() {
@@ -43,6 +49,12 @@ export function VotingPage() {
   const [votingLoading, setVotingLoading] = useState(false)
   const [error, setError] = useState('')
   const [hasVoted, setHasVoted] = useState(false)
+
+  const shuffledOptions = useMemo(() => {
+    if (!voting) return []
+    // Перемешиваем массив опций один раз при загрузке данных
+    return [...voting.options].sort(() => Math.random() - 0.5)
+  }, [voting])
 
   const isFinished = (endAt: string) => {
     return new Date(endAt) <= new Date()
@@ -62,12 +74,7 @@ export function VotingPage() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (finished || hasVoted) return
       
-      if (event.key === 'ArrowLeft') {
-        setSelectedChoice(0)
-      } else if (event.key === 'ArrowRight') {
-        setSelectedChoice(1)
-      } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-        // Cmd+Enter на Mac или Ctrl+Enter на Windows/Linux
+      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
         if (selectedChoice !== null) {
           handleVote()
         }
@@ -116,7 +123,7 @@ export function VotingPage() {
     
     if (voted) {
       const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
-      setSelectedChoice(voteData.choice)
+      setSelectedChoice(voteData.optionId)
     }
   }
 
@@ -130,7 +137,7 @@ export function VotingPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ choice: selectedChoice }),
+        body: JSON.stringify({ optionId: selectedChoice }),
       })
 
       if (!response.ok) {
@@ -140,7 +147,7 @@ export function VotingPage() {
 
       // Сохраняем в IndexedDB (используем localStorage как fallback)
       localStorage.setItem(`voted_${id}`, JSON.stringify({
-        choice: selectedChoice,
+        optionId: selectedChoice,
         at: new Date().toISOString()
       }))
 
@@ -198,157 +205,93 @@ export function VotingPage() {
   return (
     <div className="h-screen flex flex-col">
       <div className="max-w-none mx-auto pt-6 px-6 w-full flex-shrink-0">
-        <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+        <div className="flex justify-between items-start">
+          <h1 className="text-3xl font-bold pr-4 flex-1" title={voting.title}>{voting.title}</h1>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => navigate('/')}
+            className="flex-shrink-0"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <X className="h-6 w-6" />
           </Button>
-        </div>
-
-        <div>
-          <h1 className="text-3xl font-bold h-16 flex items-center">{voting.title}</h1>
         </div>
       </div>
 
-      <div className="flex-1 max-w-none mx-auto px-6 w-full">
+      <div className="flex-1 max-w-none mx-auto px-6 w-full overflow-hidden">
         <div className="h-full flex flex-col">
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* Вариант 1 */}
-            <div className="flex flex-col h-full">
-              <div className="flex-1">
-                <Card 
-                  className={`h-full transition-all ${
-                    !finished ? 'cursor-pointer' : ''
-                  } ${selectedChoice === 0 ? 'ring-2 ring-primary' : ''
-                  } ${finished && results && results.winner !== 0 && results.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}
-                  onClick={() => !finished && !hasVoted && setSelectedChoice(0)}
-                >
-                  <CardContent className="p-0 h-full">
-                    <div className="relative h-full">
-                      <div className="w-full h-full flex items-center justify-center">
-                        {voting.image1_media_type === 'image' ? (
-                          <HiDPIImage
-                            src={getImageUrl(voting.image1_path)}
-                            width={voting.image1_width}
-                            height={voting.image1_height}
-                            pixelRatio={voting.image1_pixel_ratio}
-                            fit="contain"
-                            alt="Вариант 1"
-                            className="max-w-full max-h-full object-contain shadow-[0_0_0_1px_rgba(0,0,0,0.1)]"
-                          />
-                        ) : (
-                          <VideoPlayer
-                            src={getImageUrl(voting.image1_path)}
-                            width={voting.image1_width}
-                            height={voting.image1_height}
-                            fit="contain"
-                            autoPlay={true}
-                            loop={true}
-                            muted={true}
-                            className="max-w-full max-h-full shadow-[0_0_0_1px_rgba(0,0,0,0.1)]"
-                          />
-                        )}
-                      </div>
-                      {selectedChoice === 0 && !finished && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Check className="h-60 w-60 text-primary stroke-[0.5]" />
-                        </div>
-                      )}
-                      {selectedChoice === 0 && finished && (
-                        <div className="absolute top-4 left-4">
-                          <Check className="h-6 w-6 text-primary" />
-                        </div>
-                      )}
-                      {results && results.winner === 0 && selectedChoice !== 0 && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="bg-green-500 rounded-full p-8">
-                            <Medal className="h-40 w-40 text-white stroke-[0.5]" />
+          <div className="flex-1 flex items-center gap-6 mb-6 overflow-x-auto pb-4 scrollbar-adaptive">
+            {shuffledOptions.map((option) => {
+              const result = results?.results.find(r => r.option_id === option.id)
+              
+              return (
+                <div key={option.id} className="flex flex-col h-full flex-shrink-0 w-full md:w-1/2 lg:w-1/3">
+                  <div className="flex-1">
+                    <Card 
+                      className={`h-full transition-all ${
+                        !finished ? 'cursor-pointer' : ''
+                      } ${selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
+                      } ${finished && results && results.winner !== option.id && results.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}
+                      onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
+                    >
+                      <CardContent className="p-0 h-full">
+                        <div className="relative h-full">
+                          <div className="w-full h-full flex items-center justify-center p-0.5">
+                            {option.media_type === 'image' ? (
+                              <HiDPIImage
+                                src={getImageUrl(option.file_path)}
+                                width={option.width}
+                                height={option.height}
+                                pixelRatio={option.pixel_ratio}
+                                fit="contain"
+                                alt={`Вариант ${option.id}`}
+                                className="max-w-full max-h-full object-contain shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]"
+                              />
+                            ) : (
+                              <VideoPlayer
+                                src={getImageUrl(option.file_path)}
+                                width={option.width}
+                                height={option.height}
+                                fit="contain"
+                                autoPlay={true}
+                                loop={true}
+                                muted={true}
+                                className="max-w-full max-h-full shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]"
+                              />
+                            )}
                           </div>
+                          {selectedChoice === option.id && !finished && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Check className="h-60 w-60 text-primary stroke-[0.5]" />
+                            </div>
+                          )}
+                          {selectedChoice === option.id && finished && (
+                            <div className="absolute top-4 left-4">
+                              <Check className="h-6 w-6 text-primary" />
+                            </div>
+                          )}
+                          {results && results.winner === option.id && selectedChoice !== option.id && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="bg-green-500 rounded-full p-8">
+                                <Medal className="h-40 w-40 text-white stroke-[0.5]" />
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              {results && (
-                <div className="mt-4 text-center">
-                  <div className="text-2xl font-bold">{results.percentages[0]}%</div>
-                  <div className="text-sm text-muted-foreground">
-                    {t('votes', { count: results.results.find(r => r.choice === 0)?.count || 0 })}
+                      </CardContent>
+                    </Card>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Вариант 2 */}
-            <div className="flex flex-col h-full">
-              <div className="flex-1">
-                <Card 
-                  className={`h-full transition-all ${
-                    !finished ? 'cursor-pointer' : ''
-                  } ${selectedChoice === 1 ? 'ring-2 ring-primary' : ''
-                  } ${finished && results && results.winner !== 1 && results.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}
-                  onClick={() => !finished && !hasVoted && setSelectedChoice(1)}
-                >
-                  <CardContent className="p-0 h-full">
-                    <div className="relative h-full">
-                      <div className="w-full h-full flex items-center justify-center">
-                        {voting.image2_media_type === 'image' ? (
-                          <HiDPIImage
-                            src={getImageUrl(voting.image2_path)}
-                            width={voting.image2_width}
-                            height={voting.image2_height}
-                            pixelRatio={voting.image2_pixel_ratio}
-                            fit="contain"
-                            alt="Вариант 2"
-                            className="max-w-full max-h-full object-contain shadow-[0_0_0_1px_rgba(0,0,0,0.1)]"
-                          />
-                        ) : (
-                          <VideoPlayer
-                            src={getImageUrl(voting.image2_path)}
-                            width={voting.image2_width}
-                            height={voting.image2_height}
-                            fit="contain"
-                            autoPlay={true}
-                            loop={true}
-                            muted={true}
-                            className="max-w-full max-h-full shadow-[0_0_0_1px_rgba(0,0,0,0.1)]"
-                          />
-                        )}
+                  {results && result && (
+                    <div className="mt-4 text-center">
+                      <div className="text-2xl font-bold">{result.percentage}%</div>
+                      <div className="text-sm text-muted-foreground">
+                        {t('votes', { count: result.count })}
                       </div>
-                      {selectedChoice === 1 && !finished && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Check className="h-60 w-60 text-primary stroke-[0.5]" />
-                        </div>
-                      )}
-                      {selectedChoice === 1 && finished && (
-                        <div className="absolute top-4 left-4">
-                          <Check className="h-6 w-6 text-primary" />
-                        </div>
-                      )}
-                      {results && results.winner === 1 && selectedChoice !== 1 && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="bg-green-500 rounded-full p-8">
-                            <Medal className="h-40 w-40 text-white stroke-[0.5]" />
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-              {results && (
-                <div className="mt-4 text-center">
-                  <div className="text-2xl font-bold">{results.percentages[1]}%</div>
-                  <div className="text-sm text-muted-foreground">
-                    {t('votes', { count: results.results.find(r => r.choice === 1)?.count || 0 })}
-                  </div>
+                  )}
                 </div>
-              )}
-            </div>
+              )
+            })}
           </div>
 
           {error && (

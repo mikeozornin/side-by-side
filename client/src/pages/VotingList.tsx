@@ -4,25 +4,23 @@ import { Plus, Clock, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
-import HiDPIImage from '@/components/ui/HiDPIImage'
-import VideoPlayer from '@/components/ui/VideoPlayer'
+import VotingCardPreview from '@/components/ui/VotingCardPreview'
 
+interface VotingOption {
+  id: number;
+  file_path: string;
+  pixel_ratio: number;
+  width: number;
+  height: number;
+  media_type: 'image' | 'video';
+}
 
 interface Voting {
   id: string
   title: string
   created_at: string
   end_at: string
-  image1_path: string
-  image1_pixel_ratio: number
-  image1_width: number
-  image1_height: number
-  image1_media_type: 'image' | 'video'
-  image2_path: string
-  image2_pixel_ratio: number
-  image2_width: number
-  image2_height: number
-  image2_media_type: 'image' | 'video'
+  options: VotingOption[]
   vote_count: number
 }
 
@@ -180,7 +178,7 @@ export function VotingList() {
                   <Link key={voting.id} to={`/v/${voting.id}`} className="block">
                     <Card 
                       className={`transition-all hover:bg-muted cursor-pointer ${
-                        hasVoted(voting.id) ? 'opacity-60' : ''
+                        hasVoted(voting.id) ? 'opacity-60 grayscale bg-muted/30' : ''
                       }`}
                     >
                       <CardHeader>
@@ -197,82 +195,8 @@ export function VotingList() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="relative w-full h-64 rounded overflow-hidden bg-muted">
-                          {/* Левая картинка (вариант 1) */}
-                          <div 
-                            className="absolute inset-0"
-                            style={{
-                              clipPath: 'polygon(0% 0%, 98% 0%, 0% 98%)'
-                            }}
-                          >
-                            {voting.image1_media_type === 'image' ? (
-                              <HiDPIImage
-                                src={`/api/images/${voting.image1_path.split('/').pop()}`}
-                                width={voting.image1_width}
-                                height={voting.image1_height}
-                                pixelRatio={voting.image1_pixel_ratio}
-                                fit="cover"
-                                alt={t('voting.option1') as string}
-                                style={{ width: '100%', height: '100%', objectPosition: 'left top' }}
-                              />
-                            ) : (
-                              <VideoPlayer
-                                src={`/api/images/${voting.image1_path.split('/').pop()}`}
-                                width={voting.image1_width}
-                                height={voting.image1_height}
-                                fit="cover"
-                                controls={false}
-                                muted={true}
-                                className="w-full h-full object-left-top"
-                              />
-                            )}
-                          </div>
-                          {/* Правая картинка (вариант 2) */}
-                          <div 
-                            className="absolute inset-0"
-                            style={{
-                              clipPath: 'polygon(100% 0%, 100% 100%, 2% 100%)'
-                            }}
-                          >
-                            {voting.image2_media_type === 'image' ? (
-                              <HiDPIImage
-                                src={`/api/images/${voting.image2_path.split('/').pop()}`}
-                                width={voting.image2_width}
-                                height={voting.image2_height}
-                                pixelRatio={voting.image2_pixel_ratio}
-                                fit="cover"
-                                alt={t('voting.option2') as string}
-                                style={{ width: '100%', height: '100%', objectPosition: 'right bottom' }}
-                              />
-                            ) : (
-                              <VideoPlayer
-                                src={`/api/images/${voting.image2_path.split('/').pop()}`}
-                                width={voting.image2_width}
-                                height={voting.image2_height}
-                                fit="cover"
-                                controls={false}
-                                muted={true}
-                                className="w-full h-full object-right-bottom"
-                              />
-                            )}
-                          </div>
-                          {/* Диагональная линия */}
-                          <svg
-                            className="absolute inset-0 pointer-events-none z-10"
-                            width="100%"
-                            height="100%"
-                            viewBox="0 0 100 100"
-                            preserveAspectRatio="none"
-                          >
-                            <line
-                              x1="0"
-                              y1="100"
-                              x2="100"
-                              y2="0"
-                              stroke="hsl(var(--muted))"
-                              strokeWidth="2"
-                            />
-                          </svg>
+                        <div className="relative w-full h-64">
+                          <VotingCardPreview options={voting.options} />
                         </div>
                       </CardContent>
                     </Card>
@@ -295,7 +219,7 @@ export function VotingList() {
                   <Link key={voting.id} to={`/v/${voting.id}`} className="block">
                     <Card 
                       className={`transition-all hover:bg-muted cursor-pointer ${
-                        hasVoted(voting.id) ? 'opacity-60 grayscale' : 'opacity-60 grayscale'
+                        hasVoted(voting.id) ? 'opacity-60 grayscale bg-muted/30' : 'opacity-60 grayscale bg-muted/30'
                       }`}
                     >
                       <CardHeader>
@@ -312,82 +236,8 @@ export function VotingList() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="relative w-full h-64 rounded overflow-hidden bg-muted">
-                          {/* Левая картинка (вариант 1) */}
-                          <div 
-                            className="absolute inset-0"
-                            style={{
-                              clipPath: 'polygon(0% 0%, 98% 0%, 0% 98%)'
-                            }}
-                          >
-                            {voting.image1_media_type === 'image' ? (
-                              <HiDPIImage
-                                src={`/api/images/${voting.image1_path.split('/').pop()}`}
-                                width={voting.image1_width}
-                                height={voting.image1_height}
-                                pixelRatio={voting.image1_pixel_ratio}
-                                fit="cover"
-                                alt={t('voting.option1') as string}
-                                style={{ width: '100%', height: '100%', objectPosition: 'left top' }}
-                              />
-                            ) : (
-                              <VideoPlayer
-                                src={`/api/images/${voting.image1_path.split('/').pop()}`}
-                                width={voting.image1_width}
-                                height={voting.image1_height}
-                                fit="cover"
-                                controls={false}
-                                muted={true}
-                                className="w-full h-full object-left-top"
-                              />
-                            )}
-                          </div>
-                          {/* Правая картинка (вариант 2) */}
-                          <div 
-                            className="absolute inset-0"
-                            style={{
-                              clipPath: 'polygon(100% 0%, 100% 100%, 2% 100%)'
-                            }}
-                          >
-                            {voting.image2_media_type === 'image' ? (
-                              <HiDPIImage
-                                src={`/api/images/${voting.image2_path.split('/').pop()}`}
-                                width={voting.image2_width}
-                                height={voting.image2_height}
-                                pixelRatio={voting.image2_pixel_ratio}
-                                fit="cover"
-                                alt={t('voting.option2') as string}
-                                style={{ width: '100%', height: '100%', objectPosition: 'right bottom' }}
-                              />
-                            ) : (
-                              <VideoPlayer
-                                src={`/api/images/${voting.image2_path.split('/').pop()}`}
-                                width={voting.image2_width}
-                                height={voting.image2_height}
-                                fit="cover"
-                                controls={false}
-                                muted={true}
-                                className="w-full h-full object-right-bottom"
-                              />
-                            )}
-                          </div>
-                          {/* Диагональная линия */}
-                          <svg
-                            className="absolute inset-0 pointer-events-none z-10"
-                            width="100%"
-                            height="100%"
-                            viewBox="0 0 100 100"
-                            preserveAspectRatio="none"
-                          >
-                            <line
-                              x1="0"
-                              y1="100"
-                              x2="100"
-                              y2="0"
-                              stroke="hsl(var(--muted))"
-                              strokeWidth="2"
-                            />
-                          </svg>
+                        <div className="relative w-full h-64">
+                          <VotingCardPreview options={voting.options} />
                         </div>
                       </CardContent>
                     </Card>

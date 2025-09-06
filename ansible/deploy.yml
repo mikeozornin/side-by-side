@@ -1,0 +1,172 @@
+---
+- name: Deploy Side-by-Side Voting release
+
+  hosts: web
+  become: true
+  vars:
+    release_ts: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+    release_path: "{{ release_root }}/{{ release_ts }}"
+  tasks:
+    - name: Freeze release timestamp once per run
+      set_fact:
+        release_ts: "{{ release_ts | default(lookup('pipe', 'date +%Y%m%d_%H%M%S')) }}"
+        release_path: "{{ release_root }}/{{ release_ts }}"
+      run_once: true
+
+    - name: Optionally update env file on server from local source
+      when: update_env | bool
+      copy:
+        src: "{{ local_env_src }}"
+        dest: "{{ env_file_path }}"
+        owner: root
+        group: www-data
+        mode: "0640"
+      no_log: true
+
+    - name: Create release directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+      loop:
+        - "{{ release_path }}"
+        - "{{ release_path }}/frontend"
+        - "{{ release_path }}/server"
+        - "{{ release_path }}/data"
+        - "{{ release_path }}/logs"
+
+    - name: Sync frontend artifacts
+      synchronize:
+        src: "{{ playbook_dir }}/../client/dist/"
+        dest: "{{ release_path }}/frontend/"
+        delete: yes
+
+    - name: Sync backend artifacts (dist + package files)
+      synchronize:
+        src: "{{ playbook_dir }}/../server/"
+        dest: "{{ release_path }}/server/"
+        delete: yes
+        rsync_path: "rsync"
+
+    - name: Remove unnecessary backend files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ release_path }}/server/node_modules"
+        - "{{ release_path }}/server/src"
+        - "{{ release_path }}/server/.git"
+        - "{{ release_path }}/server/.github"
+        - "{{ release_path }}/server/tsconfig.json"
+        - "{{ release_path }}/server/jest.config.js"
+        - "{{ release_path }}/server/README.md"
+        - "{{ release_path }}/server/NOTIFICATIONS.md"
+
+    - name: Ensure backend contains only dist and package files
+      shell: |
+        shopt -s extglob || true
+        cd "{{ release_path }}/server" && {
+          find . -maxdepth 1 -type f ! -name 'package.json' ! -name 'package-lock.json' ! -name 'pnpm-lock.yaml' ! -name 'yarn.lock' ! -path './dist/*' -delete || true;
+        }
+      args:
+        executable: /bin/bash
+
+    - name: Copy data directory from current if exists
+      shell: |
+        if [ -d "{{ current_link }}/data" ] && [ "$(ls -A {{ current_link }}/data)" ]; then
+          cp -r {{ current_link }}/data/* {{ release_path }}/data/ 2>/dev/null || true
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Copy logs directory from current if exists
+      shell: |
+        if [ -d "{{ current_link }}/logs" ] && [ "$(ls -A {{ current_link }}/logs)" ]; then
+          cp -r {{ current_link }}/logs/* {{ release_path }}/logs/ 2>/dev/null || true
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Ensure release ownership (recursive)
+      file:
+        path: "{{ release_path }}"
+        owner: www-data
+        group: www-data
+        recurse: true
+
+    - name: Configure npm registry before install
+      shell: |
+        npm config set registry https://registry.npmjs.org/
+        npm config set strict-ssl true
+        npm config delete proxy
+        npm config delete https-proxy
+        npm config delete http-proxy
+      args:
+        executable: /bin/bash
+
+    - name: Install production deps on server
+      shell: |
+        set -e
+        cd "{{ release_path }}/server"
+        if [ -f package-lock.json ]; then
+          npm ci --omit=dev
+        else
+          npm install --omit=dev
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Write manifest
+      copy:
+        dest: "{{ release_path }}/manifest.json"
+        content: |
+          {"deployed_at": "{{ release_ts }}", "domain": "{{ domain }}", "version": "{{ ansible_date_time.iso8601 }}"}
+        owner: www-data
+        group: www-data
+        mode: "0644"
+
+    - name: Switch current symlink
+      file:
+        src: "{{ release_path }}"
+        dest: "{{ current_link }}"
+        state: link
+        force: true
+
+    - name: Ensure nginx web root links to current/frontend
+      file:
+        src: "{{ current_link }}/frontend"
+        dest: "{{ nginx_web_root }}"
+        state: link
+        force: true
+
+    - name: Restart service (optional)
+      when: restart_service | bool
+      systemd:
+        name: "{{ service_name }}"
+        state: restarted
+
+    - name: Prune old releases, keep last N
+      shell: |
+        set -e
+        ls -1dt "{{ release_root }}"/* | tail -n +$(( {{ releases_to_keep }} + 1 )) | xargs -r rm -rf
+      args:
+        executable: /bin/bash
+
+    - name: Health check
+      uri:
+        url: "https://{{ domain }}{{ health_path }}"
+        method: GET
+        status_code: 200
+        validate_certs: yes
+      ignore_errors: yes
+
+    - name: Display deployment info
+      debug:
+        msg: |
+          Deployment completed!
+          Release: {{ release_ts }}
+          Path: {{ release_path }}
+          Domain: {{ domain }}
+          Health check: https://{{ domain }}{{ health_path }}

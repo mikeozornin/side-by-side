@@ -69,3 +69,75 @@
     font-size: 16px;
   }
 }
+
+/* Скроллбар стили для адаптации к системной теме */
+@layer utilities {
+  .scrollbar-adaptive {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.4) transparent;
+  }
+  
+  .scrollbar-adaptive::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .scrollbar-adaptive::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-adaptive::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.4);
+    border-radius: 4px;
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
+  
+  .scrollbar-adaptive::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.6);
+  }
+  
+  .scrollbar-adaptive::-webkit-scrollbar-thumb:active {
+    background-color: hsl(var(--muted-foreground) / 0.8);
+  }
+  
+  .scrollbar-adaptive::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/* Глобальные стили скроллбара для всех элементов */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.4) transparent;
+  }
+  
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.4);
+    border-radius: 4px;
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
+  
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.6);
+  }
+  
+  *::-webkit-scrollbar-thumb:active {
+    background-color: hsl(var(--muted-foreground) / 0.8);
+  }
+  
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}

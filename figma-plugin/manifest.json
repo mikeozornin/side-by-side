@@ -1,6 +1,6 @@
 {
-  "name": "Side by side voting",
-  "id": "side-by-side-voting",
+  "name": "Side-by-Side Voting",
+  "id": "1545946464465075859",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
@@ -13,5 +13,6 @@
   },
   "permissions": [
     "currentuser"
-  ]
+  ],
+  "documentAccess": "dynamic-page"
 }
