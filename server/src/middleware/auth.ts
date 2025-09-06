@@ -1,6 +1,51 @@
 import { Context, Next } from 'hono';
 import { verifyAccessToken } from '../utils/auth.js';
 import { getUserById } from '../db/auth-queries.js';
+import { env } from '../load-env.js';
+
+// Middleware для проверки аутентификации Figma плагина
+export async function requireFigmaAuth(c: AuthContext, next: Next) {
+  try {
+    // В анонимном режиме пропускаем проверку авторизации
+    if (env.AUTH_MODE === 'anonymous') {
+      // Устанавливаем анонимного пользователя
+      c.user = {
+        id: 'anonymous',
+        email: 'anonymous@side-by-side.com',
+        created_at: new Date().toISOString()
+      };
+      await next();
+      return;
+    }
+    
+    const authHeader = c.req.header('Authorization');
+    
+    if (!authHeader?.startsWith('Bearer ')) {
+      return c.json({ error: 'Authorization required' }, 401);
+    }
+    
+    const accessToken = authHeader.substring(7);
+    const payload = verifyAccessToken(accessToken);
+    
+    if (!payload) {
+      return c.json({ error: 'Invalid access token' }, 401);
+    }
+    
+    // Получаем пользователя из БД
+    const user = getUserById(payload.userId);
+    if (!user) {
+      return c.json({ error: 'User not found' }, 401);
+    }
+    
+    // Добавляем пользователя в контекст
+    c.user = user;
+    
+    await next();
+  } catch (error) {
+    console.error('Figma auth middleware error:', error);
+    return c.json({ error: 'Authentication failed' }, 401);
+  }
+}
 
 export interface AuthContext extends Context {
   user?: {
@@ -13,6 +58,12 @@ export interface AuthContext extends Context {
 // Middleware для проверки авторизации
 export async function requireAuth(c: AuthContext, next: Next) {
   try {
+    // В анонимном режиме пропускаем проверку авторизации
+    if (env.AUTH_MODE === 'anonymous') {
+      await next();
+      return;
+    }
+    
     const authHeader = c.req.header('Authorization');
     
     if (!authHeader?.startsWith('Bearer ')) {
@@ -45,6 +96,11 @@ export async function requireAuth(c: AuthContext, next: Next) {
 // Middleware для проверки владельца голосования
 export async function requireVotingOwner(c: AuthContext, next: Next) {
   try {
+    // В анонимном режиме запрещаем удаление голосований
+    if (env.AUTH_MODE === 'anonymous') {
+      return c.json({ error: 'Voting deletion is not allowed in anonymous mode' }, 403);
+    }
+    
     if (!c.user) {
       return c.json({ error: 'Authentication required' }, 401);
     }

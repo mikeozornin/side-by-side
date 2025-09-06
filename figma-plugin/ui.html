@@ -320,16 +320,16 @@
         <input type="url" id="login-server-url" class="input" placeholder="localhost:3000" />
       </div>
 
-      <div class="form-group">
+      <div class="form-group" id="auth-code-group" style="display: none;">
         <label class="label" for="login-auth-code">Authentication Code</label>
         <input type="text" id="login-auth-code" class="input" placeholder="FGM-XXXXXX" />
+        <div class="help-text">
+          Get your code from the web app settings page at <a href="#" id="settings-link">localhost:5173/#/settings</a>
+        </div>
       </div>
 
       <div class="footer">
         <button type="button" id="login-button" class="button primary">Login</button>
-        <div class="help-text">
-          Get your code from the web app settings page at <a href="#" id="settings-link">localhost:5173/#/settings</a>
-        </div>
       </div>
     </div>
 
@@ -426,6 +426,7 @@
     var currentStatus = 'ready'; // Track current selection status
     var authCode = '';
     var isAuthenticated = false;
+    var isAnonymous = null;
     var currentServerUrl = '';
 
     // Storage keys
@@ -467,6 +468,99 @@
       if (mainInterfaceEl) mainInterfaceEl.classList.remove('hidden');
     }
 
+    // Update auth code field visibility based on auth mode
+    function updateAuthCodeFieldVisibility() {
+      var authCodeGroup = document.getElementById('auth-code-group');
+      if (authCodeGroup) {
+        console.log('updateAuthCodeFieldVisibility called, isAnonymous:', isAnonymous);
+        if (isAnonymous === null) {
+          // Unknown mode - hide field
+          console.log('Hiding field - unknown mode');
+          authCodeGroup.style.display = 'none';
+        } else if (isAnonymous === true) {
+          // Anonymous mode - hide field
+          console.log('Hiding field - anonymous mode');
+          authCodeGroup.style.display = 'none';
+        } else {
+          // Magic-links mode - show field
+          console.log('Showing field - magic-links mode');
+          authCodeGroup.style.display = 'block';
+        }
+      }
+    }
+
+
+    // Get API and client URLs from server URL
+    function getApiAndClientUrls(serverUrl) {
+      try {
+        var normalized = serverUrl && (serverUrl.startsWith('http://') || serverUrl.startsWith('https://'))
+          ? serverUrl
+          : ('http://' + serverUrl);
+        
+        // Parse URL manually since URL constructor is not available in Figma plugin sandbox
+        var protocol, host;
+        if (normalized.startsWith('http://')) {
+          protocol = 'http://';
+          host = normalized.substring(7);
+        } else if (normalized.startsWith('https://')) {
+          protocol = 'https://';
+          host = normalized.substring(8);
+        } else {
+          throw new Error('Invalid URL format');
+        }
+        
+        // Remove path if present
+        var slashIndex = host.indexOf('/');
+        if (slashIndex !== -1) {
+          host = host.substring(0, slashIndex);
+        }
+        
+        if (host === 'localhost' || host === '127.0.0.1') {
+          return {
+            apiUrl: 'http://localhost:3000/api',
+            clientUrl: 'http://localhost:5173'
+          };
+        }
+        
+        return {
+          apiUrl: protocol + host + '/api',
+          clientUrl: protocol + host
+        };
+      } catch (e) {
+        return {
+          apiUrl: 'http://localhost:3000/api',
+          clientUrl: 'http://localhost:5173'
+        };
+      }
+    }
+
+    // Check auth mode for server URL
+    async function checkAuthMode(serverUrl) {
+      try {
+        var urls = getApiAndClientUrls(serverUrl);
+        var apiUrl = urls.apiUrl;
+        
+        var response = await fetch(apiUrl + '/auth/mode', {
+          method: 'GET',
+          headers: {
+            'X-Figma-Plugin': 'SideBySide/1.0'
+          }
+        });
+        
+        if (response.ok) {
+          var modeData = await response.json();
+          isAnonymous = modeData.isAnonymous || false;
+          updateAuthCodeFieldVisibility();
+          updateLoginButtonState();
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error checking auth mode:', error);
+        return false;
+      }
+    }
+
     // Handle login
     function handleLogin() {
       var serverUrl = loginServerUrlInput && loginServerUrlInput.value ? loginServerUrlInput.value.trim() : '';
@@ -476,40 +570,113 @@
         showStatus('error', 'Enter server URL');
         return;
       }
-      
-      if (!authCode) {
-        showStatus('error', 'Enter authentication code');
-        return;
-      }
-
-      // Disable login button to prevent multiple requests
-      if (loginButton) {
-        loginButton.disabled = true;
-        loginButton.textContent = 'Logging in...';
-      }
 
       var rootUrl = extractRootUrl(serverUrl);
       currentServerUrl = rootUrl;
       
-      showProgress('Verifying code...');
+      // Check if we already know the auth mode
+      if (isAnonymous !== null) {
+        // We know the mode, proceed with login
+        proceedWithLogin(rootUrl, authCode);
+      } else {
+        // First time - check auth mode
+        checkAuthModeAndProceed(rootUrl);
+      }
+    }
+
+    // Check auth mode and proceed with login
+    async function checkAuthModeAndProceed(serverUrl) {
+      try {
+        // Disable login button
+        if (loginButton) {
+          loginButton.disabled = true;
+          loginButton.textContent = 'Checking...';
+        }
+        
+        showProgress('Checking authentication mode...');
+        
+        var urls = getApiAndClientUrls(serverUrl);
+        var apiUrl = urls.apiUrl;
+        
+        var response = await fetch(apiUrl + '/auth/mode', {
+          method: 'GET',
+          headers: {
+            'X-Figma-Plugin': 'SideBySide/1.0'
+          }
+        });
+        
+        if (response.ok) {
+          var modeData = await response.json();
+          console.log('Server auth mode response:', modeData);
+          isAnonymous = modeData.isAnonymous === true;
+          console.log('Set isAnonymous to:', isAnonymous);
+          
+          // Update UI based on auth mode
+          updateAuthCodeFieldVisibility();
+          
+          if (isAnonymous) {
+            // Anonymous mode - proceed with login immediately
+            console.log('Proceeding with anonymous login');
+            proceedWithLogin(serverUrl, '');
+          } else {
+            // Magic-links mode - show code field and wait for user input
+            console.log('Showing code field for magic-links mode');
+            showStatus('info', 'Enter authentication code');
+            
+            // Restore login button
+            if (loginButton) {
+              loginButton.disabled = false;
+              loginButton.textContent = 'Login';
+            }
+            
+            // Focus on code input
+            if (loginAuthCodeInput) {
+              loginAuthCodeInput.focus();
+            }
+          }
+        } else {
+          throw new Error('Failed to check authentication mode');
+        }
+      } catch (error) {
+        console.error('Error checking auth mode:', error);
+        showStatus('error', 'Failed to connect to server');
+        if (loginButton) {
+          loginButton.disabled = false;
+          loginButton.textContent = 'Login';
+        }
+      }
+    }
+
+    // Proceed with actual login
+    function proceedWithLogin(serverUrl, authCode) {
+      // Disable login button
+      if (loginButton) {
+        loginButton.disabled = true;
+        loginButton.textContent = 'Logging in...';
+      }
+      
+      showProgress('Logging in...');
       
       parent.postMessage({
         pluginMessage: {
           type: 'login',
-          data: { serverUrl: rootUrl, authCode: authCode }
+          data: { serverUrl: serverUrl, authCode: authCode }
         }
       }, '*');
     }
 
+
     // Handle logout
     function handleLogout() {
       isAuthenticated = false;
+      isAnonymous = null;
       currentServerUrl = '';
       
       if (serverUrlDisplayInput) serverUrlDisplayInput.value = '';
       if (loginServerUrlInput) loginServerUrlInput.value = '';
       if (loginAuthCodeInput) loginAuthCodeInput.value = '';
       
+      updateAuthCodeFieldVisibility();
       showLoginForm();
       
       parent.postMessage({
@@ -747,9 +914,11 @@
 
     function updateLoginButtonState() {
       var hasServerUrl = !!(loginServerUrlInput && loginServerUrlInput.value && loginServerUrlInput.value.trim().length > 0);
-      var hasAuthCode = !!(loginAuthCodeInput && loginAuthCodeInput.value && loginAuthCodeInput.value.trim().length > 0);
+      
       if (loginButton) {
-        loginButton.disabled = !hasServerUrl || !hasAuthCode;
+        // Кнопка активна только при наличии URL сервера
+        // Режим аутентификации проверяется при нажатии кнопки
+        loginButton.disabled = !hasServerUrl;
       }
     }
 
@@ -970,7 +1139,7 @@
       // Restore login button
       if (loginButton) {
         loginButton.disabled = false;
-        loginButton.textContent = 'Login';
+        updateLoginButtonState();
       }
       
       // Clear stored tokens and show login form
@@ -988,13 +1157,16 @@
 
     function handleLoginSuccess(data) {
       isAuthenticated = true;
+      isAnonymous = data.isAnonymous || false;
+      updateAuthCodeFieldVisibility();
       hideProgress();
       showStatus('success', 'Login successful!');
+      
       
       // Restore login button
       if (loginButton) {
         loginButton.disabled = false;
-        loginButton.textContent = 'Login';
+        updateLoginButtonState();
       }
       
       // Update server URL display
@@ -1018,7 +1190,7 @@
       // Restore login button
       if (loginButton) {
         loginButton.disabled = false;
-        loginButton.textContent = 'Login';
+        updateLoginButtonState();
       }
     }
 
@@ -1028,12 +1200,15 @@
       
       if (authenticated && serverUrl) {
         isAuthenticated = true;
+        isAnonymous = data.isAnonymous || false;
+        updateAuthCodeFieldVisibility();
         currentServerUrl = serverUrl;
         authCode = data.authCode || '';
         
         if (serverUrlDisplayInput) {
           serverUrlDisplayInput.value = serverUrl;
         }
+        
         
         showMainInterface();
         loadSettings();
@@ -1057,6 +1232,9 @@
       updateLoginButtonState();
       updateCreateButtonState();
       
+      // Initialize auth code field visibility
+      updateAuthCodeFieldVisibility();
+      
       // Check authentication status
       checkAuthStatus();
       
@@ -1064,8 +1242,8 @@
       setTimeout(function() {
         if (isAuthenticated && titleInput) {
           titleInput.focus();
-        } else if (!isAuthenticated && loginAuthCodeInput) {
-          loginAuthCodeInput.focus();
+        } else if (!isAuthenticated && loginServerUrlInput) {
+          loginServerUrlInput.focus();
         }
       }, 100);
     });

@@ -1,5 +1,13 @@
-// Bun автоматически загружает .env файлы
-// Экспортируем переменные окружения для удобства
+// Загружаем переменные окружения в зависимости от режима
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Определяем режим и загружаем соответствующий .env файл
+const nodeEnv = process.env.NODE_ENV || 'development';
+const envFile = nodeEnv === 'production' ? '.env' : '.env.development';
+
+// Загружаем .env файл из корня проекта
+config({ path: resolve(process.cwd(), '..', envFile) });
 
 export const env = {
   PORT: process.env.PORT || '3000',
@@ -9,6 +17,9 @@ export const env = {
   BASE_URL: process.env.BASE_URL || 'http://localhost:3000',
   NODE_ENV: process.env.NODE_ENV || 'development',
   BUN_ENV: process.env.BUN_ENV || 'development',
+  
+  // Режим аутентификации: 'anonymous' или 'magic-links'
+  AUTH_MODE: process.env.AUTH_MODE || 'magic-links',
   
   // SMTP настройки
   SMTP_HOST: process.env.SMTP_HOST || '',

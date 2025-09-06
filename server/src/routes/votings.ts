@@ -164,7 +164,7 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, re
       end_at: endAt.toISOString(),
       duration_hours: durationHours,
       is_public: isPublic,
-      user_id: c.user!.id
+      user_id: c.user?.id || null // В анонимном режиме user_id будет null
     });
 
     let uploaded: any[] = [];

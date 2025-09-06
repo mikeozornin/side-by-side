@@ -15,7 +15,7 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const { login } = useAuth();
+  const { login, isAnonymous, authMode } = useAuth();
   const emailInputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
 
@@ -123,6 +123,11 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  // В анонимном режиме не показываем модальное окно
+  if (isAnonymous) {
+    return null;
+  }
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
