@@ -25,6 +25,7 @@ export interface Voting {
   end_at: string;
   duration_hours: number;
   is_public: boolean;
+  user_id: string | null;
 }
 
 export interface VotingOption {
@@ -49,8 +50,8 @@ export interface Vote {
 export function createVoting(voting: Omit<Voting, 'id'>): string {
   const id = uuidv4();
   runQuery(
-    'INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, voting.title, voting.created_at, voting.end_at, voting.duration_hours, voting.is_public]
+    'INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, voting.title, voting.created_at, voting.end_at, voting.duration_hours, voting.is_public, voting.user_id]
   );
   return id;
 }
@@ -65,6 +66,11 @@ export function getAllVotings(): Voting[] {
 
 export function getPublicVotings(): Voting[] {
   return allQuery<Voting>('SELECT * FROM votings WHERE is_public = 1 ORDER BY created_at DESC');
+}
+
+export function deleteVoting(id: string): boolean {
+  const result = runQuery('DELETE FROM votings WHERE id = ?', [id]);
+  return result.changes > 0;
 }
 
 // Функции для работы с вариантами голосования

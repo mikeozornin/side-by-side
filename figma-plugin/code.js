@@ -174,14 +174,21 @@ async function handleCreateVoting(data) {
     var apiUrl = urls.apiUrl;
     var clientUrl = urls.clientUrl;
 
+    // Get stored access token
+    var accessToken = await figma.clientStorage.getAsync('figma-plugin-access-token');
+
+    var headers = {
+      'Content-Type': 'application/json',
+      'X-Figma-Plugin': 'SideBySide/1.0'
+    };
+
+    if (accessToken) {
+      headers['Authorization'] = 'Bearer ' + accessToken;
+    }
+
     var response = await fetch(apiUrl + '/votings', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Figma-Plugin': 'SideBySide/1.0'
-        // User-Agent будет установлен браузером автоматически
-        // Сервер проверяет наличие "Figma" в User-Agent + кастомный заголовок
-      },
+      headers: headers,
       body: JSON.stringify({
         title: data.title,
         duration: data.duration,
@@ -283,6 +290,60 @@ async function handleSaveSettings(settings) {
   }
 }
 
+async function handleVerifyAuthCode(data) {
+  try {
+    var authCode = data.authCode;
+    var serverUrl = data.serverUrl;
+    
+    if (!authCode) {
+      throw new Error('Authentication code is required');
+    }
+    
+    var urls = getApiAndClientUrls(serverUrl);
+    var apiUrl = urls.apiUrl;
+    
+    var response = await fetch(apiUrl + '/auth/figma-verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Figma-Plugin': 'SideBySide/1.0'
+      },
+      body: JSON.stringify({
+        code: authCode
+      })
+    });
+    
+    if (!response.ok) {
+      var errorData = {};
+      try { errorData = await response.json(); } catch (e) {}
+      throw new Error(errorData.error || ('HTTP error: ' + response.status));
+    }
+    
+    var result = await response.json();
+    var accessToken = result.accessToken;
+    
+    if (!accessToken) {
+      throw new Error('Invalid response from server');
+    }
+    
+    // Store access token for future use
+    await figma.clientStorage.setAsync('figma-plugin-access-token', accessToken);
+    console.log('Access token stored successfully');
+    
+    figma.ui.postMessage({
+      type: 'auth-verified',
+      message: 'Authentication successful!'
+    });
+    
+  } catch (error) {
+    console.error('Auth verification error:', error);
+    figma.ui.postMessage({
+      type: 'auth-error',
+      message: (error && error.message) ? error.message : 'Authentication failed'
+    });
+  }
+}
+
 // Initialize UI
 figma.showUI(__html__, { width: 400, height: 600, themeColors: true });
 
@@ -304,6 +365,9 @@ figma.ui.onmessage = async function (msg) {
         break;
       case 'save-settings':
         await handleSaveSettings(msg.settings);
+        break;
+      case 'verify-auth-code':
+        await handleVerifyAuthCode(msg.data);
         break;
     }
   } catch (e) {

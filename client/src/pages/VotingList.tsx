@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
 import VotingCardPreview from '@/components/ui/VotingCardPreview'
+import { AuthButton } from '@/components/AuthButton'
 
 interface VotingOption {
   id: number;
@@ -120,7 +121,7 @@ export function VotingList() {
           </div>
           <div className="flex items-center gap-4">
             <Link to="/new">
-              <Button>
+              <Button size="sm">
                 <Plus className="h-4 w-4 mr-2 stroke-[3]" />
                 {t('voting.create')}
               </Button>
@@ -152,11 +153,12 @@ export function VotingList() {
         </div>
         <div className="flex items-center gap-4">
           <Link to="/new">
-            <Button>
+            <Button size="sm">
               <Plus className="h-4 w-4 mr-2 stroke-[3]" />
               {t('voting.create')}
             </Button>
           </Link>
+          <AuthButton />
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import { logger } from '../utils/logger.js';
 import { uploadImages } from '../utils/images.js';
 import { NotificationService } from '../notifications/index.js';
 import { createVotingLimiter, createVotingHourlyLimiter } from '../utils/rateLimit.js';
+import { requireAuth, requireVotingOwner, AuthContext } from '../middleware/auth.js';
 import { 
   createVoting, 
   getVoting, 
@@ -14,6 +15,7 @@ import {
   createVote,
   getVoteCounts,
   getVoteCountForVoting,
+  deleteVoting,
   VotingOption
 } from '../db/queries.js';
 
@@ -118,8 +120,8 @@ votingRoutes.get('/votings/:id', async (c) => {
   }
 });
 
-// POST /api/votings - создание голосования
-votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, async (c) => {
+// POST /api/votings - создание голосования (требует авторизацию)
+votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, requireAuth, async (c: AuthContext) => {
   try {
     const contentType = c.req.header('Content-Type') || '';
 
@@ -160,7 +162,8 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, as
       created_at: new Date().toISOString(),
       end_at: endAt.toISOString(),
       duration_hours: durationHours,
-      is_public: isPublic
+      is_public: isPublic,
+      user_id: c.user!.id
     });
 
     let uploaded: any[] = [];
@@ -437,6 +440,24 @@ votingRoutes.get('/votings/:id/results', async (c) => {
     });
   } catch (error) {
     logger.error('Ошибка получения результатов:', error);
+    return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
+  }
+});
+
+// DELETE /api/votings/:id - удаление голосования (требует авторизацию и владение)
+votingRoutes.delete('/votings/:id', requireAuth, requireVotingOwner, async (c: AuthContext) => {
+  try {
+    const id = c.req.param('id');
+    
+    const success = deleteVoting(id);
+    
+    if (!success) {
+      return c.json({ error: 'Failed to delete voting' }, 500);
+    }
+    
+    return c.json({ message: 'Voting deleted successfully' });
+  } catch (error) {
+    logger.error('Ошибка удаления голосования:', error);
     return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
   }
 });
