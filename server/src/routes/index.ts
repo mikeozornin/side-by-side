@@ -13,38 +13,95 @@ export const router = new Hono();
 
 // Middleware
 router.use('*', logger());
-router.use('*', cors({
-  origin: configManager.getCorsOriginFunction(),
-  credentials: true,
-}));
 
-// Дополнительная проверка для Figma плагина
-router.use('/api/*', async (c, next) => {
+// Explicit OPTIONS handler BEFORE cors to ensure preflight gets correct headers
+router.options('*', async (c) => {
   const origin = c.req.header('Origin');
+  const method = c.req.method;
+  const acrh = c.req.header('Access-Control-Request-Headers') || '';
+  const acrhLower = acrh.toLowerCase();
+  const userAgent = c.req.header('User-Agent') || '';
 
+  // Handle Figma null origin preflight
   if (origin === 'null') {
-    const userAgent = c.req.header('User-Agent');
-    const figmaPluginHeader = c.req.header('X-Figma-Plugin');
-
-    // Двойная проверка: User-Agent содержит "Figma" И кастомный заголовок
-    const hasValidUserAgent = userAgent && userAgent.includes('Figma');
-    const hasValidHeader = figmaPluginHeader === 'SideBySide/1.0';
-
-    if (!hasValidUserAgent || !hasValidHeader) {
-      console.warn(`Blocked suspicious request with null origin:`, {
-        userAgent: userAgent,
-        figmaPluginHeader: figmaPluginHeader,
-        hasValidUserAgent: hasValidUserAgent,
-        hasValidHeader: hasValidHeader
+    const hasFigmaUserAgent = userAgent.includes('Figma');
+    const requestsFigmaHeader = acrhLower.split(',').map((s) => s.trim()).includes('x-figma-plugin');
+    if (hasFigmaUserAgent && requestsFigmaHeader) {
+      return c.body(null, 204, {
+        'Access-Control-Allow-Origin': 'null',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Figma-Plugin',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400',
+        'Vary': 'Origin',
       });
-      return c.text('Forbidden - Suspicious request detected', 403);
     }
-
-    console.log(`✅ Valid Figma plugin request - UA: "${userAgent}", Header: "${figmaPluginHeader}"`);
   }
 
-  await next();
+  // Fallback: allow known origins
+  if (origin) {
+    const allowedOrigins = configManager.getCorsOrigins();
+    if (allowedOrigins.includes(origin)) {
+      return c.body(null, 204, {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Figma-Plugin',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400',
+        'Vary': 'Origin',
+      });
+    }
+  }
+
+  return c.text('Forbidden', 403);
 });
+
+router.use('*', cors({
+  origin: (origin, c) => {
+    console.log(`CORS Origin check: origin="${origin}", method="${c?.req?.method}"`);
+    
+    // Специальная обработка для null origin (Figma плагин)
+    if (origin === 'null') {
+      // Проверяем специальный заголовок Figma плагина
+      const figmaPluginHeader = c?.req?.header('X-Figma-Plugin');
+      const userAgent = c?.req?.header('User-Agent');
+      const accessControlRequestHeaders = c?.req?.header('Access-Control-Request-Headers');
+      
+      console.log(`Null origin request details:`, {
+        method: c?.req?.method,
+        userAgent: userAgent,
+        figmaPluginHeader: figmaPluginHeader,
+        accessControlRequestHeaders: accessControlRequestHeaders,
+        allHeaders: Object.fromEntries(c?.req?.raw?.headers?.entries() || [])
+      });
+      
+      // Для preflight запросов проверяем заголовки в Access-Control-Request-Headers
+      const isPreflight = c?.req?.method === 'OPTIONS';
+      const hasFigmaHeader = figmaPluginHeader === 'SideBySide/1.0' || 
+        (isPreflight && accessControlRequestHeaders?.includes('X-Figma-Plugin'));
+      const hasFigmaUserAgent = userAgent && userAgent.includes('Figma');
+      
+      if (hasFigmaHeader && hasFigmaUserAgent) {
+        console.log(`✅ Valid Figma plugin CORS request - UA: "${userAgent}", Header: "${figmaPluginHeader}", Preflight: ${isPreflight}`);
+        return 'null';
+      }
+      
+      console.warn(`Blocked CORS request with null origin:`, {
+        userAgent: userAgent,
+        figmaPluginHeader: figmaPluginHeader,
+        isPreflight: isPreflight,
+        accessControlRequestHeaders: accessControlRequestHeaders
+      });
+      return undefined;
+    }
+    
+    // Используем стандартную функцию проверки для остальных origins
+    return configManager.getCorsOriginFunction()(origin, c);
+  },
+  credentials: true,
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Figma-Plugin'],
+}));
 
 // API routes
 router.route('/api', votingRoutes);

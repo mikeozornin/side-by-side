@@ -146,8 +146,11 @@ Nginx настроен для:
 - Проксирования API запросов на Node.js сервер (включая `/api/images/`)
 - Кеширования статических ресурсов (1 год для hashed файлов, исключая `/api/` пути)
 - SPA fallback для React Router
+- HTTP/2 поддержки для улучшенной производительности
 
 **Важно:** Статические файлы фронтенда кешируются, но файлы из `/api/images/` проксируются к Node.js серверу для обработки.
+
+**HTTP/2:** После настройки SSL сертификата nginx автоматически включает HTTP/2 поддержку.
 
 ## Systemd сервис
 
@@ -194,6 +197,18 @@ certbot --nginx -d side-by-side.your-domain.com
 # Автоматическое обновление
 crontab -e
 # Добавить: 0 12 * * * /usr/bin/certbot renew --quiet
+```
+
+### Включение HTTP/2
+
+После настройки SSL автоматически включается HTTP/2. Если нужно включить вручную:
+
+```bash
+# Добавить http2 к listen директиве
+sed -i 's/listen 443 ssl;/listen 443 ssl http2;/' /etc/nginx/sites-available/side-by-side.your-domain.com
+
+# Проверить и перезагрузить
+nginx -t && systemctl reload nginx
 ```
 
 ## Troubleshooting

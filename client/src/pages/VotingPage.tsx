@@ -94,9 +94,9 @@ export function VotingPage() {
       const data = await response.json()
       setVoting(data.voting)
       
-      // Если голосование завершено, загружаем результаты
-      if (isFinished(data.voting.end_at)) {
-        fetchResults()
+      // Результаты приходят вместе с данными голосования, если оно завершено
+      if (data.results) {
+        setResults(data.results)
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : t('voting.errorLoading'))
@@ -105,17 +105,6 @@ export function VotingPage() {
     }
   }
 
-  const fetchResults = async () => {
-    try {
-      const response = await fetch(`/api/votings/${id}/results`)
-      if (response.ok) {
-        const data = await response.json()
-        setResults(data)
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки результатов:', error)
-    }
-  }
 
   const checkVotedStatus = () => {
     const voted = localStorage.getItem(`voted_${id}`) !== null
@@ -152,11 +141,6 @@ export function VotingPage() {
       }))
 
       setHasVoted(true)
-      
-      // Если голосование завершено, загружаем результаты
-      if (voting && isFinished(voting.end_at)) {
-        fetchResults()
-      }
     } catch (error) {
       setError(error instanceof Error ? error.message : t('voting.errorVoting'))
     } finally {
@@ -228,10 +212,10 @@ export function VotingPage() {
                 <div key={option.id} className="flex flex-col h-full flex-shrink-0 w-full md:w-1/2 lg:w-1/3">
                   <div className="flex-1">
                     <Card 
-                      className={`h-full transition-all ${
+                      className={`h-full transition-all duration-300 ${
                         !finished ? 'cursor-pointer' : ''
                       } ${selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
-                      } ${finished && results && results.winner !== option.id && results.winner !== 'tie' ? 'opacity-50 grayscale' : ''}`}
+                      } ${finished && results && (results.winner === 'tie' || (typeof results.winner === 'number' && results.winner !== option.id)) ? 'opacity-50 grayscale' : ''}`}
                       onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
                     >
                       <CardContent className="p-0 h-full">
