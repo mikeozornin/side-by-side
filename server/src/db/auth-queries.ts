@@ -109,6 +109,17 @@ export function deleteSession(sessionId: string): void {
 export function createFigmaCode(userId: string, codeHash: string, expiresAt: string): void {
   const db = getDatabase();
   
+  // Сначала очищаем старые коды этого пользователя
+  const expiredResult = db.prepare(`
+    DELETE FROM figma_auth_codes 
+    WHERE user_id = ? AND (expires_at <= datetime('now') OR used_at IS NOT NULL)
+  `).run(userId);
+  
+  if (expiredResult.changes > 0) {
+    console.log(`Очищено ${expiredResult.changes} старых кодов для пользователя ${userId}`);
+  }
+  
+  // Создаем новый код
   db.prepare(`
     INSERT INTO figma_auth_codes (code_hash, user_id, expires_at) VALUES (?, ?, ?)
   `).run(codeHash, userId, expiresAt);
@@ -152,4 +163,27 @@ export function getUserById(userId: string): User | null {
   return db.prepare(`
     SELECT id, email, created_at FROM users WHERE id = ?
   `).get(userId) as User | null;
+}
+
+// Очистка истекших и использованных кодов Figma
+export function cleanupFigmaCodes(): number {
+  const db = getDatabase();
+  
+  // Удаляем истекшие коды (независимо от того, использованы они или нет)
+  const expiredResult = db.prepare(`
+    DELETE FROM figma_auth_codes 
+    WHERE expires_at <= datetime('now')
+  `).run();
+  
+  // Удаляем использованные коды старше 1 часа
+  const usedResult = db.prepare(`
+    DELETE FROM figma_auth_codes 
+    WHERE used_at IS NOT NULL 
+    AND used_at <= datetime('now', '-1 hour')
+  `).run();
+  
+  const totalDeleted = expiredResult.changes + usedResult.changes;
+  console.log(`Очищено кодов Figma: ${totalDeleted} (истекших: ${expiredResult.changes}, использованных: ${usedResult.changes})`);
+  
+  return totalDeleted;
 }
