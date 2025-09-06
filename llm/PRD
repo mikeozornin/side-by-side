@@ -131,6 +131,22 @@
 - **Сессии**: JWT access token (15 мин) + refresh token (30 дней, HttpOnly cookie)
 - **Dev режим**: автоматическая авторизация без отправки email при `NODE_ENV=development`
 
+### Режимы доступа (анонимный / magic-links)
+- `AUTH_MODE=anonymous` (анонимный доступ):
+  - Голосующие не обязаны логиниться, UI не требует входа.
+  - `POST /api/votings/:id/vote` допускается без `Authorization`.
+  - В БД голоса пишутся с `votes.user_id = NULL`.
+  - Защита от повторного голосования — на клиенте: запись `localStorage`/IndexedDB `voted_{votingId}` с выбранным вариантом и временем.
+  - Сервер не рассчитывает признак «голосовал» per-user; `GET /api/votings/:id` не возвращает `hasVoted/selectedOption` для анонимов.
+
+- `AUTH_MODE=magic-links` (доступ с авторизацией):
+  - Для голосования требуется вход (magic link). Клиент добавляет `Authorization: Bearer <accessToken>`.
+  - Сервер запрещает повторное голосование по `votes.user_id` (один голос на пользователя).
+  - `GET /api/votings/:id` возвращает `hasVoted: boolean` и `selectedOption: number|null` для авторизованного пользователя.
+  - Клиент при попытке повторного голосования показывает модальное окно «Вы уже голосовали» (без эффекта «голос учтён сейчас»), блокирует кнопку и подсвечивает выбранный вариант.
+
+- Dev-упрощение: `AUTO_APPROVE_SESSIONS=true` — авто-логин без письма; `refreshToken` хранится в HttpOnly cookie, `accessToken` — в `localStorage` для восстановления после перезагрузки.
+
 ### API эндпоинты авторизации
 - `POST /api/auth/magic-link` — запрос magic link
 - `POST /api/auth/verify-token` — верификация magic link
