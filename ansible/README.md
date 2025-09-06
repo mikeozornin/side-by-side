@@ -15,7 +15,7 @@
 - Ubuntu 20.04+ 
 - Root доступ
 - Nginx установлен
-- Node.js 20+ (устанавливается автоматически)
+- Bun 1.0+ (устанавливается автоматически)
 
 ### На машине разработчика
 - Ansible 2.9+
@@ -70,7 +70,7 @@ RATE_LIMIT_VOTING_PER_HOUR=60
 
 ```bash
 # В корне проекта
-npm run build
+bun run build
 ```
 
 ### 2. Bootstrap сервера
@@ -80,7 +80,7 @@ ansible-playbook -i ansible/inventory.ini ansible/bootstrap.yml
 ```
 
 Это установит:
-- Node.js 20+
+- Bun 1.0+
 - Системные зависимости для оптимизации изображений (ImageMagick, jpegoptim, pngquant, webp)
 - Nginx конфигурацию
 - Systemd сервис
@@ -103,7 +103,7 @@ ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e restart_service=
 
 ```bash
 # В корне проекта
-npm run build
+bun run build
 ```
 
 ### 2. Деплой
@@ -126,7 +126,7 @@ ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e update_env=true 
 ├── releases/                    # Релизы с timestamp
 │   └── 20241201_143022/        # Пример релиза
 │       ├── frontend/           # Собранный React фронтенд
-│       ├── server/             # Собранный Node.js бэкенд
+│       ├── server/             # Собранный Bun бэкенд
 │       ├── data/               # Загруженные изображения
 │       ├── logs/               # Логи приложения
 │       └── manifest.json       # Информация о релизе
@@ -143,12 +143,12 @@ ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e update_env=true 
 
 Nginx настроен для:
 - Обслуживания статических файлов фронтенда
-- Проксирования API запросов на Node.js сервер (включая `/api/images/`)
+- Проксирования API запросов на Bun сервер (включая `/api/images/`)
 - Кеширования статических ресурсов (1 год для hashed файлов, исключая `/api/` пути)
 - SPA fallback для React Router
 - HTTP/2 поддержки для улучшенной производительности
 
-**Важно:** Статические файлы фронтенда кешируются, но файлы из `/api/images/` проксируются к Node.js серверу для обработки.
+**Важно:** Статические файлы фронтенда кешируются, но файлы из `/api/images/` проксируются к Bun серверу для обработки.
 
 **HTTP/2:** После настройки SSL сертификата nginx автоматически включает HTTP/2 поддержку.
 
@@ -239,6 +239,22 @@ systemctl restart side-by-side
 
 # Логи
 journalctl -u side-by-side --since "1 hour ago"
+```
+
+### Проблемы с установкой Bun
+Если Bun не установился через Ansible:
+
+```bash
+# Ручная установка Bun на сервере
+scp ansible/install-bun-manual.sh root@your-server:/tmp/
+ssh root@your-server "chmod +x /tmp/install-bun-manual.sh && /tmp/install-bun-manual.sh"
+
+# Или установка вручную
+ssh root@your-server
+curl -fsSL https://bun.sh/install | bash
+ln -sf /root/.bun/bin/bun /usr/local/bin/bun
+chmod +x /usr/local/bin/bun
+bun --version
 ```
 
 ### Проблемы с изображениями (404 ошибки)

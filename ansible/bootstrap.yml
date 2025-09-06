@@ -10,11 +10,15 @@
       apt:
         update_cache: yes
 
-    - name: Install curl and ca-certificates
+    - name: Install system dependencies for Bun
       apt:
         name:
           - curl
+          - wget
+          - unzip
           - ca-certificates
+          - build-essential
+          - git
         state: present
 
     - name: Remove old Node.js packages completely
@@ -43,41 +47,65 @@
       command: apt-get autoremove -y
       ignore_errors: yes
 
-    - name: Install Node.js 20+ via NodeSource
+    - name: Install Bun
       shell: |
-        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-        apt-get install -y nodejs
+        set -e
+        echo "🔍 Checking system dependencies..."
+        which curl || echo "curl not found"
+        which wget || echo "wget not found" 
+        which unzip || echo "unzip not found"
+        
+        echo "⬇️ Downloading and installing Bun..."
+        # Try curl first, then wget as fallback
+        if command -v curl >/dev/null 2>&1; then
+          echo "Using curl..."
+          curl -fsSL https://bun.sh/install | bash
+        else
+          echo "Using wget..."
+          wget -qO- https://bun.sh/install | bash
+        fi
+        
+        echo "⏳ Waiting for installation to complete..."
+        sleep 5
+        
+        echo "🔗 Creating symlink..."
+        export PATH="$HOME/.bun/bin:$PATH"
+        ln -sf /root/.bun/bin/bun /usr/local/bin/bun
+        chmod +x /usr/local/bin/bun
+        
+        echo "✅ Verifying installation..."
+        /usr/local/bin/bun --version
+        echo "🎉 Bun installation completed successfully!"
       args:
         executable: /bin/bash
 
-    - name: Verify Node.js version
-      command: node --version
-      register: node_version
+    - name: Add Bun to PATH for current session
+      shell: |
+        echo 'export PATH="$HOME/.bun/bin:$PATH"' >> /root/.bashrc
+        source /root/.bashrc
+      args:
+        executable: /bin/bash
+
+    - name: Check if Bun binary exists
+      stat:
+        path: /usr/local/bin/bun
+      register: bun_binary
+
+    - name: Verify Bun installation
+      shell: /usr/local/bin/bun --version
+      register: bun_version
       changed_when: false
+      when: bun_binary.stat.exists
 
-    - name: Display Node.js version
+    - name: Display Bun version
       debug:
-        msg: "Node.js version: {{ node_version.stdout }}"
+        msg: "Bun version: {{ bun_version.stdout }}"
+      when: bun_binary.stat.exists
 
-    - name: Reset npm configuration completely
-      shell: |
-        rm -rf ~/.npm
-        rm -rf /root/.npm
-        rm -rf /root/.npmrc
-        rm -rf /etc/npmrc
-      args:
-        executable: /bin/bash
-      ignore_errors: yes
-
-    - name: Configure npm to use standard registry
-      shell: |
-        npm config set registry https://registry.npmjs.org/
-        npm config set strict-ssl true
-        npm config delete proxy
-        npm config delete https-proxy
-        npm config delete http-proxy
-      args:
-        executable: /bin/bash
+    - name: Fail if Bun not installed
+      fail:
+        msg: "Bun installation failed. Please check the installation script."
+      when: not bun_binary.stat.exists
 
     - name: Install system dependencies for image optimization
       apt:
@@ -135,7 +163,7 @@
 
           [Service]
           WorkingDirectory={{ backend_workdir }}
-          ExecStart={{ node_path }} dist/index.js
+          ExecStart=/usr/local/bin/bun dist/index.js
           EnvironmentFile={{ env_file_path }}
           Restart=always
           RestartSec=5

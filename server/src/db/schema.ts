@@ -1,6 +1,6 @@
-import sqlite3 from 'sqlite3';
+import { Database } from 'bun:sqlite';
 
-export function createTables(db: sqlite3.Database): void {
+export function createTables(db: Database): void {
   // Таблица голосований
   db.exec(`
     CREATE TABLE IF NOT EXISTS votings (

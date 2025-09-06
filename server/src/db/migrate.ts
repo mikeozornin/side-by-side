@@ -45,7 +45,7 @@ async function migrateData() {
     // Мигрируем голосования
     for (const voting of data.votings) {
       const { id: oldId, ...votingData } = voting;
-      const newId = await createVoting({
+      const newId = createVoting({
         ...votingData,
         duration_hours: 24, // Значение по умолчанию для старых данных
         is_public: true // Значение по умолчанию для старых данных
@@ -58,7 +58,7 @@ async function migrateData() {
     for (const image of data.voting_images) {
       const newVotingId = idMapping[image.voting_id];
       if (newVotingId) {
-        await createVotingOptions([{
+        createVotingOptions([{
           voting_id: newVotingId,
           file_path: image.file_path,
           sort_order: image.sort_order,
@@ -75,7 +75,7 @@ async function migrateData() {
     for (const vote of data.votes) {
       const newVotingId = idMapping[vote.voting_id];
       if (newVotingId) {
-        await createVote({
+        createVote({
           voting_id: newVotingId,
           option_id: vote.choice,
           created_at: vote.created_at
@@ -107,32 +107,22 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     });
 }
 
-async function addIsPublicColumn() {
+function addIsPublicColumn() {
   try {
     logger.info('Добавляем поле is_public в таблицу votings...');
     
     const db = getDatabase();
     
     // Проверяем, существует ли уже поле is_public
-    const tableInfo = await new Promise<any[]>((resolve, reject) => {
-      db.all("PRAGMA table_info(votings)", (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
+    const tableInfo = db.prepare("PRAGMA table_info(votings)").all() as any[];
     
     const hasIsPublic = tableInfo.some(col => col.name === 'is_public');
     
     if (!hasIsPublic) {
       // Добавляем поле is_public со значением по умолчанию true
-      await new Promise<void>((resolve, reject) => {
-        db.exec(`
-          ALTER TABLE votings ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT 1;
-        `, (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
+      db.exec(`
+        ALTER TABLE votings ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT 1;
+      `);
       
       logger.info('Поле is_public успешно добавлено в таблицу votings');
     } else {

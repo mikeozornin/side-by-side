@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { votingRoutes } from './votings.js';
-import { serveStatic } from '@hono/node-server/serve-static';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { readdirSync, statSync } from 'fs';
@@ -164,8 +163,33 @@ router.get('/api/images/:filename', async (c) => {
 // Serve static files in production
 const staticConfig = configManager.getStaticConfig();
 if (staticConfig.serveStatic) {
-  // Serve static files from client dist
-  router.get('*', serveStatic({ root: staticConfig.staticPath }));
-  // Fallback to index.html for SPA routing
-  router.get('*', serveStatic({ path: staticConfig.fallbackPath }));
+  // Serve static files using Bun's built-in file serving
+  router.get('*', async (c) => {
+    const url = new URL(c.req.url);
+    const pathname = url.pathname;
+    
+    // Try to serve static file
+    try {
+      const filePath = join(staticConfig.staticPath, pathname);
+      const file = Bun.file(filePath);
+      
+      if (await file.exists()) {
+        return new Response(file);
+      }
+    } catch (error) {
+      // File not found, continue to fallback
+    }
+    
+    // Fallback to index.html for SPA routing
+    try {
+      const fallbackFile = Bun.file(staticConfig.fallbackPath);
+      if (await fallbackFile.exists()) {
+        return new Response(fallbackFile);
+      }
+    } catch (error) {
+      // Fallback not found
+    }
+    
+    return c.text('Not Found', 404);
+  });
 }
