@@ -21,6 +21,9 @@ export const env = {
   // Режим аутентификации: 'anonymous' или 'magic-links'
   AUTH_MODE: process.env.AUTH_MODE || 'magic-links',
   
+  // Автоапрув сессий (без отправки письма)
+  AUTO_APPROVE_SESSIONS: process.env.AUTO_APPROVE_SESSIONS === 'true',
+  
   // SMTP настройки
   SMTP_HOST: process.env.SMTP_HOST || '',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '587'),

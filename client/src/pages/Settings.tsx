@@ -8,7 +8,7 @@ import { Copy, Check, RefreshCw, LogOut, X } from 'lucide-react';
 
 export function Settings() {
   const { t } = useTranslation();
-  const { user, accessToken, logout } = useAuth();
+  const { user, accessToken, logout, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [figmaCode, setFigmaCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -65,12 +65,37 @@ export function Settings() {
   };
 
 
-  // Автоматически генерируем код при загрузке страницы
+  // Проверяем авторизацию при изменении пользователя
   useEffect(() => {
-    if (accessToken && !figmaCode) {
+    // Если загрузка завершена и пользователя нет - редиректим
+    if (!authLoading && !user) {
+      // Используем принудительный редирект
+      window.location.href = '/';
+      return;
+    }
+  }, [user, authLoading, navigate]);
+
+  // Генерируем код при загрузке страницы
+  useEffect(() => {
+    if (accessToken && !figmaCode && user) {
       generateFigmaCode();
     }
-  }, [accessToken]);
+  }, [accessToken, figmaCode, user]);
+
+  // Показываем загрузку пока проверяется авторизация
+  if (authLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <p className="text-muted-foreground mb-4">Loading...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!user) {
     return (

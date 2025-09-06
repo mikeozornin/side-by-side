@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthModal } from './AuthModal';
+import { Navigate } from 'react-router-dom';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -12,10 +13,12 @@ export function ProtectedRoute({ children, returnTo }: ProtectedRouteProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   React.useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isLoading && !user && returnTo) {
       setShowAuthModal(true);
+    } else {
+      setShowAuthModal(false);
     }
-  }, [isLoading, user]);
+  }, [isLoading, user, returnTo]);
 
   if (isLoading) {
     return (
@@ -29,13 +32,16 @@ export function ProtectedRoute({ children, returnTo }: ProtectedRouteProps) {
   }
 
   if (!user) {
-    return (
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        returnTo={returnTo}
-      />
-    );
+    if (returnTo) {
+      return (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          returnTo={returnTo}
+        />
+      );
+    }
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

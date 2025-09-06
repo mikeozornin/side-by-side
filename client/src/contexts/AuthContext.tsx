@@ -101,8 +101,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error('Error logging out:', error);
     } finally {
+      // Принудительно очищаем состояние
       setAccessToken(null);
       setUser(null);
+      setIsAnonymous(false);
+      setIsLoading(false);
+      
+      // Принудительно обновляем состояние через setTimeout
+      setTimeout(() => {
+        setUser(null);
+        setAccessToken(null);
+      }, 0);
     }
   };
 
