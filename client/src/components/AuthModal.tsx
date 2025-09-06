@@ -33,6 +33,7 @@ export function AuthModal({ isOpen, onClose, returnTo, onSuccess }: AuthModalPro
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           email,
           returnTo: returnTo || window.location.hash,
@@ -82,6 +83,7 @@ export function AuthModal({ isOpen, onClose, returnTo, onSuccess }: AuthModalPro
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ token }),
       });
 

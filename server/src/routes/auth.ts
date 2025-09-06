@@ -79,7 +79,7 @@ authRoutes.post('/magic-link', async (c) => {
       );
       
       // Устанавливаем refresh token в HttpOnly cookie
-      c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}`);
+      c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${30 * 24 * 60 * 60}; Path=/`);
       
       return c.json({ 
         message: 'Auto-login enabled',

@@ -168,3 +168,36 @@ export async function requireVotingOwner(c: AuthContext, next: Next) {
     return c.json({ error: 'Authorization failed' }, 500);
   }
 }
+
+// Middleware для проверки голосования пользователя (опциональная авторизация)
+export async function optionalVotingAuth(c: AuthContext, next: Next) {
+  try {
+    // В анонимном режиме пропускаем проверку авторизации
+    if (env.AUTH_MODE === 'anonymous') {
+      await next();
+      return;
+    }
+    
+    // В режиме magic-links проверяем токен, но не требуем его
+    const authHeader = c.req.header('Authorization');
+    
+    if (authHeader?.startsWith('Bearer ')) {
+      const accessToken = authHeader.substring(7);
+      const payload = verifyAccessToken(accessToken);
+      
+      if (payload) {
+        // Получаем пользователя из БД
+        const user = getUserById(payload.userId);
+        if (user) {
+          c.user = user;
+        }
+      }
+    }
+    
+    await next();
+  } catch (error) {
+    console.error('Optional voting auth middleware error:', error);
+    // В случае ошибки продолжаем без авторизации
+    await next();
+  }
+}
