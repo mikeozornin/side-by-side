@@ -164,11 +164,17 @@
               listen 80;
               server_name {{ domain }};
 
+              # Глобальный лимит размера загружаемых файлов (до 10 изображений по 20MB)
+              client_max_body_size 300M;
+
               root {{ nginx_web_root }};
               index index.html;
 
               # API
               location {{ api_prefix }}/ {
+                  # Увеличиваем лимит размера загружаемых файлов до 300MB (до 10 изображений по 20MB)
+                  client_max_body_size 300M;
+                  
                   proxy_pass http://{{ host_bind }}:{{ port }}{{ api_prefix }}/;
                   proxy_http_version 1.1;
                   proxy_set_header Host $host;
@@ -195,7 +201,9 @@
 
                   proxy_set_header Upgrade $http_upgrade;
                   proxy_set_header Connection "upgrade";
-                  proxy_read_timeout 300s;
+                  proxy_read_timeout 600s;
+                  proxy_connect_timeout 60s;
+                  proxy_send_timeout 600s;
               }
 
               # Health check
