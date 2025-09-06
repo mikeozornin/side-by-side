@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -15,6 +16,8 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const { login } = useAuth();
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,14 +53,14 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
           return;
         }
         
-        setMessage('Проверьте почту! Мы отправили вам ссылку для входа.');
+        setMessage(t('auth.modal.checkEmail'));
       } else {
         const error = await response.json();
-        setMessage(error.error || 'Произошла ошибка. Попробуйте еще раз.');
+        setMessage(error.error || t('auth.modal.errorGeneric'));
       }
     } catch (error) {
       console.error('Error sending magic link:', error);
-      setMessage('Произошла ошибка. Проверьте подключение к интернету.');
+      setMessage(t('auth.modal.errorConnection'));
     } finally {
       setIsLoading(false);
     }
@@ -87,11 +90,11 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
         }
       } else {
         const error = await response.json();
-        setMessage(error.error || 'Неверная или просроченная ссылка.');
+        setMessage(error.error || t('auth.modal.errorInvalidToken'));
       }
     } catch (error) {
       console.error('Error verifying token:', error);
-      setMessage('Произошла ошибка при входе. Попробуйте еще раз.');
+      setMessage(t('auth.modal.errorLogin'));
     } finally {
       setIsLoading(false);
     }
@@ -109,23 +112,43 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
     }
   }, [isOpen]);
 
+  // Установка фокуса на поле ввода email при открытии модального окна
+  useEffect(() => {
+    if (isOpen && emailInputRef.current) {
+      // Небольшая задержка для корректной работы фокуса
+      setTimeout(() => {
+        emailInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={handleBackdropClick}
+    >
       <Card className="w-full max-w-md mx-4">
         <CardHeader>
-          <CardTitle>Вход в систему</CardTitle>
+          <CardTitle>{t('auth.modal.title')}</CardTitle>
           <CardDescription>
-            Введите адрес эл. почты и мы отправим вам ссылку для входа
+            {t('auth.modal.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Input
+                ref={emailInputRef}
                 type="email"
-                placeholder="your@email.com"
+                placeholder={t('auth.modal.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -135,7 +158,7 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
             
             {message && (
               <div className={`text-sm p-3 rounded-md ${
-                message.includes('Проверьте почту') 
+                message.includes(t('auth.modal.checkEmail')) 
                   ? 'bg-green-50 text-green-700 border border-green-200' 
                   : 'bg-red-50 text-red-700 border border-red-200'
               }`}>
@@ -147,17 +170,9 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
               <Button
                 type="submit"
                 disabled={isLoading || !email}
-                className="flex-1"
+                className="flex-shrink-0"
               >
-                {isLoading ? 'Отправляем...' : 'Отправить ссылку'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                disabled={isLoading}
-              >
-                Отмена
+                {isLoading ? t('auth.modal.sending') : t('auth.modal.sendLink')}
               </Button>
             </div>
           </form>

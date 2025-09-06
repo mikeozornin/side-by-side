@@ -74,6 +74,7 @@ authRoutes.post('/magic-link', async (c) => {
       return c.json({ 
         message: 'Auto-login in development mode',
         accessToken,
+        refreshToken,
         user,
         returnTo: returnTo || '/'
       });
@@ -158,7 +159,19 @@ authRoutes.post('/verify-token', async (c) => {
 // POST /api/auth/refresh - Обновление access token
 authRoutes.post('/refresh', async (c) => {
   try {
-    const refreshToken = c.req.cookie('refreshToken');
+    // Try to get refresh token from cookie first, then from body
+    let refreshToken = c.req.header('Cookie')?.split(';')
+      .find(cookie => cookie.trim().startsWith('refreshToken='))
+      ?.split('=')[1];
+    
+    if (!refreshToken) {
+      try {
+        const body = await c.req.json();
+        refreshToken = body.refreshToken;
+      } catch (e) {
+        // Ignore parsing errors
+      }
+    }
     
     if (!refreshToken) {
       return c.json({ error: 'No refresh token provided' }, 401);
@@ -207,13 +220,7 @@ authRoutes.post('/refresh', async (c) => {
     const accessToken = createAccessToken({ userId: user.id, email: user.email });
     
     // Устанавливаем новый refresh token в cookie
-    c.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 365 * 24 * 60 * 60,
-      path: '/'
-    });
+    c.header('Set-Cookie', `refreshToken=${newRefreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${365 * 24 * 60 * 60}; Path=/`);
     
     return c.json({
       accessToken,
@@ -324,6 +331,7 @@ authRoutes.post('/figma-verify', figmaPluginMiddleware, async (c) => {
     
     return c.json({
       accessToken,
+      refreshToken,
       user: {
         id: user.id,
         email: user.email,

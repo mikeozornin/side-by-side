@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthModal } from './AuthModal';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface AuthButtonProps {
   returnTo?: string;
@@ -12,6 +13,7 @@ interface AuthButtonProps {
 export function AuthButton({ returnTo, className }: AuthButtonProps) {
   const { user, isLoading } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const { t } = useTranslation();
 
   const handleLogin = () => {
     setShowAuthModal(true);
@@ -20,7 +22,7 @@ export function AuthButton({ returnTo, className }: AuthButtonProps) {
   if (isLoading) {
     return (
       <Button disabled size="sm" className={className}>
-        Загрузка...
+        {t('auth.loading')}
       </Button>
     );
   }
@@ -46,7 +48,7 @@ export function AuthButton({ returnTo, className }: AuthButtonProps) {
         size="sm"
         className={className}
       >
-        Логин
+        {t('auth.login')}
       </Button>
       
       <AuthModal

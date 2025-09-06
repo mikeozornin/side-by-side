@@ -32,6 +32,16 @@
     "option2": "Option 2",
     "share": "Share",
     "linkCopied": "Link copied",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure you want to delete this voting? This action cannot be undone.",
+    "deleteSuccess": "Voting deleted successfully",
+    "deleteError": "Error deleting voting",
+    "deleteQuestion": "Delete voting?",
+    "deleteConfirmButton": "Yes, delete",
+    "endEarly": "Finish now",
+    "endEarlyQuestion": "Finish voting now?",
+    "endEarlyConfirmButton": "Yes, finish",
+    "endEarlyError": "Error ending voting early",
     "timeRemaining": {
       "days": "{{days}}d {{hours}}h {{minutes}}m",
       "hours": "{{hours}}h {{minutes}}m {{seconds}}s",
@@ -83,7 +93,8 @@
     "rateLimitMinuteExceeded": "Too many voting creation requests. Please try again in a minute.",
     "rateLimitHourExceeded": "Voting creation limit exceeded for the hour. Please try again later.",
     "rateLimitExceeded": "Request limit exceeded. Please try again later.",
-    "privateVotingNotification": "Voting is private, don't lose this link"
+    "privateVotingNotification": "Voting is private, don't lose this link",
+    "successMessage": "Voting created successfully! Please log in to view and manage your votings."
   },
   "settings": {
     "loginRequired": "Login required",
@@ -93,6 +104,25 @@
       "refresh": "Refresh",
       "errorGeneratingCode": "Error generating code",
       "connectionError": "Connection error"
+    }
+  },
+  "common": {
+    "cancel": "Cancel"
+  },
+  "auth": {
+    "loading": "Loading...",
+    "login": "Login",
+    "modal": {
+      "title": "Login to system",
+      "description": "Enter your email address and we'll send you a login link",
+      "emailPlaceholder": "your@email.com",
+      "sendLink": "Send link",
+      "sending": "Sending...",
+      "checkEmail": "Check your email! We've sent you a login link.",
+      "errorGeneric": "An error occurred. Please try again.",
+      "errorConnection": "An error occurred. Check your internet connection.",
+      "errorInvalidToken": "Invalid or expired link.",
+      "errorLogin": "An error occurred during login. Please try again."
     }
   }
 }

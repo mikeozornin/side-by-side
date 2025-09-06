@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
 import VotingCardPreview from '@/components/ui/VotingCardPreview'
 import { AuthButton } from '@/components/AuthButton'
+import { AuthModal } from '@/components/AuthModal'
 
 interface VotingOption {
   id: number;
@@ -31,6 +32,7 @@ export function VotingList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [showAuthModal, setShowAuthModal] = useState(false)
 
 
   useEffect(() => {
@@ -120,12 +122,13 @@ export function VotingList() {
             <h1 className="text-3xl font-bold">{t('voting.active')}</h1>
           </div>
           <div className="flex items-center gap-4">
-            <Link to="/new">
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2 stroke-[3]" />
-                {t('voting.create')}
-              </Button>
-            </Link>
+            <Button 
+              size="sm"
+              onClick={() => setShowAuthModal(true)}
+            >
+              <Plus className="h-4 w-4 mr-2 stroke-[3]" />
+              {t('voting.create')}
+            </Button>
           </div>
         </div>
         
@@ -152,12 +155,13 @@ export function VotingList() {
           </h1>
         </div>
         <div className="flex items-center gap-4">
-          <Link to="/new">
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-2 stroke-[3]" />
-              {t('voting.create')}
-            </Button>
-          </Link>
+          <Button 
+            size="sm"
+            onClick={() => setShowAuthModal(true)}
+          >
+            <Plus className="h-4 w-4 mr-2 stroke-[3]" />
+            {t('voting.create')}
+          </Button>
           <AuthButton />
         </div>
       </div>
@@ -250,6 +254,12 @@ export function VotingList() {
           )}
         </div>
       )}
+      
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        returnTo="/new"
+      />
     </div>
   )
 }
