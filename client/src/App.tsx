@@ -3,7 +3,7 @@ import { VotingList } from './pages/VotingList'
 import { CreateVoting } from './pages/CreateVoting'
 import { VotingPage } from './pages/VotingPage'
 import { ThemeProvider } from './components/ThemeProvider'
-import { Toaster } from 'sonner'
+import { Toaster } from './components/ui/toaster'
 
 function App() {
   return (
