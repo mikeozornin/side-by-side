@@ -130,3 +130,23 @@ export function getVoteCounts(votingId: string): { option_id: number; count: num
     [votingId]
   );
 }
+
+export function hasUserVoted(votingId: string, userId: string | null): boolean {
+  if (!userId) {
+    return false; // В анонимном режиме не проверяем по серверу
+  }
+  
+  const result = getQuery<{ count: number }>(
+    'SELECT COUNT(*) as count FROM votes WHERE voting_id = ? AND user_id = ?',
+    [votingId, userId]
+  );
+  return (result?.count || 0) > 0;
+}
+
+export function getUserSelectedOption(votingId: string, userId: string): number | null {
+  const result = getQuery<{ option_id: number }>(
+    'SELECT option_id FROM votes WHERE voting_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1',
+    [votingId, userId]
+  );
+  return result ? result.option_id : null;
+}

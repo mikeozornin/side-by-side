@@ -44,9 +44,11 @@ export function createTables(db: Database): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       voting_id TEXT NOT NULL,
       option_id INTEGER NOT NULL,
+      user_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (voting_id) REFERENCES votings(id) ON DELETE CASCADE,
-      FOREIGN KEY (option_id) REFERENCES voting_options(id) ON DELETE CASCADE
+      FOREIGN KEY (option_id) REFERENCES voting_options(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     )
   `);
 
@@ -90,6 +92,7 @@ export function createTables(db: Database): void {
     CREATE INDEX IF NOT EXISTS idx_votings_user_id ON votings(user_id);
     CREATE INDEX IF NOT EXISTS idx_voting_options_voting_id ON voting_options(voting_id);
     CREATE INDEX IF NOT EXISTS idx_votes_voting_id ON votes(voting_id);
+    CREATE INDEX IF NOT EXISTS idx_votes_user_id ON votes(user_id);
     CREATE INDEX IF NOT EXISTS idx_votes_created_at ON votes(created_at);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_magic_tokens_expires_at ON magic_tokens(expires_at);

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 
 interface User {
   id: string;
@@ -34,10 +34,14 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(() => {
+    // Восстанавливаем accessToken из localStorage при инициализации
+    return localStorage.getItem('accessToken');
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [authMode, setAuthMode] = useState<'anonymous' | 'magic-links'>('magic-links');
+  const hasInitialized = useRef(false);
 
   // Функция для проверки режима аутентификации
   const checkAuthMode = async (): Promise<{ authMode: 'anonymous' | 'magic-links'; isAnonymous: boolean }> => {
@@ -73,17 +77,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const data = await response.json();
         setAccessToken(data.accessToken);
         setUser(data.user);
+        // Сохраняем обновленный токен в localStorage
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('user', JSON.stringify(data.user));
         return true;
       } else {
-        // Токен недействителен, очищаем состояние (не логируем ошибку)
-        setAccessToken(null);
-        setUser(null);
+        // Не очищаем состояние и localStorage — дадим шанс fallback-логике
         return false;
       }
     } catch (error) {
-      // Не логируем ошибки refresh token, так как это нормально для неавторизованных пользователей
-      setAccessToken(null);
-      setUser(null);
+      // На сетевых ошибках также не трогаем текущее состояние — пусть сработает fallback
       return false;
     }
   };
@@ -106,6 +109,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = (newAccessToken: string, newUser: User) => {
     setAccessToken(newAccessToken);
     setUser(newUser);
+    // Сохраняем токен в localStorage для восстановления после перезагрузки
+    localStorage.setItem('accessToken', newAccessToken);
+    localStorage.setItem('user', JSON.stringify(newUser));
   };
 
   // Функция выхода
@@ -123,6 +129,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setIsAnonymous(false);
       setIsLoading(false);
+      
+      // Очищаем данные из localStorage
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user');
       
       // Принудительно обновляем состояние через setTimeout
       setTimeout(() => {
@@ -199,11 +209,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return;
       }
       
-      // В режиме magic-links проверяем токен
-      await refreshToken();
+      // В режиме magic-links сначала пытаемся обновить токен через refresh
+      // Это работает как для AUTO_APPROVE_SESSIONS=true, так и для обычных сессий
+      const refreshSuccess = await refreshToken();
+      
+      if (!refreshSuccess) {
+        // Если refresh не удался, используем сохраненные данные локально без немедленной валидации
+        const savedAccessToken = localStorage.getItem('accessToken');
+        const savedUser = localStorage.getItem('user');
+        if (savedAccessToken && savedUser) {
+          try {
+            const userData = JSON.parse(savedUser);
+            setAccessToken(savedAccessToken);
+            setUser(userData);
+            // Попробуем обновить в фоне, но ошибки игнорируем
+            refreshToken().catch(() => {});
+          } catch {
+            // Некорректные данные — убираем их
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('user');
+          }
+        }
+      }
+      
       setIsLoading(false);
     };
 
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
     checkAuth();
   }, []);
 

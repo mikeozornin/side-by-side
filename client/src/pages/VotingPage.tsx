@@ -45,6 +45,13 @@ interface Results {
   winner: number | 'tie' | null
 }
 
+interface VotingResponse {
+  voting: Voting
+  results: Results | null
+  hasVoted: boolean
+  selectedOption?: number | null
+}
+
 export function VotingPage() {
   const { t } = useTranslation()
   const { user, accessToken, isAnonymous, authMode } = useAuth()
@@ -65,6 +72,8 @@ export function VotingPage() {
   const [endEarlyPopoverOpen, setEndEarlyPopoverOpen] = useState(false)
   const [endEarlyLoading, setEndEarlyLoading] = useState(false)
   const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [infoModalOpen, setInfoModalOpen] = useState(false)
+  const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [showLeftShadow, setShowLeftShadow] = useState(false)
@@ -190,18 +199,59 @@ export function VotingPage() {
     }
   }, [shuffledOptions])
 
+  // Синхронизация статуса голосования между вкладками
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (!id) return
+      if (e.key === `voted_${id}`) {
+        const voted = localStorage.getItem(`voted_${id}`) !== null
+        setHasVoted(voted)
+        if (voted) {
+          const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
+          if (voteData?.optionId) setSelectedChoice(voteData.optionId)
+        }
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [id])
+
   const fetchVoting = async () => {
     try {
-      const response = await fetch(`/api/votings/${id}`)
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+
+      // Добавляем токен авторизации если пользователь авторизован
+      if (accessToken && !isAnonymous) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+      }
+
+      const response = await fetch(`/api/votings/${id}`, { headers })
       if (!response.ok) {
         throw new Error(t('voting.notFound'))
       }
-      const data = await response.json()
+      const data: VotingResponse = await response.json()
       setVoting(data.voting)
       
       // Результаты приходят вместе с данными голосования, если оно завершено
       if (data.results) {
         setResults(data.results)
+      }
+
+      // В неанонимном режиме используем флаг с сервера, в анонимном - localStorage
+      if (authMode === 'magic-links' && !isAnonymous) {
+        setHasVoted(data.hasVoted)
+        if (data.hasVoted) {
+          // Если сервер прислал выбранный вариант — используем его
+          if (typeof data.selectedOption === 'number') {
+            setSelectedChoice(data.selectedOption)
+          } else {
+            // Иначе пробуем из localStorage (на случай старых голосов)
+            const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
+            if (voteData?.optionId) setSelectedChoice(voteData.optionId)
+          }
+        }
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : t('voting.errorLoading'))
@@ -212,13 +262,17 @@ export function VotingPage() {
 
 
   const checkVotedStatus = () => {
-    const voted = localStorage.getItem(`voted_${id}`) !== null
-    setHasVoted(voted)
-    
-    if (voted) {
-      const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
-      setSelectedChoice(voteData.optionId)
+    // В анонимном режиме проверяем localStorage
+    if (authMode === 'anonymous') {
+      const voted = localStorage.getItem(`voted_${id}`) !== null
+      setHasVoted(voted)
+      
+      if (voted) {
+        const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
+        setSelectedChoice(voteData.optionId)
+      }
     }
+    // В неанонимном режиме статус голосования приходит с сервера в fetchVoting
   }
 
   const handleVote = async () => {
@@ -249,7 +303,19 @@ export function VotingPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || t('voting.errorVoting'))
+        const errMsg: string = errorData?.error || ''
+        const isAlreadyVoted = typeof errMsg === 'string' && (errMsg.includes('Уже') || errMsg.includes('голосовали') || errMsg.toLowerCase().includes('already'))
+        if (isAlreadyVoted) {
+          setHasVoted(true)
+          // Пытаемся отобразить выбор
+          const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
+          if (voteData?.optionId) setSelectedChoice(voteData.optionId)
+          // Показываем информ-модалку вместо перехода на отдельную страницу
+          setInfoMessage(t('voting.alreadyVoted'))
+          setInfoModalOpen(true)
+          return
+        }
+        throw new Error(errMsg || t('voting.errorVoting'))
       }
 
       // Сохраняем в IndexedDB (используем localStorage как fallback)
@@ -605,6 +671,20 @@ export function VotingPage() {
         returnTo={window.location.hash}
         onSuccess={handleAuthSuccess}
       />
+
+      {/* Информационная модалка */}
+      {infoModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setInfoModalOpen(false)}>
+          <Card className="w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">{t('voting.title')}</h3>
+                <p className="text-sm text-foreground">{infoMessage || t('voting.alreadyVoted')}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

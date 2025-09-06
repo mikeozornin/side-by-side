@@ -15,6 +15,7 @@
     "confirmChoice": "Confirm choice",
     "votingInProgress": "Voting...",
     "voteCounted": "Thank you, your vote has been counted. Results will be shown after the voting ends.",
+    "alreadyVoted": "You have already voted in this poll.",
     "finished": "Finished",
     "active": "Ongoing",
     "completed": "Finished",

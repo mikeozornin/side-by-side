@@ -4,7 +4,7 @@ import { logger } from '../utils/logger.js';
 import { uploadImages } from '../utils/images.js';
 import { NotificationService } from '../notifications/index.js';
 import { createVotingLimiter, createVotingHourlyLimiter } from '../utils/rateLimit.js';
-import { requireAuth, requireVotingOwner, requireVotingAuth, AuthContext } from '../middleware/auth.js';
+import { requireAuth, requireVotingOwner, requireVotingAuth, optionalVotingAuth, AuthContext } from '../middleware/auth.js';
 import { 
   createVoting, 
   getVoting, 
@@ -17,6 +17,8 @@ import {
   getVoteCountForVoting,
   deleteVoting,
   runQuery,
+  hasUserVoted,
+  getUserSelectedOption,
   VotingOption
 } from '../db/queries.js';
 
@@ -49,7 +51,7 @@ votingRoutes.get('/votings', async (c) => {
 });
 
 // GET /api/votings/:id - детали голосования
-votingRoutes.get('/votings/:id', async (c) => {
+votingRoutes.get('/votings/:id', optionalVotingAuth, async (c: AuthContext) => {
   try {
     const id = c.req.param('id');
     
@@ -61,6 +63,16 @@ votingRoutes.get('/votings/:id', async (c) => {
 
     const options = getVotingOptions(id);
     const isFinished = new Date(voting.end_at) <= new Date();
+    
+    // Проверяем, голосовал ли пользователь (только в неанонимном режиме)
+    let userVoted = false;
+    let selectedOption: number | null = null;
+    if (c.user && c.user.id !== 'anonymous') {
+      userVoted = hasUserVoted(id, c.user.id);
+      if (userVoted) {
+        selectedOption = getUserSelectedOption(id, c.user.id) as number | null;
+      }
+    }
     
     let results = null;
     if (isFinished) {
@@ -113,7 +125,9 @@ votingRoutes.get('/votings/:id', async (c) => {
         ...voting,
         options
       },
-      results
+      results,
+      hasVoted: userVoted,
+      selectedOption
     });
   } catch (error) {
     logger.error('Ошибка получения голосования:', error);
@@ -367,6 +381,13 @@ votingRoutes.post('/votings/:id/vote', requireVotingAuth, async (c: AuthContext)
     const options = getVotingOptions(id);
     if (!options.some(o => o.id === optionId)) {
       return c.json({ error: 'Выбранный вариант не существует' }, 400);
+    }
+
+    // Запрещаем повторное голосование для авторизованных пользователей
+    if (c.user && c.user.id && c.user.id !== 'anonymous') {
+      if (hasUserVoted(id, c.user.id)) {
+        return c.json({ error: 'Вы уже голосовали' }, 400);
+      }
     }
 
     createVote({
