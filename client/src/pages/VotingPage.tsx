@@ -54,9 +54,21 @@ export function VotingPage() {
 
   const shuffledOptions = useMemo(() => {
     if (!voting) return []
-    // Перемешиваем массив опций один раз при загрузке данных
+    
+    // Если есть результаты, сортируем по количеству голосов (убывание)
+    if (results && results.results.length > 0) {
+      return [...voting.options].sort((a, b) => {
+        const resultA = results.results.find(r => r.option_id === a.id)
+        const resultB = results.results.find(r => r.option_id === b.id)
+        const countA = resultA?.count || 0
+        const countB = resultB?.count || 0
+        return countB - countA // Сортируем по убыванию
+      })
+    }
+    
+    // Если результатов нет, перемешиваем массив опций
     return [...voting.options].sort(() => Math.random() - 0.5)
-  }, [voting])
+  }, [voting, results])
 
   const isFinished = (endAt: string) => {
     return new Date(endAt) <= new Date()
@@ -322,7 +334,7 @@ export function VotingPage() {
                               <Check className="h-6 w-6 text-primary" />
                             </div>
                           )}
-                          {results && results.winner === option.id && selectedChoice !== option.id && (
+                          {results && results.winner === option.id && (
                             <div className="absolute inset-0 flex items-center justify-center">
                               <div className="bg-green-500 rounded-full p-8">
                                 <Medal className="h-40 w-40 text-white stroke-[0.5]" />
