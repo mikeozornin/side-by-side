@@ -3,6 +3,7 @@ import { VotingList } from './pages/VotingList'
 import { CreateVoting } from './pages/CreateVoting'
 import { VotingPage } from './pages/VotingPage'
 import { Settings } from './pages/Settings'
+import { AuthCallback } from './pages/AuthCallback'
 import { ThemeProvider } from './components/ThemeProvider'
 import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -15,6 +16,7 @@ function App() {
         <div className="min-h-screen bg-background">
           <Routes>
             <Route path="/" element={<VotingList />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/new" element={
               <ProtectedRoute returnTo="/#/new">
                 <CreateVoting />

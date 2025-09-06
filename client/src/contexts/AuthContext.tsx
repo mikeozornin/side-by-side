@@ -40,17 +40,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [authMode, setAuthMode] = useState<'anonymous' | 'magic-links'>('magic-links');
 
   // Функция для проверки режима аутентификации
-  const checkAuthMode = async () => {
+  const checkAuthMode = async (): Promise<{ authMode: 'anonymous' | 'magic-links'; isAnonymous: boolean }> => {
     try {
       const response = await fetch('/api/auth/mode');
       if (response.ok) {
         const data = await response.json();
         setAuthMode(data.authMode);
         setIsAnonymous(data.isAnonymous);
+        return { authMode: data.authMode, isAnonymous: data.isAnonymous };
       }
     } catch (error) {
       console.error('Error checking auth mode:', error);
     }
+    // По умолчанию возвращаем magic-links режим
+    return { authMode: 'magic-links', isAnonymous: false };
   };
 
   // Функция для обновления токена
@@ -72,17 +75,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(data.user);
         return true;
       } else {
-        // Токен недействителен, очищаем состояние
+        // Токен недействителен, очищаем состояние (не логируем ошибку)
         setAccessToken(null);
         setUser(null);
         return false;
       }
     } catch (error) {
-      console.error('Error refreshing token:', error);
+      // Не логируем ошибки refresh token, так как это нормально для неавторизованных пользователей
       setAccessToken(null);
       setUser(null);
       return false;
     }
+  };
+
+  // Утилиты для работы с hash-параметрами (HashRouter)
+  const getHashQueryParam = (name: string): string | null => {
+    const hash = window.location.hash || '';
+    const qIndex = hash.indexOf('?');
+    if (qIndex === -1) return null;
+    const params = new URLSearchParams(hash.substring(qIndex + 1));
+    return params.get(name);
+  };
+
+  const setHashPath = (path: string) => {
+    const value = path.startsWith('#') ? path.slice(1) : path;
+    window.location.hash = value || '/';
   };
 
   // Функция входа
@@ -115,16 +132,63 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Функция для обработки magic link callback
+  const handleMagicLinkCallback = async (token: string) => {
+    try {
+      const response = await fetch('/api/auth/verify-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAccessToken(data.accessToken);
+        setUser(data.user);
+        
+        // Перенаправляем на главную страницу или returnTo (берем из hash)
+        const returnToParam = getHashQueryParam('returnTo');
+        const decoded = returnToParam ? decodeURIComponent(returnToParam) : null;
+        if (decoded) {
+          setHashPath(decoded);
+        } else {
+          setHashPath('/');
+        }
+        return true;
+      } else {
+        console.error('Invalid magic link token');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error verifying magic link token:', error);
+      return false;
+    }
+  };
+
   // Проверяем авторизацию при загрузке приложения
   useEffect(() => {
     const checkAuth = async () => {
       setIsLoading(true);
       
-      // Сначала проверяем режим аутентификации
-      await checkAuthMode();
+      // Сначала получаем режим аутентификации (без гонок со state)
+      const mode = await checkAuthMode();
+      
+      // Проверяем, есть ли magic link token в hash (HashRouter)
+      const token = getHashQueryParam('token');
+      
+      if (token) {
+        // Обрабатываем magic link callback
+        const success = await handleMagicLinkCallback(token);
+        if (success) {
+          setIsLoading(false);
+          return;
+        }
+      }
       
       // Если анонимный режим, устанавливаем анонимного пользователя
-      if (isAnonymous) {
+      if (mode.isAnonymous) {
         setUser({
           id: 'anonymous',
           email: 'anonymous@side-by-side.com',

@@ -15,6 +15,7 @@ export const env = {
   LOG_DIR: process.env.LOG_DIR || './logs',
   DB_PATH: process.env.DB_PATH || './app.db',
   BASE_URL: process.env.BASE_URL || 'http://localhost:3000',
+  CLIENT_URL: process.env.CLIENT_URL || process.env.VOTING_BASE_URL || 'http://localhost:5173',
   NODE_ENV: process.env.NODE_ENV || 'development',
   BUN_ENV: process.env.BUN_ENV || 'development',
   
