@@ -146,7 +146,9 @@ NODE_ENV=production
 
 Приложение включает в себя плагин для Figma, который позволяет создавать голосования прямо из интерфейса дизайна.
 
-### Установка плагина
+Публичная версия плагина: https://www.figma.com/community/plugin/1545946464465075859/side-by-side-voting
+
+### Разработка плагина (developer-версия)
 
 1. Откройте Figma Desktop App
 2. Перейдите в настройки плагинов: Меню → Plugins → Development → Import plugin from manifest...
