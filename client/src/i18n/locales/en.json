@@ -103,7 +103,8 @@
       "howToConnect": "Login in the Figma plugin:",
       "refresh": "Refresh",
       "errorGeneratingCode": "Error generating code",
-      "connectionError": "Connection error"
+      "connectionError": "Connection error",
+      "connectAccount": "Login"
     }
   },
   "common": {
