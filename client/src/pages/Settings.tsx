@@ -89,7 +89,7 @@ export function Settings() {
     <div className="container mx-auto p-6 max-w-2xl">
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
-          <h1 className="text-3xl font-bold">{user.email}</h1>
+          <h1 className="text-xl md:text-3xl font-bold">{user.email}</h1>
           <Button
             variant="outline"
             size="sm"
@@ -109,7 +109,7 @@ export function Settings() {
               <h4 className="font-medium mb-3">{t('settings.figmaIntegration.howToConnect')}</h4>
               <ol className="text-sm text-muted-foreground space-y-3 list-decimal list-inside">
                 <li>Open the Side-by-Side plugin in Figma</li>
-                <li>Click the "Connect Account" button</li>
+                <li>Click the "{t('settings.figmaIntegration.connectAccount')}" button</li>
                 <li>
                   <span>Enter the code: </span>
                   {figmaCode ? (
@@ -158,7 +158,7 @@ export function Settings() {
                       ) : (
                         <RefreshCw className="h-4 w-4" />
                       )}
-                      {t('settings.figmaIntegration.refresh')}
+                      <span className="ml-2">{t('settings.figmaIntegration.refresh')}</span>
                     </Button>
                   )}
                 </li>
@@ -183,7 +183,7 @@ export function Settings() {
           className="flex items-center gap-2"
         >
           <LogOut className="h-4 w-4" />
-          {t('settings.logout')}
+          <span className="ml-2">{t('settings.logout')}</span>
         </Button>
       </div>
     </div>

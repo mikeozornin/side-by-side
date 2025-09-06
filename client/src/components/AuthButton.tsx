@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AuthModal } from './AuthModal';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { User } from 'lucide-react';
 
 interface AuthButtonProps {
   returnTo?: string;
@@ -35,7 +36,8 @@ export function AuthButton({ returnTo, className }: AuthButtonProps) {
           size="sm"
           className={className}
         >
-          {user.email}
+          <User className="h-4 w-4 md:hidden" />
+          <span className="hidden md:inline">{user.email}</span>
         </Button>
       </Link>
     );
@@ -48,7 +50,8 @@ export function AuthButton({ returnTo, className }: AuthButtonProps) {
         size="sm"
         className={className}
       >
-        {t('auth.login')}
+        <User className="h-4 w-4 md:hidden" />
+        <span className="hidden md:inline">{t('auth.login')}</span>
       </Button>
       
       <AuthModal

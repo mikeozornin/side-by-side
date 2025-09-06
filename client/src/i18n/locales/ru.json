@@ -103,7 +103,8 @@
       "howToConnect": "Войти в плагине Фигмы:",
       "refresh": "Обновить",
       "errorGeneratingCode": "Ошибка генерации кода",
-      "connectionError": "Ошибка подключения к серверу"
+      "connectionError": "Ошибка подключения к серверу",
+      "connectAccount": "Login"
     }
   },
   "common": {
