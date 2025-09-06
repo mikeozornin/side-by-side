@@ -10,6 +10,7 @@ import VideoPlayer from '@/components/ui/VideoPlayer'
 import { getMediaType, getMediaDimensions, parsePixelRatioFromName } from '@/lib/mediaUtils'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
+import { AuthButton } from '@/components/AuthButton'
 
 interface MediaFile {
   file: File;
@@ -18,7 +19,7 @@ interface MediaFile {
 
 export function CreateVoting() {
   const { t } = useTranslation()
-  const { accessToken } = useAuth()
+  const { accessToken, user, isLoading: authLoading } = useAuth()
   const [title, setTitle] = useState(() => {
     const defaultQuestions = t('createVoting.defaultQuestions', { returnObjects: true }) as string[]
     const randomQuestion = defaultQuestions[Math.floor(Math.random() * defaultQuestions.length)]
@@ -29,6 +30,8 @@ export function CreateVoting() {
   const [isPublic, setIsPublic] = useState<boolean>(true) // По умолчанию публичное
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+  const [createdVotingId, setCreatedVotingId] = useState<string | null>(null)
   const navigate = useNavigate()
   const titleInputRef = useRef<HTMLInputElement>(null)
 
@@ -86,6 +89,8 @@ export function CreateVoting() {
 
   const handleDrop = async (acceptedFiles: File[]) => {
     setError('')
+    setSuccess(false)
+    setCreatedVotingId(null)
     const newMediaFiles: MediaFile[] = [...mediaFiles]
 
     for (const file of acceptedFiles) {
@@ -121,6 +126,7 @@ export function CreateVoting() {
 
   const handleClipboardImages = async (imageItems: DataTransferItem[]) => {
     setError('')
+    setSuccess(false)
     const newMediaFiles: MediaFile[] = [...mediaFiles]
 
     for (const item of imageItems) {
@@ -165,6 +171,7 @@ export function CreateVoting() {
 
   const removeMedia = (index: number) => {
     setMediaFiles(mediaFiles.filter((_, i) => i !== index))
+    setSuccess(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -193,7 +200,7 @@ export function CreateVoting() {
       })
 
       const headers: HeadersInit = {}
-      if (accessToken) {
+      if (user && accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`
       }
 
@@ -221,10 +228,22 @@ export function CreateVoting() {
       }
 
       const data = await response.json()
-      // Передаем информацию о приватности через state для показа уведомления
-      navigate(`/v/${data.voting.id}`, { 
-        state: { isPrivate: !isPublic } 
-      })
+      
+      if (user && !authLoading) {
+        // Если пользователь авторизован, переходим на страницу голосования
+        navigate(`/v/${data.voting.id}`, { 
+          state: { isPrivate: !isPublic } 
+        })
+      } else {
+        // Если пользователь не авторизован, сохраняем ID голосования
+        // и показываем сообщение с кнопкой входа
+        setCreatedVotingId(data.voting.id)
+        setError('') // Очищаем ошибки
+        setSuccess(true)
+        // Очищаем форму после успешного создания
+        setTitle('')
+        setMediaFiles([])
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Ошибка создания голосования')
     } finally {
@@ -241,7 +260,10 @@ export function CreateVoting() {
             id="title"
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value)
+              setSuccess(false)
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && title.trim() && mediaFiles.length >= 2 && !loading) {
                 handleSubmit(e as any)
@@ -265,7 +287,10 @@ export function CreateVoting() {
               <Toggle
                 key={option.value}
                 pressed={duration === option.value}
-                onPressedChange={() => setDuration(option.value)}
+                onPressedChange={() => {
+                  setDuration(option.value)
+                  setSuccess(false)
+                }}
                 variant="outline"
                 className={`px-4 py-2 ${index === 0 ? 'rounded-l-md rounded-r-none' : ''} ${index === durationOptions.length - 1 ? 'rounded-r-md rounded-l-none' : ''} ${index > 0 && index < durationOptions.length - 1 ? 'rounded-none' : ''} ${index > 0 ? '-ml-px' : ''}`}
               >
@@ -281,7 +306,10 @@ export function CreateVoting() {
                 <Toggle
                   key={option.value.toString()}
                   pressed={isPublic === option.value}
-                  onPressedChange={() => setIsPublic(option.value)}
+                  onPressedChange={() => {
+                    setIsPublic(option.value)
+                    setSuccess(false)
+                  }}
                   variant="outline"
                   className={`px-4 py-2 ${index === 0 ? 'rounded-l-md rounded-r-none' : ''} ${index === privacyOptions.length - 1 ? 'rounded-r-md rounded-l-none' : ''} ${index > 0 && index < privacyOptions.length - 1 ? 'rounded-none' : ''} ${index > 0 ? '-ml-px' : ''}`}
                 >
@@ -359,6 +387,12 @@ export function CreateVoting() {
 
           {error && (
             <div className="text-destructive text-sm mb-4">{error}</div>
+          )}
+
+          {success && (
+            <div className="text-green-600 text-sm mb-4">
+              {t('createVoting.successMessage')}
+            </div>
           )}
 
           <div className="flex-shrink-0 pb-4">

@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, X, Check, Medal, Clock, Share } from 'lucide-react'
+import { ArrowLeft, X, Check, Medal, Clock, Share, Trash2, Clock12 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface VotingOption {
   id: number;
@@ -24,6 +26,7 @@ interface Voting {
   created_at: string
   end_at: string
   isPublic: boolean
+  user_id: string | null
   options: VotingOption[]
 }
 
@@ -42,6 +45,7 @@ interface Results {
 
 export function VotingPage() {
   const { t } = useTranslation()
+  const { user, accessToken } = useAuth()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
@@ -50,10 +54,14 @@ export function VotingPage() {
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [votingLoading, setVotingLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [error, setError] = useState('')
   const [hasVoted, setHasVoted] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [notificationShown, setNotificationShown] = useState(false)
+  const [deletePopoverOpen, setDeletePopoverOpen] = useState(false)
+  const [endEarlyPopoverOpen, setEndEarlyPopoverOpen] = useState(false)
+  const [endEarlyLoading, setEndEarlyLoading] = useState(false)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [showLeftShadow, setShowLeftShadow] = useState(false)
@@ -76,6 +84,9 @@ export function VotingPage() {
     // Если результатов нет, перемешиваем массив опций
     return [...voting.options].sort(() => Math.random() - 0.5)
   }, [voting, results])
+
+  // Проверяем, является ли пользователь владельцем голосования
+  const isOwner = user && voting && voting.user_id === user.id
 
   const isFinished = (endAt: string) => {
     return new Date(endAt) <= new Date()
@@ -262,6 +273,65 @@ export function VotingPage() {
     }
   }
 
+  const handleDeleteConfirm = async () => {
+    if (!id || !accessToken) return
+
+    setDeleteLoading(true)
+    setDeletePopoverOpen(false)
+    
+    try {
+      const response = await fetch(`/api/votings/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || t('voting.deleteError'))
+      }
+
+      navigate('/')
+    } catch (error) {
+      console.error('Error deleting voting:', error)
+      toast.error(error instanceof Error ? error.message : t('voting.deleteError'))
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const handleEndEarlyConfirm = async () => {
+    if (!id || !accessToken) return
+
+    setEndEarlyLoading(true)
+    setEndEarlyPopoverOpen(false)
+    
+    try {
+      const response = await fetch(`/api/votings/${id}/end-early`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || t('voting.endEarlyError'))
+      }
+
+      // Обновляем данные голосования
+      await fetchVoting()
+    } catch (error) {
+      console.error('Error ending voting early:', error)
+      toast.error(error instanceof Error ? error.message : t('voting.endEarlyError'))
+    } finally {
+      setEndEarlyLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -309,6 +379,70 @@ export function VotingPage() {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {isOwner && !finished && (
+              <Popover open={endEarlyPopoverOpen} onOpenChange={setEndEarlyPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={endEarlyPopoverOpen ? "default" : "ghost"}
+                    size="sm"
+                    disabled={endEarlyLoading}
+                    className="gap-2"
+                  >
+                    <Clock12 className="h-4 w-4" />
+                    <span className="hidden sm:inline">{t('voting.endEarly')}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium leading-none">{t('voting.endEarlyQuestion')}</h4>
+                    </div>
+                    <div className="flex justify-start">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleEndEarlyConfirm}
+                        disabled={endEarlyLoading}
+                      >
+                        {t('voting.endEarlyConfirmButton')}
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+            {isOwner && (
+              <Popover open={deletePopoverOpen} onOpenChange={setDeletePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={deletePopoverOpen ? "default" : "ghost"}
+                    size="sm"
+                    disabled={deleteLoading}
+                    className="gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">{t('voting.delete')}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium leading-none">{t('voting.deleteQuestion')}</h4>
+                    </div>
+                    <div className="flex justify-start">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleDeleteConfirm}
+                        disabled={deleteLoading}
+                      >
+                        {t('voting.deleteConfirmButton')}
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
             <Button
               variant="ghost"
               size="sm"

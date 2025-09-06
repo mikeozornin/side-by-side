@@ -16,6 +16,7 @@ import {
   getVoteCounts,
   getVoteCountForVoting,
   deleteVoting,
+  runQuery,
   VotingOption
 } from '../db/queries.js';
 
@@ -440,6 +441,38 @@ votingRoutes.get('/votings/:id/results', async (c) => {
     });
   } catch (error) {
     logger.error('Ошибка получения результатов:', error);
+    return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
+  }
+});
+
+// POST /api/votings/:id/end-early - завершение голосования досрочно (требует авторизацию и владение)
+votingRoutes.post('/votings/:id/end-early', requireAuth, requireVotingOwner, async (c: AuthContext) => {
+  try {
+    const id = c.req.param('id');
+    
+    const voting = getVoting(id);
+    if (!voting) {
+      return c.json({ error: 'Voting not found' }, 404);
+    }
+
+    // Проверяем, что голосование еще не завершено
+    if (new Date(voting.end_at) <= new Date()) {
+      return c.json({ error: 'Voting already finished' }, 400);
+    }
+
+    // Обновляем время окончания на текущее время
+    const success = runQuery(
+      'UPDATE votings SET end_at = ? WHERE id = ?',
+      [new Date().toISOString(), id]
+    );
+    
+    if (!success) {
+      return c.json({ error: 'Failed to end voting early' }, 500);
+    }
+    
+    return c.json({ message: 'Voting ended early successfully' });
+  } catch (error) {
+    logger.error('Ошибка завершения голосования досрочно:', error);
     return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
   }
 });

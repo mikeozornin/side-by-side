@@ -482,6 +482,12 @@
         return;
       }
 
+      // Disable login button to prevent multiple requests
+      if (loginButton) {
+        loginButton.disabled = true;
+        loginButton.textContent = 'Logging in...';
+      }
+
       var rootUrl = extractRootUrl(serverUrl);
       currentServerUrl = rootUrl;
       
@@ -620,6 +626,9 @@
             handleLogin();
           }
         });
+        loginAuthCodeInput.addEventListener('input', function() {
+          updateLoginButtonState();
+        });
       }
       if (loginServerUrlInput) {
         loginServerUrlInput.addEventListener('keydown', function(e) {
@@ -630,6 +639,7 @@
         loginServerUrlInput.addEventListener('input', function() {
           updateSettingsLink();
           saveSettings();
+          updateLoginButtonState();
         });
         loginServerUrlInput.addEventListener('blur', saveSettings);
       }
@@ -735,6 +745,14 @@
       }
     }
 
+    function updateLoginButtonState() {
+      var hasServerUrl = !!(loginServerUrlInput && loginServerUrlInput.value && loginServerUrlInput.value.trim().length > 0);
+      var hasAuthCode = !!(loginAuthCodeInput && loginAuthCodeInput.value && loginAuthCodeInput.value.trim().length > 0);
+      if (loginButton) {
+        loginButton.disabled = !hasServerUrl || !hasAuthCode;
+      }
+    }
+
 
     function handleCreateVotingSubmit(e) {
       e.preventDefault();
@@ -751,6 +769,13 @@
         showStatus('error', 'Not authenticated');
         return;
       }
+      
+      // Disable create button to prevent multiple requests
+      if (createButton) {
+        createButton.disabled = true;
+        createButton.textContent = 'Creating...';
+      }
+      
       showProgress('Creating voting...');
       parent.postMessage({
         pluginMessage: {
@@ -857,6 +882,13 @@
     function handleVotingCreated(data) {
       var url = data.url;
       showStatus('success', 'Voting created! <a href="' + url + '" target="_blank" style="color: #007AFF; text-decoration: underline;">Open in browser</a>');
+      
+      // Restore create button
+      if (createButton) {
+        createButton.disabled = false;
+        createButton.textContent = 'Create';
+      }
+      
       setTimeout(function () {
         parent.postMessage({ pluginMessage: { type: 'close-plugin' } }, '*');
       }, 5000);
@@ -880,6 +912,12 @@
         message = 'Request limit exceeded. Please try again later.';
       }
       
+      // Restore create button
+      if (createButton) {
+        createButton.disabled = false;
+        createButton.textContent = 'Create';
+      }
+      
       showStatus('error', message);
       hideProgress();
     }
@@ -894,6 +932,9 @@
         updateSettingsLink();
         console.log('Set server URL input to:', settings.serverUrl);
       }
+      
+      // Update button states after loading settings
+      updateLoginButtonState();
 
       // Load duration
       if (settings.duration) {
@@ -925,12 +966,36 @@
       var message = data.message || 'Authentication failed';
       showStatus('error', message);
       updateCreateButtonState();
+      
+      // Restore login button
+      if (loginButton) {
+        loginButton.disabled = false;
+        loginButton.textContent = 'Login';
+      }
+      
+      // Clear stored tokens and show login form
+      parent.postMessage({
+        pluginMessage: {
+          type: 'logout'
+        }
+      }, '*');
+      
+      // Show login form after a short delay
+      setTimeout(function() {
+        showLoginForm();
+      }, 2000);
     }
 
     function handleLoginSuccess(data) {
       isAuthenticated = true;
       hideProgress();
       showStatus('success', 'Login successful!');
+      
+      // Restore login button
+      if (loginButton) {
+        loginButton.disabled = false;
+        loginButton.textContent = 'Login';
+      }
       
       // Update server URL display
       if (serverUrlDisplayInput) {
@@ -949,6 +1014,12 @@
       hideProgress();
       var message = data.message || 'Login failed';
       showStatus('error', message);
+      
+      // Restore login button
+      if (loginButton) {
+        loginButton.disabled = false;
+        loginButton.textContent = 'Login';
+      }
     }
 
     function handleAuthStatus(data) {
@@ -981,6 +1052,10 @@
       
       // Initialize settings link
       updateSettingsLink();
+      
+      // Initialize button states
+      updateLoginButtonState();
+      updateCreateButtonState();
       
       // Check authentication status
       checkAuthStatus();
