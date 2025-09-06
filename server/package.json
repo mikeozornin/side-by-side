@@ -19,6 +19,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^7.0.1",
     "bcrypt": "^6.0.0",
+    "dotenv": "^16.3.1",
     "file-type": "^18.7.0",
     "hono": "^4.0.0",
     "jsonwebtoken": "^9.0.2",

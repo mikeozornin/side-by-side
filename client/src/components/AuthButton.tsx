@@ -12,7 +12,7 @@ interface AuthButtonProps {
 }
 
 export function AuthButton({ returnTo, className }: AuthButtonProps) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isAnonymous } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { t } = useTranslation();
 
@@ -26,6 +26,11 @@ export function AuthButton({ returnTo, className }: AuthButtonProps) {
         {t('auth.loading')}
       </Button>
     );
+  }
+
+  // В анонимном режиме не показываем кнопку авторизации
+  if (isAnonymous) {
+    return null;
   }
 
   if (user) {

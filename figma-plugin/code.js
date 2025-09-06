@@ -376,42 +376,75 @@ async function handleLogin(data) {
     var authCode = data.authCode;
     var serverUrl = data.serverUrl;
     
-    if (!authCode) {
-      throw new Error('Authentication code is required');
-    }
-    
     var urls = getApiAndClientUrls(serverUrl);
     var apiUrl = urls.apiUrl;
     console.log('API URL:', apiUrl);
     
-    var requestBody = {
-      code: authCode
-    };
-    console.log('Request body:', requestBody);
-    
-    var response = await fetch(apiUrl + '/auth/figma-verify', {
-      method: 'POST',
+    // Сначала проверяем режим аутентификации
+    var modeResponse = await fetch(apiUrl + '/auth/mode', {
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
         'X-Figma-Plugin': 'SideBySide/1.0'
-      },
-      body: JSON.stringify(requestBody)
+      }
     });
     
-    console.log('Response status:', response.status);
-    
-    if (!response.ok) {
-      var errorData = {};
-      try { 
-        errorData = await response.json(); 
-        console.log('Error response data:', errorData);
-      } catch (e) {
-        console.log('Failed to parse error response:', e);
-      }
-      throw new Error(errorData.error || ('HTTP error: ' + response.status));
+    if (!modeResponse.ok) {
+      throw new Error('Failed to check authentication mode');
     }
     
-    var result = await response.json();
+    var modeData = await modeResponse.json();
+    console.log('Auth mode:', modeData);
+    
+    var result;
+    
+    if (modeData.isAnonymous) {
+      // В анонимном режиме не нужен код
+      console.log('Anonymous mode detected, skipping code verification');
+      result = {
+        accessToken: 'anonymous-token',
+        refreshToken: 'anonymous-refresh-token',
+        user: {
+          id: 'anonymous',
+          email: 'anonymous@side-by-side.com',
+          created_at: new Date().toISOString()
+        },
+        isAnonymous: true
+      };
+    } else {
+      // В режиме magic-links нужен код
+      if (!authCode) {
+        throw new Error('Authentication code is required');
+      }
+      
+      var requestBody = {
+        code: authCode
+      };
+      console.log('Request body:', requestBody);
+      
+      var response = await fetch(apiUrl + '/auth/figma-verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Figma-Plugin': 'SideBySide/1.0'
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        var errorData = {};
+        try { 
+          errorData = await response.json(); 
+          console.log('Error response data:', errorData);
+        } catch (e) {
+          console.log('Failed to parse error response:', e);
+        }
+        throw new Error(errorData.error || ('HTTP error: ' + response.status));
+      }
+      
+      result = await response.json();
+    }
     var accessToken = result.accessToken;
     var refreshToken = result.refreshToken;
     var user = result.user;
@@ -429,13 +462,15 @@ async function handleLogin(data) {
       await figma.clientStorage.setAsync('figma-plugin-user', JSON.stringify(user));
     }
     await figma.clientStorage.setAsync('figma-plugin-server-url', serverUrl);
+    await figma.clientStorage.setAsync('figma-plugin-is-anonymous', result.isAnonymous || false);
     console.log('Access token, refresh token and user data stored successfully');
     
     figma.ui.postMessage({
       type: 'login-success',
       message: 'Login successful!',
       user: user,
-      serverUrl: serverUrl
+      serverUrl: serverUrl,
+      isAnonymous: result.isAnonymous || false
     });
     
   } catch (error) {
@@ -452,13 +487,15 @@ async function handleCheckAuthStatus() {
     var accessToken = await figma.clientStorage.getAsync('figma-plugin-access-token');
     var user = await figma.clientStorage.getAsync('figma-plugin-user');
     var serverUrl = await figma.clientStorage.getAsync('figma-plugin-server-url');
+    var isAnonymous = await figma.clientStorage.getAsync('figma-plugin-is-anonymous');
     
     if (accessToken && user && serverUrl) {
       figma.ui.postMessage({
         type: 'auth-status',
         authenticated: true,
         user: JSON.parse(user),
-        serverUrl: serverUrl
+        serverUrl: serverUrl,
+        isAnonymous: isAnonymous || false
       });
     } else {
       figma.ui.postMessage({

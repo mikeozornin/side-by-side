@@ -38,6 +38,14 @@ const figmaPluginMiddleware = async (c: any, next: any) => {
   await next();
 };
 
+// GET /api/auth/mode - получение режима аутентификации
+authRoutes.get('/mode', async (c) => {
+  return c.json({ 
+    authMode: env.AUTH_MODE,
+    isAnonymous: env.AUTH_MODE === 'anonymous'
+  });
+});
+
 // POST /api/auth/magic-link - Запрос magic link
 authRoutes.post('/magic-link', async (c) => {
   try {
@@ -303,6 +311,20 @@ authRoutes.get('/figma-code', async (c) => {
 // POST /api/auth/figma-verify - Верификация кода от Figma плагина
 authRoutes.post('/figma-verify', figmaPluginMiddleware, async (c) => {
   try {
+    // В анонимном режиме возвращаем успешный ответ без проверки кода
+    if (env.AUTH_MODE === 'anonymous') {
+      return c.json({
+        accessToken: 'anonymous-token',
+        refreshToken: 'anonymous-refresh-token',
+        user: {
+          id: 'anonymous',
+          email: 'anonymous@side-by-side.com',
+          created_at: new Date().toISOString()
+        },
+        isAnonymous: true
+      });
+    }
+    
     const { code } = await c.req.json();
     
     if (!code || typeof code !== 'string') {
@@ -336,7 +358,8 @@ authRoutes.post('/figma-verify', figmaPluginMiddleware, async (c) => {
         id: user.id,
         email: user.email,
         created_at: user.created_at
-      }
+      },
+      isAnonymous: false
     });
     
   } catch (error) {
