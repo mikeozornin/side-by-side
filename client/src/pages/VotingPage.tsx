@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, X, Check, Medal } from 'lucide-react'
+import { ArrowLeft, X, Check, Medal, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
@@ -49,6 +49,7 @@ export function VotingPage() {
   const [votingLoading, setVotingLoading] = useState(false)
   const [error, setError] = useState('')
   const [hasVoted, setHasVoted] = useState(false)
+  const [currentTime, setCurrentTime] = useState(new Date())
 
   const shuffledOptions = useMemo(() => {
     if (!voting) return []
@@ -60,12 +61,42 @@ export function VotingPage() {
     return new Date(endAt) <= new Date()
   }
 
+  const getTimeRemaining = (endAt: string) => {
+    const endTime = new Date(endAt)
+    const timeDiff = endTime.getTime() - currentTime.getTime()
+    
+    if (timeDiff <= 0) return t('voting.finished')
+    
+    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60))
+    const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
+    
+    if (days > 0) {
+      return `${days}д ${hours}ч ${minutes}м`
+    } else if (hours > 0) {
+      return `${hours}ч ${minutes}м ${seconds}с`
+    } else if (minutes > 0) {
+      return `${minutes}м ${seconds}с`
+    } else {
+      return `${seconds}с`
+    }
+  }
+
   useEffect(() => {
     if (id) {
       fetchVoting()
       checkVotedStatus()
     }
   }, [id])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [])
 
   // Вычисляем finished здесь, чтобы использовать в useEffect
   const finished = voting ? isFinished(voting.end_at) : false
@@ -190,7 +221,15 @@ export function VotingPage() {
     <div className="h-screen flex flex-col">
       <div className="max-w-none mx-auto pt-6 px-6 w-full flex-shrink-0">
         <div className="flex justify-between items-start">
-          <h1 className="text-3xl font-bold pr-4 flex-1" title={voting.title}>{voting.title}</h1>
+          <div className="flex-1 pr-4">
+            <h1 className="text-3xl font-bold" title={voting.title}>{voting.title}</h1>
+            {!finished && (
+              <div className="flex items-center gap-2 mt-2 mb-3 text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <span className="text-sm">{getTimeRemaining(voting.end_at)}</span>
+              </div>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="icon"
