@@ -63,8 +63,23 @@ export function CreateVoting() {
       }
     }
 
+    const handlePaste = (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items
+      if (!items) return
+
+      const imageItems = Array.from(items).filter(item => item.type.startsWith('image/'))
+      if (imageItems.length === 0) return
+
+      event.preventDefault()
+      handleClipboardImages(imageItems)
+    }
+
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('paste', handlePaste)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('paste', handlePaste)
+    }
   }, [title, mediaFiles, loading])
 
   const handleDrop = async (acceptedFiles: File[]) => {
@@ -100,6 +115,50 @@ export function CreateVoting() {
 
   const handleError = (error: Error) => {
     setError(error.message)
+  }
+
+  const handleClipboardImages = async (imageItems: DataTransferItem[]) => {
+    setError('')
+    const newMediaFiles: MediaFile[] = [...mediaFiles]
+
+    for (const item of imageItems) {
+      if (newMediaFiles.length >= 10) {
+        setError(t('createVoting.maxFilesError'))
+        break
+      }
+
+      const file = item.getAsFile()
+      if (!file) continue
+
+      if (file.size > 20 * 1024 * 1024) {
+        setError(t('createVoting.fileSizeError'))
+        continue
+      }
+
+      try {
+        // Создаем временное имя файла с указанием источника (clipboard)
+        const timestamp = Date.now()
+        const extension = file.type.split('/')[1] || 'png'
+        const clipboardFile = new File([file], `clipboard-${timestamp}.${extension}`, {
+          type: file.type,
+          lastModified: file.lastModified
+        })
+
+        const dimensions = await getMediaDimensions(clipboardFile)
+        newMediaFiles.push({ file: clipboardFile, dimensions })
+      } catch (error) {
+        console.error(`[CreateVoting] Failed to process clipboard image:`, error)
+        // Создаем файл без анализа размеров, если не удалось их получить
+        const timestamp = Date.now()
+        const extension = file.type.split('/')[1] || 'png'
+        const clipboardFile = new File([file], `clipboard-${timestamp}.${extension}`, {
+          type: file.type,
+          lastModified: file.lastModified
+        })
+        newMediaFiles.push({ file: clipboardFile, dimensions: null })
+      }
+    }
+    setMediaFiles(newMediaFiles.slice(0, 10))
   }
 
   const removeMedia = (index: number) => {
