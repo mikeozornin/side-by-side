@@ -213,7 +213,10 @@ export function CreateVoting() {
       }
 
       const data = await response.json()
-      navigate(`/v/${data.voting.id}`)
+      // Передаем информацию о приватности через state для показа уведомления
+      navigate(`/v/${data.voting.id}`, { 
+        state: { isPrivate: !isPublic } 
+      })
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Ошибка создания голосования')
     } finally {
