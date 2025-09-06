@@ -98,8 +98,8 @@ authRoutes.post('/magic-link', async (c) => {
     // Сохраняем токен в БД
     saveMagicToken(tokenHash, email, expiresAt);
     
-    // Формируем URL для входа
-    const magicLinkUrl = `${env.BASE_URL}/#/auth/callback?token=${token}&returnTo=${encodeURIComponent(returnTo || '/')}`;
+    // Формируем URL для входа (используем CLIENT_URL для фронтенда)
+    const magicLinkUrl = `${env.CLIENT_URL}/#/auth/callback?token=${token}&returnTo=${encodeURIComponent(returnTo || '/')}`;
     
     // Отправляем письмо
     await sendMagicLink({ email, url: magicLinkUrl });
@@ -124,8 +124,7 @@ authRoutes.post('/verify-token', async (c) => {
       return c.json({ error: 'Token is required' }, 400);
     }
     
-    const tokenHash = await hashToken(token);
-    const { user, success } = verifyAndUseMagicToken(tokenHash);
+    const { user, success } = await verifyAndUseMagicToken(token);
     
     if (!success || !user) {
       return c.json({ error: 'Invalid or expired token' }, 400);

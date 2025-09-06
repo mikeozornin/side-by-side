@@ -35,36 +35,30 @@ export function saveMagicToken(tokenHash: string, email: string, expiresAt: stri
 }
 
 // Проверка и использование magic token
-export function verifyAndUseMagicToken(tokenHash: string): { user: User; success: boolean } {
+export async function verifyAndUseMagicToken(plainToken: string): Promise<{ user: User; success: boolean }> {
   const db = getDatabase();
-  
-  const token = db.prepare(`
-    SELECT user_email, expires_at, used_at FROM magic_tokens WHERE token_hash = ?
-  `).get(tokenHash) as { user_email: string; expires_at: string; used_at: string | null } | undefined;
-  
-  if (!token) {
-    return { user: null as any, success: false };
+
+  // Ищем все валидные (неиспользованные и не истекшие) токены
+  const candidates = db.prepare(`
+    SELECT token_hash, user_email, expires_at, used_at 
+    FROM magic_tokens 
+    WHERE used_at IS NULL AND expires_at > datetime('now')
+  `).all() as { token_hash: string; user_email: string; expires_at: string; used_at: string | null }[];
+
+  for (const record of candidates) {
+    const isMatch = await verifyToken(plainToken, record.token_hash);
+    if (!isMatch) continue;
+
+    // Найден подходящий токен — помечаем как использованный
+    db.prepare(`
+      UPDATE magic_tokens SET used_at = ? WHERE token_hash = ?
+    `).run(new Date().toISOString(), record.token_hash);
+
+    const user = createOrGetUser(record.user_email);
+    return { user, success: true };
   }
-  
-  // Проверяем, не истек ли токен
-  if (new Date() > new Date(token.expires_at)) {
-    return { user: null as any, success: false };
-  }
-  
-  // Проверяем, не использован ли уже токен
-  if (token.used_at) {
-    return { user: null as any, success: false };
-  }
-  
-  // Помечаем токен как использованный
-  db.prepare(`
-    UPDATE magic_tokens SET used_at = ? WHERE token_hash = ?
-  `).run(new Date().toISOString(), tokenHash);
-  
-  // Получаем пользователя
-  const user = createOrGetUser(token.user_email);
-  
-  return { user, success: true };
+
+  return { user: null as any, success: false };
 }
 
 // Создание сессии

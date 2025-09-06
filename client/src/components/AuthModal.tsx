@@ -100,15 +100,18 @@ export function AuthModal({ isOpen, onClose, returnTo }: AuthModalProps) {
     }
   };
 
-  // Обработка magic link из URL
+  // Обработка magic link из hash (HashRouter)
   React.useEffect(() => {
     if (!isOpen) return;
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    
-    if (token) {
-      handleMagicLinkCallback(token);
+    const hash = window.location.hash || '';
+    const qIndex = hash.indexOf('?');
+    if (qIndex !== -1) {
+      const params = new URLSearchParams(hash.substring(qIndex + 1));
+      const token = params.get('token');
+      if (token) {
+        handleMagicLinkCallback(token);
+      }
     }
   }, [isOpen]);
 
