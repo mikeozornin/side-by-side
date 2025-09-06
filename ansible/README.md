@@ -143,9 +143,11 @@ ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e update_env=true 
 
 Nginx настроен для:
 - Обслуживания статических файлов фронтенда
-- Проксирования API запросов на Node.js сервер
-- Кеширования статических ресурсов (1 год для hashed файлов)
+- Проксирования API запросов на Node.js сервер (включая `/api/images/`)
+- Кеширования статических ресурсов (1 год для hashed файлов, исключая `/api/` пути)
 - SPA fallback для React Router
+
+**Важно:** Статические файлы фронтенда кешируются, но файлы из `/api/images/` проксируются к Node.js серверу для обработки.
 
 ## Systemd сервис
 
@@ -222,4 +224,18 @@ systemctl restart side-by-side
 
 # Логи
 journalctl -u side-by-side --since "1 hour ago"
+```
+
+### Проблемы с изображениями (404 ошибки)
+Если изображения возвращают 404 ошибку, проверьте nginx конфигурацию:
+
+```bash
+# Проверить, что правило для статических файлов исключает /api/ пути
+grep -A 3 "location ~\*" /etc/nginx/sites-available/side-by-side.mikeozornin.ru
+
+# Должно быть:
+# location ~* ^(?!\/api\/).*\.(js|css|png|jpg|jpeg|gif|svg|ico|webp|woff2?)$ {
+
+# Если неправильно, перезапустить bootstrap:
+ansible-playbook -i ansible/inventory.ini ansible/bootstrap.yml
 ```
