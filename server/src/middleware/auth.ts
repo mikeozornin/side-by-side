@@ -93,6 +93,45 @@ export async function requireAuth(c: AuthContext, next: Next) {
   }
 }
 
+// Middleware для голосования - требует авторизацию только в неанонимном режиме
+export async function requireVotingAuth(c: AuthContext, next: Next) {
+  try {
+    // В анонимном режиме пропускаем проверку авторизации
+    if (env.AUTH_MODE === 'anonymous') {
+      await next();
+      return;
+    }
+    
+    // В режиме magic-links требуем авторизацию
+    const authHeader = c.req.header('Authorization');
+    
+    if (!authHeader?.startsWith('Bearer ')) {
+      return c.json({ error: 'Authorization required for voting' }, 401);
+    }
+    
+    const accessToken = authHeader.substring(7);
+    const payload = verifyAccessToken(accessToken);
+    
+    if (!payload) {
+      return c.json({ error: 'Invalid access token' }, 401);
+    }
+    
+    // Получаем пользователя из БД
+    const user = getUserById(payload.userId);
+    if (!user) {
+      return c.json({ error: 'User not found' }, 401);
+    }
+    
+    // Добавляем пользователя в контекст
+    c.user = user;
+    
+    await next();
+  } catch (error) {
+    console.error('Voting auth middleware error:', error);
+    return c.json({ error: 'Authentication failed' }, 401);
+  }
+}
+
 // Middleware для проверки владельца голосования
 export async function requireVotingOwner(c: AuthContext, next: Next) {
   try {

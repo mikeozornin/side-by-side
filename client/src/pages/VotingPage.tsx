@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
 import { useAuth } from '@/contexts/AuthContext'
+import { AuthModal } from '@/components/AuthModal'
 
 interface VotingOption {
   id: number;
@@ -27,6 +28,7 @@ interface Voting {
   end_at: string
   isPublic: boolean
   user_id: string | null
+  user_email?: string | null
   options: VotingOption[]
 }
 
@@ -45,7 +47,7 @@ interface Results {
 
 export function VotingPage() {
   const { t } = useTranslation()
-  const { user, accessToken } = useAuth()
+  const { user, accessToken, isAnonymous, authMode } = useAuth()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
@@ -62,6 +64,7 @@ export function VotingPage() {
   const [deletePopoverOpen, setDeletePopoverOpen] = useState(false)
   const [endEarlyPopoverOpen, setEndEarlyPopoverOpen] = useState(false)
   const [endEarlyLoading, setEndEarlyLoading] = useState(false)
+  const [authModalOpen, setAuthModalOpen] = useState(false)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [showLeftShadow, setShowLeftShadow] = useState(false)
@@ -221,13 +224,26 @@ export function VotingPage() {
   const handleVote = async () => {
     if (selectedChoice === null || !id) return
 
+    // Проверяем авторизацию в неанонимном режиме
+    if (authMode === 'magic-links' && !isAnonymous && !user) {
+      setAuthModalOpen(true)
+      return
+    }
+
     setVotingLoading(true)
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+
+      // Добавляем токен авторизации если пользователь авторизован
+      if (accessToken && !isAnonymous) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+      }
+
       const response = await fetch(`/api/votings/${id}/vote`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ optionId: selectedChoice }),
       })
 
@@ -332,6 +348,18 @@ export function VotingPage() {
     }
   }
 
+  const handleAuthModalClose = () => {
+    setAuthModalOpen(false)
+  }
+
+  const handleAuthSuccess = () => {
+    setAuthModalOpen(false)
+    // После успешной авторизации повторно пытаемся проголосовать
+    if (selectedChoice !== null) {
+      handleVote()
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -374,7 +402,9 @@ export function VotingPage() {
             {!finished && (
               <div className="flex items-center gap-2 mt-2 mb-3 text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                <span className="text-sm">{getTimeRemaining(voting.end_at)}</span>
+                <span className="text-sm">
+                  {getTimeRemaining(voting.end_at)} · {voting.user_email || 'Anonymous'}
+                </span>
               </div>
             )}
           </div>
@@ -566,6 +596,14 @@ export function VotingPage() {
           </div>
         </div>
       </div>
+
+      {/* Модалка авторизации */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={handleAuthModalClose}
+        returnTo={window.location.hash}
+        onSuccess={handleAuthSuccess}
+      />
     </div>
   )
 }

@@ -159,6 +159,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       logger.error('Ошибка миграции поля user_id:', error);
       process.exit(1);
     }
+  } else if (command === 'add-user-id-to-votes') {
+    try {
+      addUserIdToVotesColumn();
+      logger.info('Миграция поля user_id в votes завершена');
+      process.exit(0);
+    } catch (error) {
+      logger.error('Ошибка миграции поля user_id в votes:', error);
+      process.exit(1);
+    }
   } else {
     migrateData()
       .then(() => {
@@ -241,4 +250,32 @@ function removeUserAgentColumn() {
   }
 }
 
-export { migrateData, addIsPublicColumn, addUserIdColumn, removeUserAgentColumn };
+function addUserIdToVotesColumn() {
+  try {
+    logger.info('Добавляем поле user_id в таблицу votes...');
+    
+    const db = getDatabase();
+    
+    // Проверяем, существует ли уже поле user_id
+    const tableInfo = db.prepare("PRAGMA table_info(votes)").all() as any[];
+    
+    const hasUserId = tableInfo.some(col => col.name === 'user_id');
+    
+    if (!hasUserId) {
+      // Добавляем поле user_id как nullable
+      db.exec(`
+        ALTER TABLE votes ADD COLUMN user_id TEXT REFERENCES users(id);
+      `);
+      
+      logger.info('Поле user_id успешно добавлено в таблицу votes');
+    } else {
+      logger.info('Поле user_id уже существует в таблице votes');
+    }
+    
+  } catch (error) {
+    logger.error('Ошибка при добавлении поля user_id в votes:', error);
+    throw error;
+  }
+}
+
+export { migrateData, addIsPublicColumn, addUserIdColumn, removeUserAgentColumn, addUserIdToVotesColumn };
