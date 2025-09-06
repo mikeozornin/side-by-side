@@ -31,7 +31,13 @@
     "option1": "Option 1",
     "option2": "Option 2",
     "share": "Share",
-    "linkCopied": "Link copied"
+    "linkCopied": "Link copied",
+    "timeRemaining": {
+      "days": "{{days}}d {{hours}}h {{minutes}}m",
+      "hours": "{{hours}}h {{minutes}}m {{seconds}}s",
+      "minutes": "{{minutes}}m {{seconds}}s",
+      "seconds": "{{seconds}}s"
+    }
   },
   "dropzone": {
     "uploadFile": "Upload files",
