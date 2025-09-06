@@ -238,6 +238,14 @@
       <input type="url" id="server-url" class="input" value="localhost:3000" />
     </div>
 
+    <div class="form-group">
+      <label class="label" for="auth-code">Authentication Code</label>
+      <input type="text" id="auth-code" class="input" placeholder="Enter code from web app settings" />
+      <div class="status info" style="margin-top: 6px; font-size: 10px;">
+        Get your code from the web app settings page
+      </div>
+    </div>
+
     <div class="status-container">
       <div id="status" class="status info hidden">Checking selected elements...</div>
       <div id="selected-elements" class="selected-elements hidden"></div>
@@ -308,6 +316,8 @@
     var selectedPrivacy = true; // true = public, false = private
     var selectedElements = [];
     var currentStatus = 'ready'; // Track current selection status
+    var authCode = '';
+    var isAuthenticated = false;
 
     // Storage keys
     var STORAGE_KEYS = {
@@ -407,6 +417,19 @@
         serverUrlInput.addEventListener('input', saveSettings);
         serverUrlInput.addEventListener('blur', saveSettings);
       }
+      
+      var authCodeInput = document.getElementById('auth-code');
+      if (authCodeInput) {
+        authCodeInput.addEventListener('input', function() {
+          authCode = authCodeInput.value.trim();
+          updateCreateButtonState();
+        });
+        authCodeInput.addEventListener('blur', function() {
+          if (authCode) {
+            verifyAuthCode();
+          }
+        });
+      }
       setupTitleSuggestions();
       setupDurationOptions();
       setupPrivacyOptions();
@@ -457,9 +480,36 @@
       var hasTitle = !!(titleInput && titleInput.value && titleInput.value.trim().length > 0);
       var hasElements = selectedElements.length >= 2 && selectedElements.length <= 10;
       var isStatusReady = currentStatus === 'ready';
+      var hasAuth = isAuthenticated || authCode.length > 0;
       if (createButton) {
-        createButton.disabled = !hasTitle || !hasElements || !isStatusReady;
+        createButton.disabled = !hasTitle || !hasElements || !isStatusReady || !hasAuth;
       }
+    }
+
+    function verifyAuthCode() {
+      if (!authCode) {
+        isAuthenticated = false;
+        updateCreateButtonState();
+        return;
+      }
+
+      var serverUrl = serverUrlInput && serverUrlInput.value ? serverUrlInput.value.trim() : '';
+      if (!serverUrl) {
+        showStatus('error', 'Enter server URL first');
+        return;
+      }
+
+      var rootUrl = extractRootUrl(serverUrl);
+      var apiUrl = rootUrl + '/api';
+
+      showProgress('Verifying authentication...');
+
+      parent.postMessage({
+        pluginMessage: {
+          type: 'verify-auth-code',
+          data: { authCode: authCode, serverUrl: rootUrl }
+        }
+      }, '*');
     }
 
     function handleCreateVotingSubmit(e) {
@@ -548,6 +598,10 @@
         handleError(pm);
       } else if (type === 'settings-loaded') {
         handleSettingsLoaded(pm);
+      } else if (type === 'auth-verified') {
+        handleAuthVerified(pm);
+      } else if (type === 'auth-error') {
+        handleAuthError(pm);
       }
     });
 
@@ -631,6 +685,21 @@
         updatePrivacySelection(selectedPrivacy);
         console.log('Set privacy to:', selectedPrivacy);
       }
+    }
+
+    function handleAuthVerified(data) {
+      isAuthenticated = true;
+      hideProgress();
+      showStatus('success', 'Authentication successful!');
+      updateCreateButtonState();
+    }
+
+    function handleAuthError(data) {
+      isAuthenticated = false;
+      hideProgress();
+      var message = data.message || 'Authentication failed';
+      showStatus('error', message);
+      updateCreateButtonState();
     }
 
     // Initialize

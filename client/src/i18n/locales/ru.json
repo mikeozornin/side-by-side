@@ -78,5 +78,15 @@
     "rateLimitHourExceeded": "Превышен лимит создания голосований за час. Попробуйте позже.",
     "rateLimitExceeded": "Превышен лимит запросов. Попробуйте позже.",
     "privateVotingNotification": "Голосование приватное, не потеряйте эту ссылку"
+  },
+  "settings": {
+    "loginRequired": "Необходимо войти в систему",
+    "logout": "Выйти",
+    "figmaIntegration": {
+      "howToConnect": "Войти в плагине Фигмы:",
+      "refresh": "Обновить",
+      "errorGeneratingCode": "Ошибка генерации кода",
+      "connectionError": "Ошибка подключения к серверу"
+    }
   }
 }

@@ -78,5 +78,15 @@
     "rateLimitHourExceeded": "Voting creation limit exceeded for the hour. Please try again later.",
     "rateLimitExceeded": "Request limit exceeded. Please try again later.",
     "privateVotingNotification": "Voting is private, don't lose this link"
+  },
+  "settings": {
+    "loginRequired": "Login required",
+    "logout": "Logout",
+    "figmaIntegration": {
+      "howToConnect": "Login in the Figma plugin:",
+      "refresh": "Refresh",
+      "errorGeneratingCode": "Error generating code",
+      "connectionError": "Connection error"
+    }
   }
 }

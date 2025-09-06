@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { votingRoutes } from './votings.js';
+import { authRoutes } from './auth.js';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { readdirSync, statSync } from 'fs';
@@ -104,6 +105,7 @@ router.use('*', cors({
 
 // API routes
 router.route('/api', votingRoutes);
+router.route('/api/auth', authRoutes);
 
 // Serve images
 router.get('/api/images/:filename', async (c) => {

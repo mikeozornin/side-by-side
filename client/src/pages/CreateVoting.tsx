@@ -9,6 +9,7 @@ import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
 import { getMediaType, getMediaDimensions, parsePixelRatioFromName } from '@/lib/mediaUtils'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface MediaFile {
   file: File;
@@ -17,6 +18,7 @@ interface MediaFile {
 
 export function CreateVoting() {
   const { t } = useTranslation()
+  const { accessToken } = useAuth()
   const [title, setTitle] = useState(() => {
     const defaultQuestions = t('createVoting.defaultQuestions', { returnObjects: true }) as string[]
     const randomQuestion = defaultQuestions[Math.floor(Math.random() * defaultQuestions.length)]
@@ -190,8 +192,14 @@ export function CreateVoting() {
         formData.append('images', mediaFile.file)
       })
 
+      const headers: HeadersInit = {}
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+      }
+
       const response = await fetch('/api/votings', {
         method: 'POST',
+        headers,
         body: formData,
       })
 
