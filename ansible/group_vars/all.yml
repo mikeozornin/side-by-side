@@ -14,7 +14,7 @@ nginx_web_root: /usr/share/nginx/side-by-side
 # Сервис
 service_name: side-by-side
 backend_workdir: /opt/side-by-side/current/server
-node_path: /usr/bin/node
+bun_path: /usr/local/bin/bun
 
 # Конфигурация
 env_file_path: /etc/side-by-side/server.env

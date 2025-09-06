@@ -1,45 +1,20 @@
-import sqlite3 from 'sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from './init.js';
 
-// Вспомогательная функция для выполнения запросов с промисами
-export function runQuery<T = any>(sql: string, params: any[] = []): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const db = getDatabase();
-    db.run(sql, params, function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(this as any);
-      }
-    });
-  });
+// Вспомогательные функции для выполнения запросов с Bun SQLite
+export function runQuery<T = any>(sql: string, params: any[] = []): T {
+  const db = getDatabase();
+  return db.prepare(sql).run(...params) as T;
 }
 
-export function getQuery<T = any>(sql: string, params: any[] = []): Promise<T | undefined> {
-  return new Promise((resolve, reject) => {
-    const db = getDatabase();
-    db.get(sql, params, (err, row) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(row as T);
-      }
-    });
-  });
+export function getQuery<T = any>(sql: string, params: any[] = []): T | undefined {
+  const db = getDatabase();
+  return db.prepare(sql).get(...params) as T | undefined;
 }
 
-export function allQuery<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-  return new Promise((resolve, reject) => {
-    const db = getDatabase();
-    db.all(sql, params, (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(rows as T[]);
-      }
-    });
-  });
+export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
+  const db = getDatabase();
+  return db.prepare(sql).all(...params) as T[];
 }
 
 // Интерфейсы для типизации
@@ -71,38 +46,38 @@ export interface Vote {
 }
 
 // Функции для работы с голосованиями
-export async function createVoting(voting: Omit<Voting, 'id'>): Promise<string> {
+export function createVoting(voting: Omit<Voting, 'id'>): string {
   const id = uuidv4();
-  await runQuery(
+  runQuery(
     'INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public) VALUES (?, ?, ?, ?, ?, ?)',
     [id, voting.title, voting.created_at, voting.end_at, voting.duration_hours, voting.is_public]
   );
   return id;
 }
 
-export async function getVoting(id: string): Promise<Voting | undefined> {
+export function getVoting(id: string): Voting | undefined {
   return getQuery<Voting>('SELECT * FROM votings WHERE id = ?', [id]);
 }
 
-export async function getAllVotings(): Promise<Voting[]> {
+export function getAllVotings(): Voting[] {
   return allQuery<Voting>('SELECT * FROM votings ORDER BY created_at DESC');
 }
 
-export async function getPublicVotings(): Promise<Voting[]> {
+export function getPublicVotings(): Voting[] {
   return allQuery<Voting>('SELECT * FROM votings WHERE is_public = 1 ORDER BY created_at DESC');
 }
 
 // Функции для работы с вариантами голосования
-export async function createVotingOptions(options: Omit<VotingOption, 'id'>[]): Promise<void> {
+export function createVotingOptions(options: Omit<VotingOption, 'id'>[]): void {
   for (const option of options) {
-    await runQuery(
+    runQuery(
       'INSERT INTO voting_options (voting_id, file_path, sort_order, pixel_ratio, width, height, media_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [option.voting_id, option.file_path, option.sort_order, option.pixel_ratio, option.width, option.height, option.media_type]
     );
   }
 }
 
-export async function getVotingOptions(votingId: string): Promise<VotingOption[]> {
+export function getVotingOptions(votingId: string): VotingOption[] {
   return allQuery<VotingOption>(
     'SELECT * FROM voting_options WHERE voting_id = ? ORDER BY sort_order',
     [votingId]
@@ -110,27 +85,27 @@ export async function getVotingOptions(votingId: string): Promise<VotingOption[]
 }
 
 // Функции для работы с голосами
-export async function createVote(vote: Omit<Vote, 'id'>): Promise<number> {
-  const result = await runQuery<{ lastID: number }>(
+export function createVote(vote: Omit<Vote, 'id'>): number {
+  const result = runQuery<{ lastInsertRowid: number }>(
     'INSERT INTO votes (voting_id, option_id, created_at) VALUES (?, ?, ?)',
     [vote.voting_id, vote.option_id, vote.created_at]
   );
-  return result.lastID;
+  return result.lastInsertRowid;
 }
 
-export async function getVotesForVoting(votingId: string): Promise<Vote[]> {
+export function getVotesForVoting(votingId: string): Vote[] {
   return allQuery<Vote>('SELECT * FROM votes WHERE voting_id = ?', [votingId]);
 }
 
-export async function getVoteCountForVoting(votingId: string): Promise<number> {
-  const result = await getQuery<{ count: number }>(
+export function getVoteCountForVoting(votingId: string): number {
+  const result = getQuery<{ count: number }>(
     'SELECT COUNT(*) as count FROM votes WHERE voting_id = ?',
     [votingId]
   );
   return result?.count || 0;
 }
 
-export async function getVoteCounts(votingId: string): Promise<{ option_id: number; count: number }[]> {
+export function getVoteCounts(votingId: string): { option_id: number; count: number }[] {
   return allQuery<{ option_id: number; count: number }>(
     'SELECT option_id, COUNT(*) as count FROM votes WHERE voting_id = ? GROUP BY option_id',
     [votingId]

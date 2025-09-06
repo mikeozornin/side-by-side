@@ -2,22 +2,22 @@ import { initDatabase, closeDatabase } from './init.js';
 import { getAllVotings, getVotingOptions, getVotesForVoting } from './queries.js';
 import { logger } from '../utils/logger.js';
 
-async function checkData() {
+function checkData() {
   try {
     logger.info('Проверяем данные в SQLite базе...');
     
-    await initDatabase();
+    initDatabase();
     
-    const votings = await getAllVotings();
+    const votings = getAllVotings();
     logger.info(`Найдено голосований: ${votings.length}`);
     
     for (const voting of votings) {
       logger.info(`- ${voting.title} (${voting.id})`);
       
-      const images = await getVotingOptions(voting.id);
+      const images = getVotingOptions(voting.id);
       logger.info(`  Вариантов: ${images.length}`);
       
-      const votes = await getVotesForVoting(voting.id);
+      const votes = getVotesForVoting(voting.id);
       logger.info(`  Голосов: ${votes.length}`);
     }
     
@@ -31,12 +31,11 @@ async function checkData() {
   }
 }
 
-checkData()
-  .then(() => {
-    logger.info('Проверка завершена успешно');
-    process.exit(0);
-  })
-  .catch((error) => {
-    logger.error('Ошибка проверки:', error);
-    process.exit(1);
-  });
+try {
+  checkData();
+  logger.info('Проверка завершена успешно');
+  process.exit(0);
+} catch (error) {
+  logger.error('Ошибка проверки:', error);
+  process.exit(1);
+}

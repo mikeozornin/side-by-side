@@ -1,7 +1,6 @@
 // Загружаем .env файлы ПЕРВЫМ ДЕЛОМ
 import './load-env.js';
 
-import { serve } from '@hono/node-server';
 import { router } from './routes/index.js';
 import { initDatabase, closeDatabase } from './db/init.js';
 import { ensureDirectories } from './utils/files.js';
@@ -21,9 +20,10 @@ async function startServer() {
     
     logger.info(`Сервер запускается на порту ${PORT}`);
     
-    serve({
-      fetch: router.fetch,
+    // Используем Bun.serve вместо @hono/node-server
+    Bun.serve({
       port: PORT,
+      fetch: router.fetch,
     });
     
     logger.info(`Сервер запущен на http://localhost:${PORT}`);

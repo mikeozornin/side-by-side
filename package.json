@@ -4,19 +4,19 @@
   "description": "Веб-приложение для быстрого тестирования дизайн-макетов",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "cd server && npm run dev",
-    "dev:client": "cd client && npm run dev",
-    "build": "npm run build:client && npm run build:server",
-    "build:client": "cd client && npm run build",
-    "build:server": "cd server && npm run build",
-    "start": "cd server && npm run start",
-    "install:all": "npm install && cd client && npm install && cd ../server && npm install"
+    "dev": "concurrently \"bun run dev:server\" \"bun run dev:client\"",
+    "dev:server": "cd server && bun run dev",
+    "dev:client": "cd client && bun run dev",
+    "build": "bun run build:client && bun run build:server",
+    "build:client": "cd client && bun run build",
+    "build:server": "cd server && bun run build",
+    "start": "cd server && bun run start",
+    "install:all": "bun install && cd client && bun install && cd ../server && bun install"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "bun": ">=1.0.0"
   }
 }

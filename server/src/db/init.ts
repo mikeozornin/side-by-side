@@ -1,12 +1,12 @@
-import sqlite3 from 'sqlite3';
+import { Database } from 'bun:sqlite';
 import { createTables } from './schema.js';
 import { logger } from '../utils/logger.js';
 
 const DB_PATH = process.env.DB_PATH || './app.db';
 
-let db: sqlite3.Database | null = null;
+let db: Database | null = null;
 
-export function getDatabase(): sqlite3.Database {
+export function getDatabase(): Database {
   if (!db) {
     throw new Error('База данных не инициализирована');
   }
@@ -15,23 +15,14 @@ export function getDatabase(): sqlite3.Database {
 
 export async function initDatabase(): Promise<void> {
   try {
-    return new Promise((resolve, reject) => {
-      db = new sqlite3.Database(DB_PATH, (err: Error | null) => {
-        if (err) {
-          logger.error('Ошибка подключения к базе данных:', err);
-          reject(err);
-          return;
-        }
-        
-        logger.info(`Подключение к SQLite базе данных: ${DB_PATH}`);
-        
-        // Создаем таблицы
-        createTables(db!);
-        
-        logger.info('База данных инициализирована');
-        resolve();
-      });
-    });
+    db = new Database(DB_PATH);
+    
+    logger.info(`Подключение к SQLite базе данных: ${DB_PATH}`);
+    
+    // Создаем таблицы
+    createTables(db);
+    
+    logger.info('База данных инициализирована');
   } catch (error) {
     logger.error('Ошибка инициализации базы данных:', error);
     throw error;
@@ -40,13 +31,12 @@ export async function initDatabase(): Promise<void> {
 
 export function closeDatabase(): void {
   if (db) {
-    db.close((err: Error | null) => {
-      if (err) {
-        logger.error('Ошибка закрытия базы данных:', err);
-      } else {
-        logger.info('База данных закрыта');
-      }
-    });
+    try {
+      db.close();
+      logger.info('База данных закрыта');
+    } catch (error) {
+      logger.error('Ошибка закрытия базы данных:', error);
+    }
     db = null;
   }
 }

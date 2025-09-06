@@ -25,20 +25,18 @@ const notificationService = new NotificationService();
 // GET /api/votings - список публичных голосований
 votingRoutes.get('/votings', async (c) => {
   try {
-    const votings = await getPublicVotings();
+    const votings = getPublicVotings();
     
-    const votingsWithOptions = await Promise.all(
-      votings.map(async (voting) => {
-        const options = await getVotingOptions(voting.id);
-        const voteCount = await getVoteCountForVoting(voting.id);
-        
-        return {
-          ...voting,
-          options,
-          vote_count: voteCount
-        };
-      })
-    );
+    const votingsWithOptions = votings.map((voting) => {
+      const options = getVotingOptions(voting.id);
+      const voteCount = getVoteCountForVoting(voting.id);
+      
+      return {
+        ...voting,
+        options,
+        vote_count: voteCount
+      };
+    });
 
     return c.json({ votings: votingsWithOptions });
   } catch (error) {
@@ -52,19 +50,19 @@ votingRoutes.get('/votings/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const voting = await getVoting(id);
+    const voting = getVoting(id);
     
     if (!voting) {
       return c.json({ error: 'Голосование не найдено' }, 404);
     }
 
-    const options = await getVotingOptions(id);
+    const options = getVotingOptions(id);
     const isFinished = new Date(voting.end_at) <= new Date();
     
     let results = null;
     if (isFinished) {
       // Если голосование завершено, загружаем результаты
-      const voteCounts = await getVoteCounts(id);
+      const voteCounts = getVoteCounts(id);
       const totalVotes = voteCounts.reduce((sum, r) => sum + r.count, 0);
 
       const resultsData = options.map(option => {
@@ -157,7 +155,7 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, as
 
     const endAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
 
-    const votingId = await createVoting({
+    const votingId = createVoting({
       title,
       created_at: new Date().toISOString(),
       end_at: endAt.toISOString(),
@@ -310,7 +308,7 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, as
       media_type: upload.mediaType
     }));
 
-    await createVotingOptions(optionsToCreate);
+    createVotingOptions(optionsToCreate);
     
     // Отправляем уведомление асинхронно (только для публичных голосований)
     notificationService.sendVotingCreatedNotification(votingId, title, endAt.toISOString(), isPublic).catch(error => {
@@ -353,7 +351,7 @@ votingRoutes.post('/votings/:id/vote', async (c) => {
       return c.json({ error: 'Неверный выбор' }, 400);
     }
 
-    const voting = await getVoting(id);
+    const voting = getVoting(id);
     if (!voting) {
       return c.json({ error: 'Голосование не найдено' }, 404);
     }
@@ -362,12 +360,12 @@ votingRoutes.post('/votings/:id/vote', async (c) => {
       return c.json({ error: 'Голосование завершено' }, 400);
     }
 
-    const options = await getVotingOptions(id);
+    const options = getVotingOptions(id);
     if (!options.some(o => o.id === optionId)) {
       return c.json({ error: 'Выбранный вариант не существует' }, 400);
     }
 
-    await createVote({
+    createVote({
       voting_id: id,
       option_id: optionId,
       created_at: new Date().toISOString()
@@ -385,7 +383,7 @@ votingRoutes.get('/votings/:id/results', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const voting = await getVoting(id);
+    const voting = getVoting(id);
 
     if (!voting) {
       return c.json({ error: 'Голосование не найдено' }, 404);
@@ -398,8 +396,8 @@ votingRoutes.get('/votings/:id/results', async (c) => {
       return c.json({ error: 'Голосование еще не завершено' }, 400);
     }
 
-    const voteCounts = await getVoteCounts(id);
-    const options = await getVotingOptions(id);
+    const voteCounts = getVoteCounts(id);
+    const options = getVotingOptions(id);
     const totalVotes = voteCounts.reduce((sum, r) => sum + r.count, 0);
 
     const results = options.map(option => {

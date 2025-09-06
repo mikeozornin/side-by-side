@@ -63,12 +63,16 @@
         - "{{ release_path }}/server/jest.config.js"
         - "{{ release_path }}/server/README.md"
         - "{{ release_path }}/server/NOTIFICATIONS.md"
+        - "{{ release_path }}/server/package-lock.json"
+        - "{{ release_path }}/server/yarn.lock"
+        - "{{ release_path }}/server/pnpm-lock.yaml"
+        - "{{ release_path }}/server/bun.lock"
 
     - name: Ensure backend contains only dist and package files
       shell: |
         shopt -s extglob || true
         cd "{{ release_path }}/server" && {
-          find . -maxdepth 1 -type f ! -name 'package.json' ! -name 'package-lock.json' ! -name 'pnpm-lock.yaml' ! -name 'yarn.lock' ! -path './dist/*' -delete || true;
+          find . -maxdepth 1 -type f ! -name 'package.json' ! -name 'bun.lock' ! -path './dist/*' -delete || true;
         }
       args:
         executable: /bin/bash
@@ -96,25 +100,14 @@
         group: www-data
         recurse: true
 
-    - name: Configure npm registry before install
-      shell: |
-        npm config set registry https://registry.npmjs.org/
-        npm config set strict-ssl true
-        npm config delete proxy
-        npm config delete https-proxy
-        npm config delete http-proxy
-      args:
-        executable: /bin/bash
-
-    - name: Install production deps on server
+    - name: Install production deps on server with Bun
       shell: |
         set -e
         cd "{{ release_path }}/server"
-        if [ -f package-lock.json ]; then
-          npm ci --omit=dev
-        else
-          npm install --omit=dev
-        fi
+        # Remove old lockfiles to avoid conflicts
+        rm -f package-lock.json yarn.lock pnpm-lock.yaml
+        # Install with Bun (it will create bun.lock)
+        bun install --production
       args:
         executable: /bin/bash
 

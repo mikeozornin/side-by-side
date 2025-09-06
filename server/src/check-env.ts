@@ -1,45 +1,6 @@
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-// Загружаем .env файл
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const projectRoot = join(__dirname, '..', '..');
-
+// Bun автоматически загружает .env файлы
 console.log('🔍 Checking notification environment variables...\n');
-
-// Ищем различные варианты .env файлов
-const envFiles = [
-  '.env.development',
-  '.env.local',
-  '.env',
-  '.env.production'
-];
-
-let envLoaded = false;
-let loadedFile = '';
-
-for (const envFile of envFiles) {
-  const envPath = join(projectRoot, envFile);
-  console.log(`Looking for ${envFile} at: ${envPath}`);
-  
-  try {
-    const result = dotenv.config({ path: envPath });
-    if (result.parsed && Object.keys(result.parsed).length > 0) {
-      console.log(`✅ ${envFile} loaded successfully\n`);
-      envLoaded = true;
-      loadedFile = envFile;
-      break;
-    }
-  } catch (error) {
-    console.log(`❌ Could not load ${envFile}\n`);
-  }
-}
-
-if (!envLoaded) {
-  console.log('⚠️  No .env files found, using system environment\n');
-}
+console.log('✅ Bun automatically loads .env files\n');
 
 // Проверяем переменные
 const envVars = [
@@ -54,11 +15,7 @@ const envVars = [
 
 console.log('📋 Environment Variables:');
 console.log('========================');
-if (envLoaded) {
-  console.log(`(Loaded from: ${loadedFile})\n`);
-} else {
-  console.log('(Using system environment)\n');
-}
+console.log('(Loaded by Bun automatically)\n');
 
 envVars.forEach(varName => {
   const value = process.env[varName];
