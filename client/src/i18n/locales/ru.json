@@ -1,4 +1,5 @@
 {
+  "appTitle": "Сайд-бай-сайд",
   "votes_zero": "Нет голосов",
   "votes_one": "{{count}} голос",
   "votes_few": "{{count}} голоса",

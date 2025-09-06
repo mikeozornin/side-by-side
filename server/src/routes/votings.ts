@@ -59,12 +59,60 @@ votingRoutes.get('/votings/:id', async (c) => {
     }
 
     const options = await getVotingOptions(id);
+    const isFinished = new Date(voting.end_at) <= new Date();
+    
+    let results = null;
+    if (isFinished) {
+      // Если голосование завершено, загружаем результаты
+      const voteCounts = await getVoteCounts(id);
+      const totalVotes = voteCounts.reduce((sum, r) => sum + r.count, 0);
+
+      const resultsData = options.map(option => {
+        const voteInfo = voteCounts.find(vc => vc.option_id === option.id);
+        return {
+          option_id: option.id,
+          file_path: option.file_path,
+          count: voteInfo?.count || 0,
+          percentage: totalVotes > 0 ? Math.round(((voteInfo?.count || 0) / totalVotes) * 100) : 0
+        };
+      });
+
+      // Коррекция процентов, чтобы в сумме было 100%
+      let percentageSum = resultsData.reduce((sum, r) => sum + r.percentage, 0);
+      if (totalVotes > 0 && percentageSum < 100) {
+        const diff = 100 - percentageSum;
+        const maxPercentageItem = resultsData.reduce((max, item) => (item.percentage > max.percentage ? item : max), resultsData[0]);
+        maxPercentageItem.percentage += diff;
+      }
+
+      // Определение победителя
+      let winner: number | 'tie' | null = null;
+      if (totalVotes > 0) {
+        const maxVotes = Math.max(...resultsData.map(r => r.count));
+        const winners = resultsData.filter(r => r.count === maxVotes);
+        if (winners.length === 1) {
+          winner = winners[0].option_id;
+        } else {
+          winner = 'tie';
+        }
+      } else {
+        // Если нет голосов, все варианты считаются ничьей
+        winner = 'tie';
+      }
+      
+      results = {
+        totalVotes,
+        results: resultsData,
+        winner
+      };
+    }
 
     return c.json({ 
       voting: {
         ...voting,
         options
-      }
+      },
+      results
     });
   } catch (error) {
     logger.error('Ошибка получения голосования:', error);

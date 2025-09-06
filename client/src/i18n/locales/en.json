@@ -1,4 +1,5 @@
 {
+  "appTitle": "Side-by-side",
   "votes_zero": "No votes",
   "votes_one": "{{count}} vote",
   "votes_few": "{{count}} votes",
