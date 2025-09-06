@@ -29,7 +29,9 @@
     "errorLoadingSideBySides": "Failed to load side-by-sides",
     "tryAgain": "Try again",
     "option1": "Option 1",
-    "option2": "Option 2"
+    "option2": "Option 2",
+    "share": "Share",
+    "linkCopied": "Link copied"
   },
   "dropzone": {
     "uploadFile": "Upload file",

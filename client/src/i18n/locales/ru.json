@@ -29,7 +29,9 @@
     "errorLoadingSideBySides": "Не удалось загрузить сайд-бай-сайды",
     "tryAgain": "Попробовать снова",
     "option1": "Вариант 1",
-    "option2": "Вариант 2"
+    "option2": "Вариант 2",
+    "share": "Поделиться",
+    "linkCopied": "Ссылка скопирована"
   },
   "dropzone": {
     "uploadFile": "Загрузите файл",
