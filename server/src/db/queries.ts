@@ -72,7 +72,13 @@ export function getAllVotings(): Voting[] {
 }
 
 export function getPublicVotings(): Voting[] {
-  return allQuery<Voting>('SELECT * FROM votings WHERE is_public = 1 ORDER BY created_at DESC');
+  return allQuery<Voting>(`
+    SELECT v.*, u.email as user_email 
+    FROM votings v 
+    LEFT JOIN users u ON v.user_id = u.id 
+    WHERE v.is_public = 1 
+    ORDER BY v.created_at DESC
+  `);
 }
 
 export function deleteVoting(id: string): boolean {

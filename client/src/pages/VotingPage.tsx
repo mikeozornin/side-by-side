@@ -403,7 +403,8 @@ export function VotingPage() {
               <div className="flex items-center gap-2 mt-2 mb-3 text-muted-foreground">
                 <Clock className="h-4 w-4" />
                 <span className="text-sm">
-                  {getTimeRemaining(voting.end_at)} · {voting.user_email || 'Anonymous'}
+                  {getTimeRemaining(voting.end_at)}
+                  {voting.user_email && ` · ${voting.user_email}`}
                 </span>
               </div>
             )}
