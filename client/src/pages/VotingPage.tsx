@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, X, Check, Medal, Clock } from 'lucide-react'
+import { ArrowLeft, X, Check, Medal, Clock, Share } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
 
@@ -184,6 +185,24 @@ export function VotingPage() {
     return `/api/images/${fileName}`
   }
 
+  const handleShare = async () => {
+    try {
+      const url = window.location.href
+      await navigator.clipboard.writeText(url)
+      toast.success(t('voting.linkCopied'))
+    } catch (error) {
+      console.error('Failed to copy link:', error)
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = window.location.href
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      toast.success(t('voting.linkCopied'))
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -230,14 +249,24 @@ export function VotingPage() {
               </div>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/')}
-            className="flex-shrink-0"
-          >
-            <X className="h-6 w-6" />
-          </Button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleShare}
+              className="gap-2"
+            >
+              <Share className="h-4 w-4" />
+              {t('voting.share')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/')}
+            >
+              <X className="h-6 w-6" />
+            </Button>
+          </div>
         </div>
       </div>
 
