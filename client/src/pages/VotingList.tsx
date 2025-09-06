@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Clock, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import VotingCardPreview from '@/components/ui/VotingCardPreview'
 import { AuthButton } from '@/components/AuthButton'
 import { AuthModal } from '@/components/AuthModal'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface VotingOption {
   id: number;
@@ -24,10 +25,13 @@ interface Voting {
   end_at: string
   options: VotingOption[]
   vote_count: number
+  user_email?: string | null
 }
 
 export function VotingList() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { isAnonymous, user, accessToken } = useAuth()
   const [votings, setVotings] = useState<Voting[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -101,6 +105,16 @@ export function VotingList() {
     return endTime.getTime() > currentTime.getTime()
   }
 
+  const handleCreateClick = () => {
+    if (isAnonymous || (user && accessToken)) {
+      // В анонимном режиме или если пользователь залогинен - сразу переходим на страницу создания
+      navigate('/new')
+    } else {
+      // Если пользователь не залогинен - открываем модальное окно аутентификации
+      setShowAuthModal(true)
+    }
+  }
+
   const activeVotings = votings.filter(voting => isVotingActive(voting.end_at))
   const finishedVotings = votings.filter(voting => !isVotingActive(voting.end_at))
 
@@ -124,7 +138,7 @@ export function VotingList() {
           <div className="flex items-center gap-4">
             <Button 
               size="sm"
-              onClick={() => setShowAuthModal(true)}
+              onClick={handleCreateClick}
             >
               <Plus className="h-4 w-4 mr-2 stroke-[3]" />
               {t('voting.create')}
@@ -157,7 +171,7 @@ export function VotingList() {
         <div className="flex items-center gap-4">
           <Button 
             size="sm"
-            onClick={() => setShowAuthModal(true)}
+            onClick={handleCreateClick}
           >
             <Plus className="h-4 w-4 mr-2 stroke-[3]" />
             {t('voting.create')}
@@ -196,6 +210,7 @@ export function VotingList() {
                             )}
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               {t('votes', { count: voting.vote_count })} · <Clock className="h-4 w-4" /> {getTimeRemaining(voting.end_at)}
+                              {voting.user_email && ` · ${voting.user_email}`}
                             </div>
                           </div>
                         </div>
@@ -237,6 +252,7 @@ export function VotingList() {
                             )}
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               {t('votes', { count: voting.vote_count })} · <Clock className="h-4 w-4" /> {getTimeRemaining(voting.end_at)}
+                              {voting.user_email && ` · ${voting.user_email}`}
                             </div>
                           </div>
                         </div>
