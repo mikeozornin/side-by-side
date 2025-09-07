@@ -4,7 +4,7 @@ import { logger } from 'hono/logger';
 import { votingRoutes } from './votings.js';
 import { authRoutes } from './auth.js';
 import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { readdirSync, statSync } from 'fs';
 import { extname } from 'path';
 import { configManager } from '../utils/config.js';
@@ -135,38 +135,56 @@ router.get('/api/images/:filename', async (c) => {
   try {
     const filename = c.req.param('filename');
     const dataDir = process.env.DATA_DIR || './data';
-    
-    // Ищем файл во всех подпапках data/
-    const findFile = (dir: string, targetFile: string): string | null => {
-      try {
-        const items = readdirSync(dir);
-        
-        for (const item of items) {
-          const fullPath = join(dir, item);
-          const stat = statSync(fullPath);
-          
-          if (stat.isDirectory()) {
-            const found = findFile(fullPath, targetFile);
-            if (found) return found;
-          } else if (item === targetFile) {
-            return fullPath;
-          }
-        }
-      } catch (error) {
-        console.error(`Error reading directory ${dir}:`, error);
+
+    // 🛡️ ЗАЩИТА ОТ PATH TRAVERSAL
+    // 1. Декодируем URL
+    const decodedFilename = decodeURIComponent(filename);
+
+    // 2. Проверяем на path traversal паттерны
+    if (decodedFilename.includes('..') || decodedFilename.includes('/') || decodedFilename.includes('\\')) {
+      console.warn(`[SECURITY] Path traversal attempt detected: ${filename}`);
+      return c.text('Invalid filename', 400);
+    }
+
+    // 3. Проверяем, что имя файла содержит только безопасные символы
+    const safeFilenameRegex = /^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/;
+    if (!safeFilenameRegex.test(decodedFilename)) {
+      console.warn(`[SECURITY] Invalid filename format: ${decodedFilename}`);
+      return c.text('Invalid filename format', 400);
+    }
+
+    // 4. Ищем файл только в data директории (без рекурсии)
+    const filePath = join(dataDir, decodedFilename);
+
+    // 5. Проверяем, что файл действительно находится в data директории
+    const resolvedPath = resolve(filePath);
+    const resolvedDataDir = resolve(dataDir);
+
+    if (!resolvedPath.startsWith(resolvedDataDir)) {
+      console.warn(`[SECURITY] Path traversal blocked: ${resolvedPath} not in ${resolvedDataDir}`);
+      return c.text('Access denied', 403);
+    }
+
+    // 6. Проверяем существование файла
+    try {
+      const stat = statSync(filePath);
+      if (!stat.isFile()) {
+        return c.text('File not found', 404);
       }
-      return null;
-    };
-    
-    const filePath = findFile(dataDir, filename);
-    
-    if (!filePath) {
+    } catch (error) {
       return c.text('File not found', 404);
     }
-    
+
     const fileBuffer = await readFile(filePath);
-    const ext = extname(filename).toLowerCase();
-    
+    const ext = extname(decodedFilename).toLowerCase();
+
+    // 7. Проверяем расширение файла - только изображения
+    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.avif'];
+    if (!allowedExtensions.includes(ext)) {
+      console.warn(`[SECURITY] Non-image file access attempt: ${decodedFilename}`);
+      return c.text('Only image files are allowed', 403);
+    }
+
     let contentType = 'image/jpeg';
     if (ext === '.png') contentType = 'image/png';
     else if (ext === '.webp') contentType = 'image/webp';
