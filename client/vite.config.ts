@@ -27,6 +27,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    // Vite 7 uses 'baseline-widely-available' as default target
+    // which targets Chrome 107+, Edge 107+, Firefox 104+, Safari 16.0+
+    target: 'baseline-widely-available',
     rollupOptions: {
       output: {
         manualChunks: {

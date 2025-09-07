@@ -11,6 +11,9 @@ export interface ServerConfig {
   rateLimit: {
     votingPerMinute: number;
     votingPerHour: number;
+    authMagicLinkPerMinute: number;
+    authVerifyTokenPerMinute: number;
+    figmaAuthPerMinute: number;
   };
 }
 
@@ -32,7 +35,10 @@ export class ConfigManager {
       dbPath: process.env.DB_PATH || './app.db',
       rateLimit: {
         votingPerMinute: parseInt(process.env.RATE_LIMIT_VOTING_PER_MINUTE || '6'),
-        votingPerHour: parseInt(process.env.RATE_LIMIT_VOTING_PER_HOUR || '60')
+        votingPerHour: parseInt(process.env.RATE_LIMIT_VOTING_PER_HOUR || '60'),
+        authMagicLinkPerMinute: parseInt(process.env.RATE_LIMIT_AUTH_MAGIC_LINK_PER_MINUTE || '5'),
+        authVerifyTokenPerMinute: parseInt(process.env.RATE_LIMIT_AUTH_VERIFY_TOKEN_PER_MINUTE || '5'),
+        figmaAuthPerMinute: parseInt(process.env.RATE_LIMIT_FIGMA_AUTH_PER_MINUTE || '10')
       }
     };
   }
