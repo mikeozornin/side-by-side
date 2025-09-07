@@ -142,6 +142,93 @@ function handleSelectionCheck() {
   });
 }
 
+async function refreshAccessToken(serverUrl) {
+  try {
+    var refreshToken = await figma.clientStorage.getAsync('figma-plugin-refresh-token');
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    var urls = getApiAndClientUrls(serverUrl);
+    var apiUrl = urls.apiUrl;
+
+    var response = await fetch(apiUrl + '/auth/refresh', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Figma-Plugin': 'SideBySide/1.0'
+      },
+      body: JSON.stringify({ refreshToken: refreshToken })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to refresh token');
+    }
+
+    var result = await response.json();
+    var newAccessToken = result.accessToken;
+    var newRefreshToken = result.refreshToken;
+
+    if (newAccessToken) {
+      await figma.clientStorage.setAsync('figma-plugin-access-token', newAccessToken);
+    }
+    if (newRefreshToken) {
+      await figma.clientStorage.setAsync('figma-plugin-refresh-token', newRefreshToken);
+    }
+
+    return newAccessToken;
+  } catch (error) {
+    console.error('Token refresh failed:', error);
+    throw error;
+  }
+}
+
+async function makeAuthenticatedRequest(url, options, serverUrl) {
+  var accessToken = await figma.clientStorage.getAsync('figma-plugin-access-token');
+  
+  if (!accessToken) {
+    throw new Error('No access token available');
+  }
+
+  // Add authorization header
+  if (!options.headers) {
+    options.headers = {};
+  }
+  options.headers['Authorization'] = 'Bearer ' + accessToken;
+
+  var response = await fetch(url, options);
+
+  // If 401, try to refresh token and retry
+  if (response.status === 401) {
+    console.log('Access token expired, attempting refresh...');
+    
+    try {
+      var newAccessToken = await refreshAccessToken(serverUrl);
+      
+      // Update authorization header with new token
+      options.headers['Authorization'] = 'Bearer ' + newAccessToken;
+      
+      // Retry the request
+      response = await fetch(url, options);
+    } catch (refreshError) {
+      console.error('Token refresh failed:', refreshError);
+      // If refresh fails, user needs to re-authenticate
+      // Clear stored tokens
+      await figma.clientStorage.deleteAsync('figma-plugin-access-token');
+      await figma.clientStorage.deleteAsync('figma-plugin-refresh-token');
+      await figma.clientStorage.deleteAsync('figma-plugin-user');
+      
+      figma.ui.postMessage({
+        type: 'auth-error',
+        message: 'Session expired. Please log in again.'
+      });
+      throw new Error('Session expired. Please log in again.');
+    }
+  }
+
+  return response;
+}
+
 async function handleCreateVoting(data) {
   try {
     var selection = figma.currentPage.selection;
@@ -174,13 +261,11 @@ async function handleCreateVoting(data) {
     var apiUrl = urls.apiUrl;
     var clientUrl = urls.clientUrl;
 
-    var response = await fetch(apiUrl + '/votings', {
+    var requestOptions = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Figma-Plugin': 'SideBySide/1.0'
-        // User-Agent будет установлен браузером автоматически
-        // Сервер проверяет наличие "Figma" в User-Agent + кастомный заголовок
       },
       body: JSON.stringify({
         title: data.title,
@@ -189,7 +274,9 @@ async function handleCreateVoting(data) {
         images: imageDataUrls,
         pixelRatios: imageDataUrls.map(function() { return 2; })
       })
-    });
+    };
+
+    var response = await makeAuthenticatedRequest(apiUrl + '/votings', requestOptions, serverUrl);
 
     if (!response.ok) {
       var errorData = {};
@@ -283,6 +370,164 @@ async function handleSaveSettings(settings) {
   }
 }
 
+async function handleLogin(data) {
+  try {
+    console.log('Starting login process with data:', data);
+    var authCode = data.authCode;
+    var serverUrl = data.serverUrl;
+    
+    var urls = getApiAndClientUrls(serverUrl);
+    var apiUrl = urls.apiUrl;
+    console.log('API URL:', apiUrl);
+    
+    // Сначала проверяем режим аутентификации
+    var modeResponse = await fetch(apiUrl + '/auth/mode', {
+      method: 'GET',
+      headers: {
+        'X-Figma-Plugin': 'SideBySide/1.0'
+      }
+    });
+    
+    if (!modeResponse.ok) {
+      throw new Error('Failed to check authentication mode');
+    }
+    
+    var modeData = await modeResponse.json();
+    console.log('Auth mode:', modeData);
+    
+    var result;
+    
+    if (modeData.isAnonymous) {
+      // В анонимном режиме не нужен код
+      console.log('Anonymous mode detected, skipping code verification');
+      result = {
+        accessToken: 'anonymous-token',
+        refreshToken: 'anonymous-refresh-token',
+        user: {
+          id: 'anonymous',
+          email: 'anonymous@side-by-side.com',
+          created_at: new Date().toISOString()
+        },
+        isAnonymous: true
+      };
+    } else {
+      // В режиме magic-links нужен код
+      if (!authCode) {
+        throw new Error('Authentication code is required');
+      }
+      
+      var requestBody = {
+        code: authCode
+      };
+      console.log('Request body:', requestBody);
+      
+      var response = await fetch(apiUrl + '/auth/figma-verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Figma-Plugin': 'SideBySide/1.0'
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        var errorData = {};
+        try { 
+          errorData = await response.json(); 
+          console.log('Error response data:', errorData);
+        } catch (e) {
+          console.log('Failed to parse error response:', e);
+        }
+        throw new Error(errorData.error || ('HTTP error: ' + response.status));
+      }
+      
+      result = await response.json();
+    }
+    var accessToken = result.accessToken;
+    var refreshToken = result.refreshToken;
+    var user = result.user;
+    
+    if (!accessToken) {
+      throw new Error('Invalid response from server');
+    }
+    
+    // Store access token, refresh token and user data for future use
+    await figma.clientStorage.setAsync('figma-plugin-access-token', accessToken);
+    if (refreshToken) {
+      await figma.clientStorage.setAsync('figma-plugin-refresh-token', refreshToken);
+    }
+    if (user) {
+      await figma.clientStorage.setAsync('figma-plugin-user', JSON.stringify(user));
+    }
+    await figma.clientStorage.setAsync('figma-plugin-server-url', serverUrl);
+    await figma.clientStorage.setAsync('figma-plugin-is-anonymous', result.isAnonymous || false);
+    console.log('Access token, refresh token and user data stored successfully');
+    
+    figma.ui.postMessage({
+      type: 'login-success',
+      message: 'Login successful!',
+      user: user,
+      serverUrl: serverUrl,
+      isAnonymous: result.isAnonymous || false
+    });
+    
+  } catch (error) {
+    console.error('Login error:', error);
+    figma.ui.postMessage({
+      type: 'login-error',
+      message: (error && error.message) ? error.message : 'Login failed'
+    });
+  }
+}
+
+async function handleCheckAuthStatus() {
+  try {
+    var accessToken = await figma.clientStorage.getAsync('figma-plugin-access-token');
+    var user = await figma.clientStorage.getAsync('figma-plugin-user');
+    var serverUrl = await figma.clientStorage.getAsync('figma-plugin-server-url');
+    var isAnonymous = await figma.clientStorage.getAsync('figma-plugin-is-anonymous');
+    
+    if (accessToken && user && serverUrl) {
+      figma.ui.postMessage({
+        type: 'auth-status',
+        authenticated: true,
+        user: JSON.parse(user),
+        serverUrl: serverUrl,
+        isAnonymous: isAnonymous || false
+      });
+    } else {
+      figma.ui.postMessage({
+        type: 'auth-status',
+        authenticated: false
+      });
+    }
+  } catch (error) {
+    console.error('Auth status check error:', error);
+    figma.ui.postMessage({
+      type: 'auth-status',
+      authenticated: false
+    });
+  }
+}
+
+async function handleLogout() {
+  try {
+    await figma.clientStorage.deleteAsync('figma-plugin-access-token');
+    await figma.clientStorage.deleteAsync('figma-plugin-refresh-token');
+    await figma.clientStorage.deleteAsync('figma-plugin-user');
+    console.log('Logged out successfully');
+    
+    figma.ui.postMessage({
+      type: 'logout-success',
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+  }
+}
+
 // Initialize UI
 figma.showUI(__html__, { width: 400, height: 600, themeColors: true });
 
@@ -304,6 +549,15 @@ figma.ui.onmessage = async function (msg) {
         break;
       case 'save-settings':
         await handleSaveSettings(msg.settings);
+        break;
+      case 'login':
+        await handleLogin(msg.data);
+        break;
+      case 'check-auth-status':
+        await handleCheckAuthStatus();
+        break;
+      case 'logout':
+        await handleLogout();
         break;
     }
   } catch (e) {

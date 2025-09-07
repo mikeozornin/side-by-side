@@ -15,6 +15,7 @@
     "confirmChoice": "Confirm choice",
     "votingInProgress": "Voting...",
     "voteCounted": "Thank you, your vote has been counted. Results will be shown after the voting ends.",
+    "alreadyVoted": "You have already voted in this poll.",
     "finished": "Finished",
     "active": "Ongoing",
     "completed": "Finished",
@@ -28,10 +29,22 @@
     "errorLoadingVotings": "Error loading votings",
     "errorLoadingSideBySides": "Failed to load side-by-sides",
     "tryAgain": "Try again",
-    "option1": "Option 1",
-    "option2": "Option 2",
     "share": "Share",
-    "linkCopied": "Link copied"
+    "linkCopied": "Link copied",
+    "delete": "Delete",
+    "deleteError": "Error deleting voting",
+    "deleteQuestion": "Delete voting?",
+    "deleteConfirmButton": "Yes, delete",
+    "endEarly": "Finish now",
+    "endEarlyQuestion": "Finish voting now?",
+    "endEarlyConfirmButton": "Yes, finish",
+    "endEarlyError": "Error ending voting early",
+    "timeRemaining": {
+      "days": "{{days}}d {{hours}}h {{minutes}}m",
+      "hours": "{{hours}}h {{minutes}}m {{seconds}}s",
+      "minutes": "{{minutes}}m {{seconds}}s",
+      "seconds": "{{seconds}}s"
+    }
   },
   "dropzone": {
     "uploadFile": "Upload files",
@@ -53,12 +66,9 @@
     "fileSizeError": "File size should not exceed 20 MB",
     "fileTypeError": "Select an image or video file",
     "titleRequired": "Enter voting title",
-    "imagesRequired": "Upload both files (images or videos)",
     "creating": "Creating...",
     "create": "Create",
     "remove": "Remove",
-    "option1": "Option 1",
-    "option2": "Option 2",
     "durationOptions": {
       "10m": "10 min",
       "1h": "1 h",
@@ -77,6 +87,45 @@
     "rateLimitMinuteExceeded": "Too many voting creation requests. Please try again in a minute.",
     "rateLimitHourExceeded": "Voting creation limit exceeded for the hour. Please try again later.",
     "rateLimitExceeded": "Request limit exceeded. Please try again later.",
-    "privateVotingNotification": "Voting is private, don't lose this link"
+    "privateVotingNotification": "Voting is private, don't lose this link",
+    "successMessage": "Voting created successfully! Please log in to view and manage your votings."
+  },
+  "settings": {
+    "loginRequired": "Login required",
+    "logout": "Logout",
+    "figmaIntegration": {
+      "howToConnect": "Login in the Figma plugin:",
+      "refresh": "Refresh",
+      "errorGeneratingCode": "Error generating code",
+      "connectionError": "Connection error",
+      "connectAccount": "Login"
+    }
+  },
+  "common": {
+    "cancel": "Cancel"
+  },
+  "auth": {
+    "loading": "Loading...",
+    "login": "Login",
+    "callback": {
+      "processing": "Processing login...",
+      "redirecting": "Redirecting...",
+      "errorTitle": "Login Error",
+      "errorInvalidLink": "Invalid or expired login link. Please request a new link.",
+      "errorTimeout": "Server response timeout exceeded. Please check your internet connection.",
+      "backToHome": "Back to home"
+    },
+    "modal": {
+      "title": "Login",
+      "description": "Enter your email address and we'll send you a login link",
+      "emailPlaceholder": "your@email.com",
+      "sendLink": "Send link",
+      "sending": "Sending...",
+      "checkEmail": "Check your email! We've sent you a login link.",
+      "errorGeneric": "An error occurred. Please try again.",
+      "errorConnection": "An error occurred. Check your internet connection.",
+      "errorInvalidToken": "Invalid or expired link.",
+      "errorLogin": "An error occurred during login. Please try again."
+    }
   }
 }

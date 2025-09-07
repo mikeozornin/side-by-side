@@ -36,6 +36,9 @@ local_env_src: "{{ playbook_dir }}/../server/.env.production"
 # Обновление env файла (по умолчанию отключено)
 update_env: false
 
+# Режим аутентификации (anonymous или magic-links)
+auth_mode: anonymous
+
 # Системные зависимости для оптимизации изображений
 image_optimization_packages:
   - imagemagick

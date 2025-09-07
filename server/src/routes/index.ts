@@ -2,8 +2,9 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { votingRoutes } from './votings.js';
+import { authRoutes } from './auth.js';
 import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { readdirSync, statSync } from 'fs';
 import { extname } from 'path';
 import { configManager } from '../utils/config.js';
@@ -21,10 +22,12 @@ router.options('*', async (c) => {
   const acrhLower = acrh.toLowerCase();
   const userAgent = c.req.header('User-Agent') || '';
 
-  // Handle Figma null origin preflight
-  if (origin === 'null') {
+  // Handle null/empty origin preflight
+  if (origin === 'null' || origin === '') {
     const hasFigmaUserAgent = userAgent.includes('Figma');
     const requestsFigmaHeader = acrhLower.split(',').map((s) => s.trim()).includes('x-figma-plugin');
+    
+    // Разрешаем для Figma плагина
     if (hasFigmaUserAgent && requestsFigmaHeader) {
       return c.body(null, 204, {
         'Access-Control-Allow-Origin': 'null',
@@ -35,6 +38,8 @@ router.options('*', async (c) => {
         'Vary': 'Origin',
       });
     }
+    // Иначе запрещаем пустой/null origin
+    return c.text('Forbidden', 403);
   }
 
   // Fallback: allow known origins
@@ -59,15 +64,16 @@ router.use('*', cors({
   origin: (origin, c) => {
     console.log(`CORS Origin check: origin="${origin}", method="${c?.req?.method}"`);
     
-    // Специальная обработка для null origin (Figma плагин)
-    if (origin === 'null') {
+    // Специальная обработка для null/empty origin
+    if (origin === 'null' || origin === '') {
       // Проверяем специальный заголовок Figma плагина
       const figmaPluginHeader = c?.req?.header('X-Figma-Plugin');
       const userAgent = c?.req?.header('User-Agent');
       const accessControlRequestHeaders = c?.req?.header('Access-Control-Request-Headers');
       
-      console.log(`Null origin request details:`, {
+      console.log(`Null/empty origin request details:`, {
         method: c?.req?.method,
+        origin: origin,
         userAgent: userAgent,
         figmaPluginHeader: figmaPluginHeader,
         accessControlRequestHeaders: accessControlRequestHeaders,
@@ -80,12 +86,13 @@ router.use('*', cors({
         (isPreflight && accessControlRequestHeaders?.includes('X-Figma-Plugin'));
       const hasFigmaUserAgent = userAgent && userAgent.includes('Figma');
       
+      // Разрешаем null/empty origin для Figma плагина
       if (hasFigmaHeader && hasFigmaUserAgent) {
         console.log(`✅ Valid Figma plugin CORS request - UA: "${userAgent}", Header: "${figmaPluginHeader}", Preflight: ${isPreflight}`);
         return 'null';
       }
-      
-      console.warn(`Blocked CORS request with null origin:`, {
+      // Иначе запрещаем пустой/null origin
+      console.warn(`Blocked CORS request with ${origin === 'null' ? 'null' : 'empty'} origin:`, {
         userAgent: userAgent,
         figmaPluginHeader: figmaPluginHeader,
         isPreflight: isPreflight,
@@ -104,44 +111,79 @@ router.use('*', cors({
 
 // API routes
 router.route('/api', votingRoutes);
+router.route('/api/auth', authRoutes);
 
 // Serve images
 router.get('/api/images/:filename', async (c) => {
   try {
     const filename = c.req.param('filename');
     const dataDir = process.env.DATA_DIR || './data';
-    
-    // Ищем файл во всех подпапках data/
-    const findFile = (dir: string, targetFile: string): string | null => {
+
+    // 🛡️ ЗАЩИТА ОТ PATH TRAVERSAL
+    // 1. Декодируем URL
+    const decodedFilename = decodeURIComponent(filename);
+
+    // 2. Проверяем на path traversal паттерны
+    if (decodedFilename.includes('..') || decodedFilename.includes('/') || decodedFilename.includes('\\')) {
+      console.warn(`[SECURITY] Path traversal attempt detected: ${filename}`);
+      return c.text('Invalid filename', 400);
+    }
+
+    // 3. Проверяем, что имя файла содержит только безопасные символы
+    const safeFilenameRegex = /^[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/;
+    if (!safeFilenameRegex.test(decodedFilename)) {
+      console.warn(`[SECURITY] Invalid filename format: ${decodedFilename}`);
+      return c.text('Invalid filename format', 400);
+    }
+
+    // 4. Ищем файл в корне data директории и при необходимости внутри её подпапок (по умолчанию загрузки лежат в data/<votingId>/)
+    const resolvedDataDir = resolve(dataDir);
+    let foundPath: string | null = null;
+
+    // Сначала пробуем в корне data
+    const candidateInRoot = resolve(join(resolvedDataDir, decodedFilename));
+    if (candidateInRoot.startsWith(resolvedDataDir)) {
       try {
-        const items = readdirSync(dir);
-        
-        for (const item of items) {
-          const fullPath = join(dir, item);
-          const stat = statSync(fullPath);
-          
-          if (stat.isDirectory()) {
-            const found = findFile(fullPath, targetFile);
-            if (found) return found;
-          } else if (item === targetFile) {
-            return fullPath;
-          }
+        const stat = statSync(candidateInRoot);
+        if (stat.isFile()) {
+          foundPath = candidateInRoot;
         }
-      } catch (error) {
-        console.error(`Error reading directory ${dir}:`, error);
-      }
-      return null;
-    };
-    
-    const filePath = findFile(dataDir, filename);
-    
-    if (!filePath) {
+      } catch {}
+    }
+
+    // Если не нашли — проверяем только первый уровень подпапок
+    if (!foundPath) {
+      try {
+        const entries = readdirSync(resolvedDataDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          const candidate = resolve(join(resolvedDataDir, entry.name, decodedFilename));
+          if (!candidate.startsWith(resolvedDataDir)) continue;
+          try {
+            const stat = statSync(candidate);
+            if (stat.isFile()) {
+              foundPath = candidate;
+              break;
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+
+    if (!foundPath) {
       return c.text('File not found', 404);
     }
-    
-    const fileBuffer = await readFile(filePath);
-    const ext = extname(filename).toLowerCase();
-    
+
+    const fileBuffer = await readFile(foundPath);
+    const ext = extname(decodedFilename).toLowerCase();
+
+    // 7. Проверяем расширение файла - только изображения
+    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.avif'];
+    if (!allowedExtensions.includes(ext)) {
+      console.warn(`[SECURITY] Non-image file access attempt: ${decodedFilename}`);
+      return c.text('Only image files are allowed', 403);
+    }
+
     let contentType = 'image/jpeg';
     if (ext === '.png') contentType = 'image/png';
     else if (ext === '.webp') contentType = 'image/webp';

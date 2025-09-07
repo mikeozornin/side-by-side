@@ -149,6 +149,25 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         logger.error('Ошибка миграции поля is_public:', error);
         process.exit(1);
       });
+  } else if (command === 'add-user-id') {
+    try {
+      addUserIdColumn();
+      removeUserAgentColumn();
+      logger.info('Миграция поля user_id завершена');
+      process.exit(0);
+    } catch (error) {
+      logger.error('Ошибка миграции поля user_id:', error);
+      process.exit(1);
+    }
+  } else if (command === 'add-user-id-to-votes') {
+    try {
+      addUserIdToVotesColumn();
+      logger.info('Миграция поля user_id в votes завершена');
+      process.exit(0);
+    } catch (error) {
+      logger.error('Ошибка миграции поля user_id в votes:', error);
+      process.exit(1);
+    }
   } else {
     migrateData()
       .then(() => {
@@ -162,4 +181,101 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
 }
 
-export { migrateData, addIsPublicColumn };
+function addUserIdColumn() {
+  try {
+    logger.info('Добавляем поле user_id в таблицу votings...');
+    
+    const db = getDatabase();
+    
+    // Проверяем, существует ли уже поле user_id
+    const tableInfo = db.prepare("PRAGMA table_info(votings)").all() as any[];
+    
+    const hasUserId = tableInfo.some(col => col.name === 'user_id');
+    
+    if (!hasUserId) {
+      // Добавляем поле user_id как nullable
+      db.exec(`
+        ALTER TABLE votings ADD COLUMN user_id TEXT REFERENCES users(id);
+      `);
+      
+      logger.info('Поле user_id успешно добавлено в таблицу votings');
+    } else {
+      logger.info('Поле user_id уже существует в таблице votings');
+    }
+    
+  } catch (error) {
+    logger.error('Ошибка при добавлении поля user_id:', error);
+    throw error;
+  }
+}
+
+function removeUserAgentColumn() {
+  try {
+    logger.info('Удаляем поле user_agent из таблицы sessions...');
+    
+    const db = getDatabase();
+    
+    // Проверяем, существует ли поле user_agent
+    const tableInfo = db.prepare("PRAGMA table_info(sessions)").all() as any[];
+    
+    const hasUserAgent = tableInfo.some(col => col.name === 'user_agent');
+    
+    if (hasUserAgent) {
+      // SQLite не поддерживает DROP COLUMN напрямую, поэтому пересоздаем таблицу
+      db.exec(`
+        CREATE TABLE sessions_new (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          refresh_token_hash TEXT NOT NULL,
+          expires_at DATETIME NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        
+        INSERT INTO sessions_new (id, user_id, refresh_token_hash, expires_at, created_at)
+        SELECT id, user_id, refresh_token_hash, expires_at, created_at FROM sessions;
+        
+        DROP TABLE sessions;
+        
+        ALTER TABLE sessions_new RENAME TO sessions;
+      `);
+      
+      logger.info('Поле user_agent успешно удалено из таблицы sessions');
+    } else {
+      logger.info('Поле user_agent уже отсутствует в таблице sessions');
+    }
+  } catch (error) {
+    logger.error('Ошибка при удалении поля user_agent:', error);
+    throw error;
+  }
+}
+
+function addUserIdToVotesColumn() {
+  try {
+    logger.info('Добавляем поле user_id в таблицу votes...');
+    
+    const db = getDatabase();
+    
+    // Проверяем, существует ли уже поле user_id
+    const tableInfo = db.prepare("PRAGMA table_info(votes)").all() as any[];
+    
+    const hasUserId = tableInfo.some(col => col.name === 'user_id');
+    
+    if (!hasUserId) {
+      // Добавляем поле user_id как nullable
+      db.exec(`
+        ALTER TABLE votes ADD COLUMN user_id TEXT REFERENCES users(id);
+      `);
+      
+      logger.info('Поле user_id успешно добавлено в таблицу votes');
+    } else {
+      logger.info('Поле user_id уже существует в таблице votes');
+    }
+    
+  } catch (error) {
+    logger.error('Ошибка при добавлении поля user_id в votes:', error);
+    throw error;
+  }
+}
+
+export { migrateData, addIsPublicColumn, addUserIdColumn, removeUserAgentColumn, addUserIdToVotesColumn };

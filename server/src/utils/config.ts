@@ -11,6 +11,9 @@ export interface ServerConfig {
   rateLimit: {
     votingPerMinute: number;
     votingPerHour: number;
+    authMagicLinkPerMinute: number;
+    authVerifyTokenPerMinute: number;
+    figmaAuthPerMinute: number;
   };
 }
 
@@ -26,13 +29,16 @@ export class ConfigManager {
       mode: (process.env.SERVER_MODE as 'development' | 'production') || 'development',
       port: parseInt(process.env.PORT || '3000'),
       baseUrl: process.env.BASE_URL || 'http://localhost:3000',
-      votingBaseUrl: process.env.VOTING_BASE_URL || 'http://localhost:5173',
+      votingBaseUrl: process.env.VOTING_BASE_URL || 'https://localhost:5173',
       dataDir: process.env.DATA_DIR || './data',
       logDir: process.env.LOG_DIR || './logs',
       dbPath: process.env.DB_PATH || './app.db',
       rateLimit: {
         votingPerMinute: parseInt(process.env.RATE_LIMIT_VOTING_PER_MINUTE || '6'),
-        votingPerHour: parseInt(process.env.RATE_LIMIT_VOTING_PER_HOUR || '60')
+        votingPerHour: parseInt(process.env.RATE_LIMIT_VOTING_PER_HOUR || '60'),
+        authMagicLinkPerMinute: parseInt(process.env.RATE_LIMIT_AUTH_MAGIC_LINK_PER_MINUTE || '5'),
+        authVerifyTokenPerMinute: parseInt(process.env.RATE_LIMIT_AUTH_VERIFY_TOKEN_PER_MINUTE || '5'),
+        figmaAuthPerMinute: parseInt(process.env.RATE_LIMIT_FIGMA_AUTH_PER_MINUTE || '10')
       }
     };
   }
@@ -77,7 +83,7 @@ export class ConfigManager {
   getCorsOrigins(): string[] {
     if (this.isDevelopment()) {
       return [
-        'http://localhost:5173', // Vite dev server
+        'https://localhost:5173', // Vite dev server (HTTPS)
         'http://localhost:3000', // Server
         'null' // Figma plugin
       ];
@@ -99,8 +105,8 @@ export class ConfigManager {
         return origin;
       }
 
-      // Специальная обработка для null origin (Figma плагин)
-      if (origin === 'null') {
+      // Специальная обработка для null/empty origin
+      if (origin === 'null' || origin === '') {
         // Проверяем User-Agent для дополнительной защиты
         if (c?.req?.header) {
           const userAgent = c.req.header('User-Agent');
@@ -116,7 +122,7 @@ export class ConfigManager {
           }
 
           // Логируем подозрительный запрос
-          console.warn(`Blocked CORS request with null origin:`, {
+          console.warn(`Blocked CORS request with ${origin === 'null' ? 'null' : 'empty'} origin:`, {
             userAgent: userAgent,
             figmaPluginHeader: figmaPluginHeader,
             hasValidUserAgent: hasValidUserAgent,
@@ -125,9 +131,8 @@ export class ConfigManager {
           return undefined;
         }
 
-        // Если контекст недоступен, разрешаем для обратной совместимости
-        // (но это менее безопасно)
-        return 'null';
+        // Если контекст недоступен — отказываем по-умолчанию
+        return undefined;
       }
 
       // Для всех остальных origins - запрет
