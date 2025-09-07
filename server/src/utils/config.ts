@@ -99,8 +99,8 @@ export class ConfigManager {
         return origin;
       }
 
-      // Специальная обработка для null origin (Figma плагин)
-      if (origin === 'null') {
+      // Специальная обработка для null/empty origin
+      if (origin === 'null' || origin === '') {
         // Проверяем User-Agent для дополнительной защиты
         if (c?.req?.header) {
           const userAgent = c.req.header('User-Agent');
@@ -112,11 +112,18 @@ export class ConfigManager {
 
           if (hasValidUserAgent && hasValidHeader) {
             console.log(`✅ Valid Figma plugin CORS request - UA: "${userAgent}", Header: "${figmaPluginHeader}"`);
-            return 'null';
+            return origin === 'null' ? 'null' : '*';
+          }
+
+          // В продакшене также разрешаем null/empty origin для обычных браузерных запросов
+          // (например, когда страница открывается как data: URL)
+          if (this.isProduction()) {
+            console.log(`✅ Allowing ${origin === 'null' ? 'null' : 'empty'} origin in production for non-Figma request - UA: "${userAgent}"`);
+            return origin === 'null' ? 'null' : '*';
           }
 
           // Логируем подозрительный запрос
-          console.warn(`Blocked CORS request with null origin:`, {
+          console.warn(`Blocked CORS request with ${origin === 'null' ? 'null' : 'empty'} origin:`, {
             userAgent: userAgent,
             figmaPluginHeader: figmaPluginHeader,
             hasValidUserAgent: hasValidUserAgent,
@@ -127,7 +134,7 @@ export class ConfigManager {
 
         // Если контекст недоступен, разрешаем для обратной совместимости
         // (но это менее безопасно)
-        return 'null';
+        return origin === 'null' ? 'null' : '*';
       }
 
       // Для всех остальных origins - запрет

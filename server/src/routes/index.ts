@@ -22,13 +22,27 @@ router.options('*', async (c) => {
   const acrhLower = acrh.toLowerCase();
   const userAgent = c.req.header('User-Agent') || '';
 
-  // Handle Figma null origin preflight
-  if (origin === 'null') {
+  // Handle null/empty origin preflight
+  if (origin === 'null' || origin === '') {
     const hasFigmaUserAgent = userAgent.includes('Figma');
     const requestsFigmaHeader = acrhLower.split(',').map((s) => s.trim()).includes('x-figma-plugin');
+    
+    // Разрешаем для Figma плагина
     if (hasFigmaUserAgent && requestsFigmaHeader) {
       return c.body(null, 204, {
-        'Access-Control-Allow-Origin': 'null',
+        'Access-Control-Allow-Origin': origin === 'null' ? 'null' : '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Figma-Plugin',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400',
+        'Vary': 'Origin',
+      });
+    }
+    
+    // В продакшене также разрешаем null/empty origin для обычных браузерных запросов
+    if (configManager.isProduction()) {
+      return c.body(null, 204, {
+        'Access-Control-Allow-Origin': origin === 'null' ? 'null' : '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Figma-Plugin',
         'Access-Control-Allow-Credentials': 'true',
@@ -60,15 +74,16 @@ router.use('*', cors({
   origin: (origin, c) => {
     console.log(`CORS Origin check: origin="${origin}", method="${c?.req?.method}"`);
     
-    // Специальная обработка для null origin (Figma плагин)
-    if (origin === 'null') {
+    // Специальная обработка для null/empty origin
+    if (origin === 'null' || origin === '') {
       // Проверяем специальный заголовок Figma плагина
       const figmaPluginHeader = c?.req?.header('X-Figma-Plugin');
       const userAgent = c?.req?.header('User-Agent');
       const accessControlRequestHeaders = c?.req?.header('Access-Control-Request-Headers');
       
-      console.log(`Null origin request details:`, {
+      console.log(`Null/empty origin request details:`, {
         method: c?.req?.method,
+        origin: origin,
         userAgent: userAgent,
         figmaPluginHeader: figmaPluginHeader,
         accessControlRequestHeaders: accessControlRequestHeaders,
@@ -81,12 +96,20 @@ router.use('*', cors({
         (isPreflight && accessControlRequestHeaders?.includes('X-Figma-Plugin'));
       const hasFigmaUserAgent = userAgent && userAgent.includes('Figma');
       
+      // Разрешаем null/empty origin для Figma плагина
       if (hasFigmaHeader && hasFigmaUserAgent) {
         console.log(`✅ Valid Figma plugin CORS request - UA: "${userAgent}", Header: "${figmaPluginHeader}", Preflight: ${isPreflight}`);
-        return 'null';
+        return origin === 'null' ? 'null' : '*';
       }
       
-      console.warn(`Blocked CORS request with null origin:`, {
+      // В продакшене также разрешаем null/empty origin для обычных браузерных запросов
+      // (например, когда страница открывается как data: URL)
+      if (configManager.isProduction()) {
+        console.log(`✅ Allowing ${origin === 'null' ? 'null' : 'empty'} origin in production for non-Figma request`);
+        return origin === 'null' ? 'null' : '*';
+      }
+      
+      console.warn(`Blocked CORS request with ${origin === 'null' ? 'null' : 'empty'} origin:`, {
         userAgent: userAgent,
         figmaPluginHeader: figmaPluginHeader,
         isPreflight: isPreflight,
