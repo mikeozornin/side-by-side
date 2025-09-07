@@ -9,6 +9,7 @@
     "start": "bun dist/index.js",
     "db:migrate": "bun src/db/migrate.ts",
     "db:migrate:add-is-public": "bun src/db/migrate.ts add-is-public",
+    "db:check-compatibility": "bun src/db/check-compatibility.ts",
     "db:seed": "bun src/db/seed.ts",
     "test:notifications": "bun src/test-notifications.ts",
     "test:locale": "bun src/test-locale.ts",

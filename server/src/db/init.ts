@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite';
 import { createTables } from './schema.js';
+import { runMigrations } from './migrations.js';
 import { logger } from '../utils/logger.js';
 
 const DB_PATH = process.env.DB_PATH || './app.db';
@@ -19,7 +20,11 @@ export async function initDatabase(): Promise<void> {
     
     logger.info(`Подключение к SQLite базе данных: ${DB_PATH}`);
     
-    // Создаем таблицы
+    // Применяем миграции (включая создание таблиц)
+    runMigrations(db);
+    
+    // Для обратной совместимости также вызываем createTables
+    // (это безопасно, так как все таблицы создаются с IF NOT EXISTS)
     createTables(db);
     
     logger.info('База данных инициализирована');
