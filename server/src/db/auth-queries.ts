@@ -66,14 +66,18 @@ export function createSession(
   sessionId: string,
   userId: string,
   refreshTokenHash: string,
-  expiresAt: string
+  expiresAt: string,
+  userAgent?: string
 ): void {
   const db = getDatabase();
-  
+
   db.prepare(`
     INSERT INTO sessions (id, user_id, refresh_token_hash, expires_at, created_at)
     VALUES (?, ?, ?, ?, ?)
   `).run(sessionId, userId, refreshTokenHash, expiresAt, new Date().toISOString());
+
+  // Очистка старых сессий пользователя (оставляем только последние 5)
+  cleanupOldUserSessions(userId, 5);
 }
 
 // Получение сессии по ID
@@ -159,25 +163,121 @@ export function getUserById(userId: string): User | null {
   `).get(userId) as User | null;
 }
 
+// Очистка истекших сессий
+export function cleanupExpiredSessions(): number {
+  const db = getDatabase();
+
+  const result = db.prepare(`
+    DELETE FROM sessions
+    WHERE expires_at <= datetime('now')
+  `).run();
+
+  if (result.changes > 0) {
+    console.log(`Очищено истекших сессий: ${result.changes}`);
+  }
+
+  return result.changes;
+}
+
+// Очистка истекших и использованных magic tokens
+export function cleanupExpiredMagicTokens(): number {
+  const db = getDatabase();
+
+  // Удаляем истекшие токены (независимо от того, использованы они или нет)
+  const expiredResult = db.prepare(`
+    DELETE FROM magic_tokens
+    WHERE expires_at <= datetime('now')
+  `).run();
+
+  // Удаляем использованные токены старше 1 часа (для безопасности)
+  const usedResult = db.prepare(`
+    DELETE FROM magic_tokens
+    WHERE used_at IS NOT NULL
+    AND used_at <= datetime('now', '-1 hour')
+  `).run();
+
+  const totalDeleted = expiredResult.changes + usedResult.changes;
+
+  if (totalDeleted > 0) {
+    console.log(`Очищено magic tokens: ${totalDeleted} (истекших: ${expiredResult.changes}, использованных: ${usedResult.changes})`);
+  }
+
+  return totalDeleted;
+}
+
 // Очистка истекших и использованных кодов Figma
 export function cleanupFigmaCodes(): number {
   const db = getDatabase();
-  
+
   // Удаляем истекшие коды (независимо от того, использованы они или нет)
   const expiredResult = db.prepare(`
-    DELETE FROM figma_auth_codes 
+    DELETE FROM figma_auth_codes
     WHERE expires_at <= datetime('now')
   `).run();
-  
+
   // Удаляем использованные коды старше 1 часа
   const usedResult = db.prepare(`
-    DELETE FROM figma_auth_codes 
-    WHERE used_at IS NOT NULL 
+    DELETE FROM figma_auth_codes
+    WHERE used_at IS NOT NULL
     AND used_at <= datetime('now', '-1 hour')
   `).run();
-  
+
   const totalDeleted = expiredResult.changes + usedResult.changes;
-  console.log(`Очищено кодов Figma: ${totalDeleted} (истекших: ${expiredResult.changes}, использованных: ${usedResult.changes})`);
-  
+
+  if (totalDeleted > 0) {
+    console.log(`Очищено кодов Figma: ${totalDeleted} (истекших: ${expiredResult.changes}, использованных: ${usedResult.changes})`);
+  }
+
   return totalDeleted;
+}
+
+// Комплексная очистка всех истекших данных аутентификации
+export function cleanupExpiredAuthData(): { sessions: number; magicTokens: number; figmaCodes: number; total: number } {
+  console.log('Запуск комплексной очистки истекших данных аутентификации...');
+
+  const sessions = cleanupExpiredSessions();
+  const magicTokens = cleanupExpiredMagicTokens();
+  const figmaCodes = cleanupFigmaCodes();
+
+  const total = sessions + magicTokens + figmaCodes;
+
+  if (total > 0) {
+    console.log(`Комплексная очистка завершена. Всего удалено записей: ${total}`);
+  } else {
+    console.log('Комплексная очистка завершена. Нечего удалять.');
+  }
+
+  return { sessions, magicTokens, figmaCodes, total };
+}
+
+// Очистка старых сессий пользователя (оставляем только последние N)
+export function cleanupOldUserSessions(userId: string, keepLast: number = 5): number {
+  const db = getDatabase();
+
+  // Находим сессии пользователя, отсортированные по дате создания (старые сначала)
+  const sessions = db.prepare(`
+    SELECT id FROM sessions
+    WHERE user_id = ?
+    ORDER BY created_at ASC
+  `).all(userId) as { id: string }[];
+
+  if (sessions.length <= keepLast) {
+    return 0; // Нечего удалять
+  }
+
+  // Удаляем все сессии кроме последних keepLast
+  const sessionsToDelete = sessions.slice(0, sessions.length - keepLast);
+  const placeholders = sessionsToDelete.map(() => '?').join(',');
+  const ids = sessionsToDelete.map(s => s.id);
+
+  const result = db.prepare(`
+    DELETE FROM sessions
+    WHERE id IN (${placeholders})
+  `).run(...ids);
+
+  if (result.changes > 0) {
+    console.log(`Очищено старых сессий пользователя ${userId}: ${result.changes} (оставлено ${keepLast})`);
+  }
+
+  return result.changes;
 }
