@@ -8,6 +8,7 @@ import VotingCardPreview from '@/components/ui/VotingCardPreview'
 import { AuthButton } from '@/components/AuthButton'
 import { AuthModal } from '@/components/AuthModal'
 import { useAuth } from '@/contexts/AuthContext'
+import { configManager } from '@/lib/config'
 
 interface VotingOption {
   id: number;
@@ -55,7 +56,7 @@ export function VotingList() {
     try {
       setError(null)
       setLoading(true)
-      const response = await fetch('/api/votings')
+      const response = await fetch(`${configManager.getApiUrl()}/votings`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)

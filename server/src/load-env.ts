@@ -26,7 +26,7 @@ export const env = {
   AUTO_APPROVE_SESSIONS: process.env.AUTO_APPROVE_SESSIONS === 'true',
   
   // JWT секретный ключ
-  JWT_SECRET: process.env.JWT_SECRET,
+  JWT_SECRET: process.env.JWT_SECRET || 'default-jwt-secret-for-development-only',
   
   // SMTP настройки
   SMTP_HOST: process.env.SMTP_HOST || '',
@@ -40,4 +40,17 @@ export const env = {
 if (env.NODE_ENV === 'production' && env.AUTO_APPROVE_SESSIONS) {
   console.error('FATAL ERROR: AUTO_APPROVE_SESSIONS cannot be true in production environment.');
   process.exit(1); // Завершаем работу с ошибкой
+}
+
+// Проверка JWT_SECRET
+if (env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET || env.JWT_SECRET === 'default-jwt-secret-for-development-only') {
+    console.error('FATAL ERROR: JWT_SECRET must be set to a strong value in production.');
+    process.exit(1);
+  }
+} else {
+  if (!process.env.JWT_SECRET) {
+    console.warn('WARNING: JWT_SECRET not set in environment variables. Using default value for development only.');
+    console.warn('Please set JWT_SECRET in your .env.development file for security.');
+  }
 }

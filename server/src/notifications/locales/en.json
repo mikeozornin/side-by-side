@@ -38,5 +38,15 @@
     "allProvidersFailed": "All providers returned errors. Check settings.",
     "criticalError": "Critical error during testing: {error}",
     "unexpectedError": "Unexpected error: {error}"
+  },
+  "email": {
+    "magicLink": {
+      "subject": "Your sign-in link for Side-by-Side",
+      "greeting": "Hello!",
+      "intro": "Someone, possibly you, is trying to sign in to Side-by-Side using this email address.",
+      "action": "If this is you, click the link:",
+      "button": "Confirm and sign in",
+      "footer": "If not, delete this email, someone might have made a typo."
+    }
   }
 }

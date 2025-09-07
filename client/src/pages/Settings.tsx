@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Copy, Check, RefreshCw, LogOut, X } from 'lucide-react';
+import { configManager } from '@/lib/config';
 
 export function Settings() {
   const { t } = useTranslation();
@@ -30,7 +31,7 @@ export function Settings() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/figma-code', {
+      const response = await fetch(`${configManager.getApiUrl()}/auth/figma-code`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${accessToken}`,

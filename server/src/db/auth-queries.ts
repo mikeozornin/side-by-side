@@ -66,8 +66,7 @@ export function createSession(
   sessionId: string,
   userId: string,
   refreshTokenHash: string,
-  expiresAt: string,
-  userAgent?: string
+  expiresAt: string
 ): void {
   const db = getDatabase();
 
