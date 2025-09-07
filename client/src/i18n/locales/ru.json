@@ -97,7 +97,11 @@
       "refresh": "Обновить",
       "errorGeneratingCode": "Не удалось создать код",
       "connectionError": "Не удалось подключиться к серверу",
-      "connectAccount": "Войти"
+      "connectAccount": "Войти",
+      "step1": "Откройте плагин Side-by-Side в Figma",
+      "step2": "Нажмите кнопку \"Войти\"",
+      "step3": "Введите код:",
+      "step4": "Готово!"
     }
   },
   "common": {

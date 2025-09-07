@@ -135,10 +135,10 @@ export function Settings() {
             <div>
               <h4 className="font-medium mb-3">{t('settings.figmaIntegration.howToConnect')}</h4>
               <ol className="text-sm text-muted-foreground space-y-3 list-decimal list-inside">
-                <li>Open the Side-by-Side plugin in Figma</li>
-                <li>Click the "{t('settings.figmaIntegration.connectAccount')}" button</li>
+                <li>{t('settings.figmaIntegration.step1')}</li>
+                <li>{t('settings.figmaIntegration.step2')}</li>
                 <li>
-                  <span>Enter the code: </span>
+                  <span>{t('settings.figmaIntegration.step3')} </span>
                   {figmaCode ? (
                     <>
                       <code className="px-2 py-1 bg-background border rounded font-mono text-sm h-8 w-32 inline-block" style={{verticalAlign: 'middle'}}>{figmaCode}</code>
@@ -189,7 +189,7 @@ export function Settings() {
                     </Button>
                   )}
                 </li>
-                <li>Done!</li>
+                <li>{t('settings.figmaIntegration.step4')}</li>
               </ol>
             </div>
 
