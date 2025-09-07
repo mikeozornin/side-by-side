@@ -118,3 +118,33 @@ export const votingRateLimit: MiddlewareHandler = async (c, next) => {
     await hourLimiter(c, next);
   });
 };
+
+// Middleware для запроса magic-link
+export const magicLinkLimiter = ((): MiddlewareHandler => {
+  const config = configManager.getConfig();
+  return rateLimiter.limit({
+    windowMs: 60 * 1000, // 1 минута
+    maxRequests: config.rateLimit.authMagicLinkPerMinute,
+    message: 'Too many magic link requests, please try again in a minute.'
+  });
+})();
+
+// Middleware для верификации токена
+export const verifyTokenLimiter = ((): MiddlewareHandler => {
+  const config = configManager.getConfig();
+  return rateLimiter.limit({
+    windowMs: 60 * 1000, // 1 минута
+    maxRequests: config.rateLimit.authVerifyTokenPerMinute,
+    message: 'Too many token verification attempts, please try again in a minute.'
+  });
+})();
+
+// Middleware для Figma аутентификации
+export const figmaAuthLimiter = ((): MiddlewareHandler => {
+  const config = configManager.getConfig();
+  return rateLimiter.limit({
+    windowMs: 60 * 1000, // 1 минута
+    maxRequests: config.rateLimit.figmaAuthPerMinute,
+    message: 'Too many Figma authentication attempts, please try again in a minute.'
+  });
+})();

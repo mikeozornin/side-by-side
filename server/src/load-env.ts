@@ -35,3 +35,9 @@ export const env = {
   SMTP_PASS: process.env.SMTP_PASS || '',
   SMTP_FROM_EMAIL: process.env.SMTP_FROM_EMAIL || 'noreply@side-by-side.com',
 } as const;
+
+// Проверка безопасности для продакшн-режима
+if (env.NODE_ENV === 'production' && env.AUTO_APPROVE_SESSIONS) {
+  console.error('FATAL ERROR: AUTO_APPROVE_SESSIONS cannot be true in production environment.');
+  process.exit(1); // Завершаем работу с ошибкой
+}
