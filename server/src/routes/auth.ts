@@ -11,9 +11,9 @@ import {
   verifyRefreshToken,
   generateId
 } from '../utils/auth.js';
-import { 
-  createOrGetUser, 
-  saveMagicToken, 
+import {
+  createOrGetUser,
+  saveMagicToken,
   verifyAndUseMagicToken,
   createSession,
   getSession,
@@ -21,8 +21,12 @@ import {
   createFigmaCode,
   verifyAndUseFigmaCode,
   getUserById,
+  cleanupExpiredAuthData,
+  cleanupExpiredSessions,
+  cleanupExpiredMagicTokens,
   cleanupFigmaCodes
 } from '../db/auth-queries.js';
+import { runManualCleanup, getCleanupStatus } from '../utils/cleanup-scheduler.js';
 import { env } from '../load-env.js';
 
 export const authRoutes = new Hono();
@@ -369,24 +373,82 @@ authRoutes.post('/cleanup-figma-codes', async (c) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return c.json({ error: 'Authorization required' }, 401);
     }
-    
+
     const accessToken = authHeader.substring(7);
     const payload = verifyAccessToken(accessToken);
-    
+
     if (!payload) {
       return c.json({ error: 'Invalid access token' }, 401);
     }
-    
+
     // Очищаем коды
     const deletedCount = cleanupFigmaCodes();
-    
+
     return c.json({
       message: 'Cleanup completed',
       deletedCodes: deletedCount
     });
-    
+
   } catch (error) {
     console.error('Error cleaning up Figma codes:', error);
     return c.json({ error: 'Failed to cleanup codes' }, 500);
+  }
+});
+
+// POST /api/auth/cleanup - Комплексная очистка всех истекших данных (требует авторизации)
+authRoutes.post('/cleanup', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return c.json({ error: 'Authorization required' }, 401);
+    }
+
+    const accessToken = authHeader.substring(7);
+    const payload = verifyAccessToken(accessToken);
+
+    if (!payload) {
+      return c.json({ error: 'Invalid access token' }, 401);
+    }
+
+    // Ручной запуск комплексной очистки
+    const result = await runManualCleanup();
+
+    return c.json({
+      message: 'Manual cleanup completed',
+      ...result
+    });
+
+  } catch (error) {
+    console.error('Error running manual cleanup:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: `Failed to run cleanup: ${errorMessage}` }, 500);
+  }
+});
+
+// GET /api/auth/cleanup/status - Статус планировщика очистки
+authRoutes.get('/cleanup/status', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return c.json({ error: 'Authorization required' }, 401);
+    }
+
+    const accessToken = authHeader.substring(7);
+    const payload = verifyAccessToken(accessToken);
+
+    if (!payload) {
+      return c.json({ error: 'Invalid access token' }, 401);
+    }
+
+    const status = getCleanupStatus();
+
+    return c.json({
+      cleanupScheduler: status,
+      lastCleanup: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error getting cleanup status:', error);
+    return c.json({ error: 'Failed to get cleanup status' }, 500);
   }
 });
