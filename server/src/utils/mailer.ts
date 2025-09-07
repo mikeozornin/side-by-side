@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { env } from '../load-env';
+import { i18n } from '../notifications/i18n';
 
 // Автоопределение протокола и порта
 function getSmtpConfig() {
@@ -67,12 +68,35 @@ interface SendMagicLinkParams {
 }
 
 export async function sendMagicLink({ email, url }: SendMagicLinkParams) {
+  const subject = i18n.t('email.magicLink.subject');
+  const greeting = i18n.t('email.magicLink.greeting');
+  const intro = i18n.t('email.magicLink.intro');
+  const action = i18n.t('email.magicLink.action');
+  const button = i18n.t('email.magicLink.button');
+  const footer = i18n.t('email.magicLink.footer');
+
+  const text = `${greeting}\n\n${intro}\n\n${action}\n${url}\n\n${footer}`;
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <p>${greeting}</p>
+      <p>${intro}</p>
+      <p>${action}</p>
+      <div style="margin: 20px 0;">
+        <a href="${url}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">${button}</a>
+      </div>
+      <p style="font-size: 12px; color: #666;">Если кнопка не работает, скопируйте и откройте эту ссылку в браузере:</p>
+      <p style="word-break: break-all; font-size: 12px;"><a href="${url}">${url}</a></p>
+      <p>${footer}</p>
+    </div>
+  `;
+
   const info = await transporter.sendMail({
     from: `"Side-by-Side" <${env.SMTP_FROM_EMAIL}>`,
     to: email,
-    subject: 'Your sign-in link for Side-by-Side',
-    text: `Click this link to sign in: ${url}`,
-    html: `<p>Welcome to Side-by-Side!</p><p><a href="${url}">Click here to sign in</a></p>`,
+    subject,
+    text,
+    html,
   });
 
   console.log('Message sent: %s', info.messageId);

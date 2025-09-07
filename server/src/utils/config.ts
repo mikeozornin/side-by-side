@@ -29,7 +29,7 @@ export class ConfigManager {
       mode: (process.env.SERVER_MODE as 'development' | 'production') || 'development',
       port: parseInt(process.env.PORT || '3000'),
       baseUrl: process.env.BASE_URL || 'http://localhost:3000',
-      votingBaseUrl: process.env.VOTING_BASE_URL || 'http://localhost:5173',
+      votingBaseUrl: process.env.VOTING_BASE_URL || 'https://localhost:5173',
       dataDir: process.env.DATA_DIR || './data',
       logDir: process.env.LOG_DIR || './logs',
       dbPath: process.env.DB_PATH || './app.db',
@@ -83,7 +83,7 @@ export class ConfigManager {
   getCorsOrigins(): string[] {
     if (this.isDevelopment()) {
       return [
-        'http://localhost:5173', // Vite dev server
+        'https://localhost:5173', // Vite dev server (HTTPS)
         'http://localhost:3000', // Server
         'null' // Figma plugin
       ];
@@ -118,14 +118,7 @@ export class ConfigManager {
 
           if (hasValidUserAgent && hasValidHeader) {
             console.log(`✅ Valid Figma plugin CORS request - UA: "${userAgent}", Header: "${figmaPluginHeader}"`);
-            return origin === 'null' ? 'null' : '*';
-          }
-
-          // В продакшене также разрешаем null/empty origin для обычных браузерных запросов
-          // (например, когда страница открывается как data: URL)
-          if (this.isProduction()) {
-            console.log(`✅ Allowing ${origin === 'null' ? 'null' : 'empty'} origin in production for non-Figma request - UA: "${userAgent}"`);
-            return origin === 'null' ? 'null' : '*';
+            return 'null';
           }
 
           // Логируем подозрительный запрос
@@ -138,9 +131,8 @@ export class ConfigManager {
           return undefined;
         }
 
-        // Если контекст недоступен, разрешаем для обратной совместимости
-        // (но это менее безопасно)
-        return origin === 'null' ? 'null' : '*';
+        // Если контекст недоступен — отказываем по-умолчанию
+        return undefined;
       }
 
       // Для всех остальных origins - запрет

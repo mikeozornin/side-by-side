@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { configManager } from '../lib/config';
 
 interface User {
   id: string;
@@ -12,10 +13,13 @@ interface AuthContextType {
   isLoading: boolean;
   isAnonymous: boolean;
   authMode: 'anonymous' | 'magic-links';
+  authError: string | null;
+  authErrorCode: string | null;
   login: (accessToken: string, user: User) => void;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
   checkAuthMode: () => Promise<{ authMode: 'anonymous' | 'magic-links'; isAnonymous: boolean }>;
+  clearAuthError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,12 +45,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [authMode, setAuthMode] = useState<'anonymous' | 'magic-links'>('magic-links');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authErrorCode, setAuthErrorCode] = useState<string | null>(null);
   const hasInitialized = useRef(false);
 
   // Функция для проверки режима аутентификации
   const checkAuthMode = async (): Promise<{ authMode: 'anonymous' | 'magic-links'; isAnonymous: boolean }> => {
     try {
-      const response = await fetch('/api/auth/mode');
+      const response = await fetch(`${configManager.getApiUrl()}/auth/mode`);
       if (response.ok) {
         const data = await response.json();
         setAuthMode(data.authMode);
@@ -68,10 +74,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return true;
       }
 
-      const response = await fetch('/api/auth/refresh', {
+      if (import.meta.env.DEV) {
+        console.log('🔄 Attempting to refresh token...');
+      }
+      
+      const response = await fetch(`${configManager.getApiUrl()}/auth/refresh`, {
         method: 'POST',
         credentials: 'include', // Важно для отправки HttpOnly cookie
       });
+      
+      if (import.meta.env.DEV) {
+        console.log('📡 Refresh response status:', response.status);
+      }
 
       if (response.ok) {
         const data = await response.json();
@@ -117,7 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Функция выхода
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', {
+      await fetch(`${configManager.getApiUrl()}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -129,6 +143,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setIsAnonymous(false);
       setIsLoading(false);
+      setAuthError(null);
+      setAuthErrorCode(null);
       
       // Очищаем данные из localStorage
       localStorage.removeItem('accessToken');
@@ -142,10 +158,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Функция для очистки ошибки аутентификации
+  const clearAuthError = () => {
+    setAuthError(null);
+    setAuthErrorCode(null);
+  };
+
   // Функция для обработки magic link callback
   const handleMagicLinkCallback = async (token: string) => {
     try {
-      const response = await fetch('/api/auth/verify-token', {
+      const response = await fetch(`${configManager.getApiUrl()}/auth/verify-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -157,6 +179,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const data = await response.json();
         setAccessToken(data.accessToken);
         setUser(data.user);
+        setAuthError(null); // Очищаем ошибку при успешном входе
+        setAuthErrorCode(null);
+        
         
         // Перенаправляем на главную страницу или returnTo (берем из hash)
         const returnToParam = getHashQueryParam('returnTo');
@@ -168,10 +193,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         return true;
       } else {
-        console.error('Invalid magic link token');
+        const errorData = await response.json().catch(() => ({}));
+        setAuthErrorCode('invalid_token');
+        setAuthError(null); // Не устанавливаем текст ошибки, используем только код
+        console.error('Invalid magic link token:', errorData.message);
         return false;
       }
     } catch (error) {
+      setAuthErrorCode('network_error');
+      setAuthError(null); // Не устанавливаем текст ошибки, используем только код
       console.error('Error verifying magic link token:', error);
       return false;
     }
@@ -257,10 +287,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     isAnonymous,
     authMode,
+    authError,
+    authErrorCode,
     login,
     logout,
     refreshToken,
     checkAuthMode,
+    clearAuthError,
   };
 
   return (

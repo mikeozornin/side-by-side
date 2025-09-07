@@ -7,6 +7,8 @@ import { ensureDirectories } from './utils/files.js';
 import { logger } from './utils/logger.js';
 import { cleanupExpiredAuthData } from './db/auth-queries.js';
 import { startCleanupScheduler, stopCleanupScheduler } from './utils/cleanup-scheduler.js';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 const PORT = parseInt(process.env.PORT || '3000');
 const DATA_DIR = process.env.DATA_DIR || './data';
@@ -32,7 +34,7 @@ async function startServer() {
 
     logger.info(`Сервер запускается на порту ${PORT}`);
 
-    // Используем Bun.serve вместо @hono/node-server
+    // Используем Bun.serve
     Bun.serve({
       port: PORT,
       fetch: router.fetch,

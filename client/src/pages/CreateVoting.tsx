@@ -10,6 +10,7 @@ import VideoPlayer from '@/components/ui/VideoPlayer'
 import { getMediaType, getMediaDimensions, parsePixelRatioFromName } from '@/lib/mediaUtils'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
+import { configManager } from '@/lib/config'
 
 interface MediaFile {
   file: File;
@@ -201,7 +202,7 @@ export function CreateVoting() {
         headers['Authorization'] = `Bearer ${accessToken}`
       }
 
-      const response = await fetch('/api/votings', {
+      const response = await fetch(`${configManager.getApiUrl()}/votings`, {
         method: 'POST',
         headers,
         body: formData,

@@ -30,7 +30,7 @@ router.options('*', async (c) => {
     // Разрешаем для Figma плагина
     if (hasFigmaUserAgent && requestsFigmaHeader) {
       return c.body(null, 204, {
-        'Access-Control-Allow-Origin': origin === 'null' ? 'null' : '*',
+        'Access-Control-Allow-Origin': 'null',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Figma-Plugin',
         'Access-Control-Allow-Credentials': 'true',
@@ -38,18 +38,8 @@ router.options('*', async (c) => {
         'Vary': 'Origin',
       });
     }
-    
-    // В продакшене также разрешаем null/empty origin для обычных браузерных запросов
-    if (configManager.isProduction()) {
-      return c.body(null, 204, {
-        'Access-Control-Allow-Origin': origin === 'null' ? 'null' : '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Figma-Plugin',
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Max-Age': '86400',
-        'Vary': 'Origin',
-      });
-    }
+    // Иначе запрещаем пустой/null origin
+    return c.text('Forbidden', 403);
   }
 
   // Fallback: allow known origins
@@ -99,16 +89,9 @@ router.use('*', cors({
       // Разрешаем null/empty origin для Figma плагина
       if (hasFigmaHeader && hasFigmaUserAgent) {
         console.log(`✅ Valid Figma plugin CORS request - UA: "${userAgent}", Header: "${figmaPluginHeader}", Preflight: ${isPreflight}`);
-        return origin === 'null' ? 'null' : '*';
+        return 'null';
       }
-      
-      // В продакшене также разрешаем null/empty origin для обычных браузерных запросов
-      // (например, когда страница открывается как data: URL)
-      if (configManager.isProduction()) {
-        console.log(`✅ Allowing ${origin === 'null' ? 'null' : 'empty'} origin in production for non-Figma request`);
-        return origin === 'null' ? 'null' : '*';
-      }
-      
+      // Иначе запрещаем пустой/null origin
       console.warn(`Blocked CORS request with ${origin === 'null' ? 'null' : 'empty'} origin:`, {
         userAgent: userAgent,
         figmaPluginHeader: figmaPluginHeader,
@@ -153,29 +136,45 @@ router.get('/api/images/:filename', async (c) => {
       return c.text('Invalid filename format', 400);
     }
 
-    // 4. Ищем файл только в data директории (без рекурсии)
-    const filePath = join(dataDir, decodedFilename);
-
-    // 5. Проверяем, что файл действительно находится в data директории
-    const resolvedPath = resolve(filePath);
+    // 4. Ищем файл в корне data директории и при необходимости внутри её подпапок (по умолчанию загрузки лежат в data/<votingId>/)
     const resolvedDataDir = resolve(dataDir);
+    let foundPath: string | null = null;
 
-    if (!resolvedPath.startsWith(resolvedDataDir)) {
-      console.warn(`[SECURITY] Path traversal blocked: ${resolvedPath} not in ${resolvedDataDir}`);
-      return c.text('Access denied', 403);
+    // Сначала пробуем в корне data
+    const candidateInRoot = resolve(join(resolvedDataDir, decodedFilename));
+    if (candidateInRoot.startsWith(resolvedDataDir)) {
+      try {
+        const stat = statSync(candidateInRoot);
+        if (stat.isFile()) {
+          foundPath = candidateInRoot;
+        }
+      } catch {}
     }
 
-    // 6. Проверяем существование файла
-    try {
-      const stat = statSync(filePath);
-      if (!stat.isFile()) {
-        return c.text('File not found', 404);
-      }
-    } catch (error) {
+    // Если не нашли — проверяем только первый уровень подпапок
+    if (!foundPath) {
+      try {
+        const entries = readdirSync(resolvedDataDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          const candidate = resolve(join(resolvedDataDir, entry.name, decodedFilename));
+          if (!candidate.startsWith(resolvedDataDir)) continue;
+          try {
+            const stat = statSync(candidate);
+            if (stat.isFile()) {
+              foundPath = candidate;
+              break;
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+
+    if (!foundPath) {
       return c.text('File not found', 404);
     }
 
-    const fileBuffer = await readFile(filePath);
+    const fileBuffer = await readFile(foundPath);
     const ext = extname(decodedFilename).toLowerCase();
 
     // 7. Проверяем расширение файла - только изображения

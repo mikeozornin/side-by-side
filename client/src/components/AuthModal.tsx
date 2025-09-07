@@ -4,6 +4,7 @@ import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { configManager } from '../lib/config';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -28,7 +29,7 @@ export function AuthModal({ isOpen, onClose, returnTo, onSuccess }: AuthModalPro
     setMessage('');
 
     try {
-      const response = await fetch('/api/auth/magic-link', {
+      const response = await fetch(`${configManager.getApiUrl()}/auth/magic-link`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,7 +79,7 @@ export function AuthModal({ isOpen, onClose, returnTo, onSuccess }: AuthModalPro
     setMessage('');
 
     try {
-      const response = await fetch('/api/auth/verify-token', {
+      const response = await fetch(`${configManager.getApiUrl()}/auth/verify-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -131,6 +132,10 @@ export function AuthModal({ isOpen, onClose, returnTo, onSuccess }: AuthModalPro
   // Установка фокуса на поле ввода email при открытии модального окна
   useEffect(() => {
     if (isOpen && emailInputRef.current) {
+      // Сбрасываем состояние при открытии модального окна
+      setEmail('');
+      setMessage('');
+      
       // Небольшая задержка для корректной работы фокуса
       setTimeout(() => {
         emailInputRef.current?.focus();

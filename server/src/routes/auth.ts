@@ -88,12 +88,11 @@ authRoutes.post('/magic-link', magicLinkLimiter, async (c) => {
       );
 
       // Устанавливаем refresh token в HttpOnly cookie
-      c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${30 * 24 * 60 * 60}; Path=/`);
+      c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=${env.NODE_ENV === 'production' ? 'Strict' : 'Lax'}; Max-Age=${30 * 24 * 60 * 60}; Path=/`);
 
       return c.json({
         message: 'Auto-login enabled',
         accessToken,
-        refreshToken,
         user,
         returnTo: returnTo || '/'
       });
@@ -145,13 +144,20 @@ authRoutes.post('/verify-token', verifyTokenLimiter, async (c) => {
     const refreshTokenHash = await hashToken(refreshToken);
     const sessionExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 год
 
-    createSession(sessionId, user.id, refreshTokenHash, sessionExpiresAt, c.req.header('User-Agent'));
+    createSession(sessionId, user.id, refreshTokenHash, sessionExpiresAt);
 
     // Создаем access token
     const accessToken = createAccessToken({ userId: user.id, email: user.email });
 
     // Устанавливаем refresh token в HttpOnly cookie
-    c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${365 * 24 * 60 * 60}; Path=/`);
+    if (env.NODE_ENV === 'production') {
+      // В production используем строгие настройки безопасности
+      c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; Secure; SameSite=Strict; Max-Age=${365 * 24 * 60 * 60}; Path=/`);
+    } else {
+      // В development заранее очищаем возможную Secure-куку, затем ставим Lax
+      c.header('Set-Cookie', `refreshToken=; HttpOnly; SameSite=Lax; Max-Age=0; Path=/`);
+      c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; SameSite=Lax; Max-Age=${365 * 24 * 60 * 60}; Path=/`);
+    }
 
     return c.json({
       accessToken,
@@ -173,32 +179,57 @@ authRoutes.post('/refresh', async (c) => {
   try {
     // Try to get refresh token from cookie first, then from body
     const cookieHeader = c.req.header('Cookie');
-    let refreshToken = cookieHeader?.split(';')
-      .find(cookie => cookie.trim().startsWith('refreshToken='))
-      ?.split('=')[1];
+    
+    // Берем ПОСЛЕДНИЙ refreshToken, т.к. браузер может присылать и старую, и новую версии (например, с разными атрибутами Secure)
+    let refreshToken = undefined as string | undefined;
+    if (cookieHeader) {
+      const parts = cookieHeader.split(';').map((c) => c.trim());
+      const matches = parts.filter((c) => c.startsWith('refreshToken='));
+      const last = matches[matches.length - 1];
+      refreshToken = last ? last.split('=')[1] : undefined;
+    }
+
+    // Do not log token values in production
+    if (env.NODE_ENV !== 'production') {
+      console.log('🔑 Extracted refresh token from cookie:', refreshToken ? `${refreshToken.substring(0, 8)}…` : 'null');
+    }
 
     if (!refreshToken) {
       try {
         const body = await c.req.json();
         refreshToken = body.refreshToken;
+        if (env.NODE_ENV !== 'production') {
+          console.log('🔑 Refresh token from body:', refreshToken ? `${refreshToken.substring(0, 8)}…` : 'null');
+        }
       } catch (e) {
+        console.log('❌ Failed to parse request body:', e);
         // Ignore parsing errors
       }
     }
 
     if (!refreshToken) {
+      console.log('❌ No refresh token provided');
       return c.json({ error: 'No refresh token provided' }, 401);
     }
 
     // Верифицируем refresh token
+    if (env.NODE_ENV !== 'production') {
+      console.log('🔍 JWT_SECRET is set:', Boolean(env.JWT_SECRET));
+    }
     const payload = verifyRefreshToken(refreshToken);
+    if (env.NODE_ENV !== 'production') {
+      console.log('🔍 Refresh token payload present:', Boolean(payload));
+    }
     if (!payload) {
+      console.log('❌ Invalid refresh token - JWT verification failed');
       return c.json({ error: 'Invalid refresh token' }, 401);
     }
 
     // Получаем сессию из БД
     const session = getSession(payload.sessionId);
+    console.log('🔍 Session from DB:', session ? 'found' : 'not found');
     if (!session) {
+      console.log('❌ Session not found in database');
       return c.json({ error: 'Session not found' }, 401);
     }
 
@@ -208,8 +239,15 @@ authRoutes.post('/refresh', async (c) => {
     }
 
     // Проверяем хеш refresh token
+    if (env.NODE_ENV !== 'production') {
+      console.log('🔍 Verifying token hash...');
+    }
     const isValidToken = await verifyToken(refreshToken, session.refresh_token_hash);
+    if (env.NODE_ENV !== 'production') {
+      console.log('🔍 Token hash verification result:', isValidToken);
+    }
     if (!isValidToken) {
+      console.log('❌ Token hash verification failed');
       return c.json({ error: 'Invalid refresh token' }, 401);
     }
 
@@ -227,13 +265,17 @@ authRoutes.post('/refresh', async (c) => {
 
     // Удаляем старую сессию и создаем новую
     deleteSession(payload.sessionId);
-    createSession(newSessionId, user.id, newRefreshTokenHash, sessionExpiresAt, c.req.header('User-Agent'));
+    createSession(newSessionId, user.id, newRefreshTokenHash, sessionExpiresAt);
 
     // Создаем новый access token
     const accessToken = createAccessToken({ userId: user.id, email: user.email });
 
     // Устанавливаем новый refresh token в cookie
-    c.header('Set-Cookie', `refreshToken=${newRefreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${365 * 24 * 60 * 60}; Path=/`);
+    // Для dev предварительно очищаем возможную старую Secure-куку, чтобы не было дублей
+    if (env.NODE_ENV !== 'production') {
+      c.header('Set-Cookie', `refreshToken=; HttpOnly; SameSite=Lax; Max-Age=0; Path=/`);
+    }
+    c.header('Set-Cookie', `refreshToken=${newRefreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=${env.NODE_ENV === 'production' ? 'Strict' : 'Lax'}; Max-Age=${365 * 24 * 60 * 60}; Path=/`);
 
     return c.json({
       accessToken,
@@ -267,7 +309,7 @@ authRoutes.post('/logout', async (c) => {
     }
 
     // Очищаем cookie через заголовок Set-Cookie
-    c.header('Set-Cookie', `refreshToken=; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Strict; Max-Age=0; Path=/`);
+    c.header('Set-Cookie', `refreshToken=; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=${env.NODE_ENV === 'production' ? 'Strict' : 'Lax'}; Max-Age=0; Path=/`);
 
     return c.json({ message: 'Logged out successfully' });
 
@@ -346,17 +388,16 @@ authRoutes.post('/figma-verify', figmaAuthLimiter, figmaPluginMiddleware, async 
     const refreshTokenHash = await hashToken(refreshToken);
     const sessionExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
 
-    createSession(sessionId, user.id, refreshTokenHash, sessionExpiresAt, 'Figma Plugin');
+    createSession(sessionId, user.id, refreshTokenHash, sessionExpiresAt);
 
     // Создаем access token
     const accessToken = createAccessToken({ userId: user.id, email: user.email });
 
     // Устанавливаем refresh token в HttpOnly cookie
-    c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${365 * 24 * 60 * 60}; Path=/`);
+    c.header('Set-Cookie', `refreshToken=${refreshToken}; HttpOnly; ${env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=${env.NODE_ENV === 'production' ? 'Strict' : 'Lax'}; Max-Age=${365 * 24 * 60 * 60}; Path=/`);
 
     return c.json({
       accessToken,
-      refreshToken,
       user: {
         id: user.id,
         email: user.email,
