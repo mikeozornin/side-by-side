@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Clock, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
 import VotingCardPreview from '@/components/ui/VotingCardPreview'
+import { AuthButton } from '@/components/AuthButton'
+import { AuthModal } from '@/components/AuthModal'
+import { useAuth } from '@/contexts/AuthContext'
+import { configManager } from '@/lib/config'
 
 interface VotingOption {
   id: number;
@@ -22,14 +26,18 @@ interface Voting {
   end_at: string
   options: VotingOption[]
   vote_count: number
+  user_email?: string | null
 }
 
 export function VotingList() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { isAnonymous, user, accessToken } = useAuth()
   const [votings, setVotings] = useState<Voting[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [showAuthModal, setShowAuthModal] = useState(false)
 
 
   useEffect(() => {
@@ -48,7 +56,7 @@ export function VotingList() {
     try {
       setError(null)
       setLoading(true)
-      const response = await fetch('/api/votings')
+      const response = await fetch(`${configManager.getApiUrl()}/votings`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -76,13 +84,13 @@ export function VotingList() {
     const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
     
     if (days > 0) {
-      return `${days}д ${hours}ч ${minutes}м`
+      return t('voting.timeRemaining.days', { days, hours, minutes })
     } else if (hours > 0) {
-      return `${hours}ч ${minutes}м ${seconds}с`
+      return t('voting.timeRemaining.hours', { hours, minutes, seconds })
     } else if (minutes > 0) {
-      return `${minutes}м ${seconds}с`
+      return t('voting.timeRemaining.minutes', { minutes, seconds })
     } else {
-      return `${seconds}с`
+      return t('voting.timeRemaining.seconds', { seconds })
     }
   }
 
@@ -96,6 +104,16 @@ export function VotingList() {
   const isVotingActive = (endAt: string) => {
     const endTime = new Date(endAt)
     return endTime.getTime() > currentTime.getTime()
+  }
+
+  const handleCreateClick = () => {
+    if (isAnonymous || (user && accessToken)) {
+      // В анонимном режиме или если пользователь залогинен - сразу переходим на страницу создания
+      navigate('/new')
+    } else {
+      // Если пользователь не залогинен - открываем модальное окно аутентификации
+      setShowAuthModal(true)
+    }
   }
 
   const activeVotings = votings.filter(voting => isVotingActive(voting.end_at))
@@ -119,12 +137,13 @@ export function VotingList() {
             <h1 className="text-3xl font-bold">{t('voting.active')}</h1>
           </div>
           <div className="flex items-center gap-4">
-            <Link to="/new">
-              <Button>
-                <Plus className="h-4 w-4 mr-2 stroke-[3]" />
-                {t('voting.create')}
-              </Button>
-            </Link>
+            <Button 
+              size="sm"
+              onClick={handleCreateClick}
+            >
+              <Plus className="h-4 w-4 mr-2 stroke-[3]" />
+              {t('voting.create')}
+            </Button>
           </div>
         </div>
         
@@ -151,12 +170,14 @@ export function VotingList() {
           </h1>
         </div>
         <div className="flex items-center gap-4">
-          <Link to="/new">
-            <Button>
-              <Plus className="h-4 w-4 mr-2 stroke-[3]" />
-              {t('voting.create')}
-            </Button>
-          </Link>
+          <Button 
+            size="sm"
+            onClick={handleCreateClick}
+          >
+            <Plus className="h-4 w-4 mr-2 stroke-[3]" />
+            {t('voting.create')}
+          </Button>
+          <AuthButton />
         </div>
       </div>
 
@@ -190,6 +211,7 @@ export function VotingList() {
                             )}
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               {t('votes', { count: voting.vote_count })} · <Clock className="h-4 w-4" /> {getTimeRemaining(voting.end_at)}
+                              {voting.user_email && ` · ${voting.user_email}`}
                             </div>
                           </div>
                         </div>
@@ -231,6 +253,7 @@ export function VotingList() {
                             )}
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               {t('votes', { count: voting.vote_count })} · <Clock className="h-4 w-4" /> {getTimeRemaining(voting.end_at)}
+                              {voting.user_email && ` · ${voting.user_email}`}
                             </div>
                           </div>
                         </div>
@@ -248,6 +271,12 @@ export function VotingList() {
           )}
         </div>
       )}
+      
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        returnTo="/new"
+      />
     </div>
   )
 }

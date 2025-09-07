@@ -96,6 +96,13 @@
       box-shadow: 0 0 0 2px var(--figma-color-bg-brand-tertiary);
     }
 
+    .input:disabled {
+      background: var(--figma-color-bg-disabled);
+      color: var(--figma-color-text-disabled);
+      border-color: var(--figma-color-border-disabled);
+      cursor: not-allowed;
+    }
+
     .duration-options {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -223,60 +230,163 @@
       padding-top: 16px;
     }
 
+    .login-form .footer {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
     .footer-text {
       font-size: 10px;
       color: var(--figma-color-text-tertiary);
       text-align: center;
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .main-interface {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .server-info {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .server-info .input {
+      flex: 1;
+    }
+
+    .logout-btn {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--figma-color-border);
+      background: var(--figma-color-bg);
+      color: var(--figma-color-text);
+    }
+
+    .logout-btn:hover {
+      background: var(--figma-color-bg-hover);
+      border-color: var(--figma-color-border-brand-strong);
+    }
+
+    .button.secondary {
+      background: var(--figma-color-bg);
+      color: var(--figma-color-text);
+      border: 1px solid var(--figma-color-border);
+    }
+
+    .button.secondary:hover:not(:disabled) {
+      background: var(--figma-color-bg-hover);
+      border-color: var(--figma-color-border-brand-strong);
+    }
+
+    .help-text {
+      font-size: 11px;
+      color: var(--figma-color-text);
+      text-align: left;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    .help-text a {
+      color: var(--figma-color-text-brand);
+      text-decoration: underline;
+    }
+
+    .help-text a:hover {
+      color: var(--figma-color-text-brand-strong);
     }
   </style>
 </head>
 
 <body>
   <div class="container">
-    <div class="form-group">
-      <label class="label" for="server-url">Server URL</label>
-      <input type="url" id="server-url" class="input" value="localhost:3000" />
-    </div>
+    <!-- Login Form (shown when not authenticated) -->
+    <div id="login-form" class="login-form">
+      <div class="form-group">
+        <label class="label" for="login-server-url">Server URL</label>
+        <input type="url" id="login-server-url" class="input" placeholder="localhost:3000" />
+      </div>
 
-    <div class="status-container">
-      <div id="status" class="status info hidden">Checking selected elements...</div>
-      <div id="selected-elements" class="selected-elements hidden"></div>
-    </div>
+      <div class="form-group" id="auth-code-group" style="display: none;">
+        <label class="label" for="login-auth-code">Authentication Code</label>
+        <input type="text" id="login-auth-code" class="input" placeholder="FGM-XXXXXX" />
+        <div class="help-text">
+          Get your code from the web app settings page at <a href="#" id="settings-link">localhost:5173/#/settings</a>
+        </div>
+      </div>
 
-    <div class="form-group">
-      <label class="label" for="title">Question</label>
-      <input type="text" id="title" class="input" maxlength="100" autofocus />
-    </div>
-
-    <div class="form-group">
-      <label class="label" for="duration-options">Duration</label>
-      <div class="duration-options" id="duration-options">
-      <div class="duration-option" data-duration="0.167">10 min</div>
-      <div class="duration-option" data-duration="1">1 h</div>
-      <div class="duration-option" data-duration="2">2 h</div>
-      <div class="duration-option" data-duration="3">3 h</div>
-      <div class="duration-option" data-duration="5">5 h</div>
-      <div class="duration-option" data-duration="8">8 h</div>
-      <div class="duration-option selected" data-duration="24">1 day</div>
-      <div class="duration-option" data-duration="168">7 days</div>
+      <div class="footer">
+        <button type="button" id="login-button" class="button primary">Login</button>
       </div>
     </div>
 
-    <div class="form-group">
-      <label class="label" for="privacy-options">Visibility</label>
-      <div class="duration-options" id="privacy-options">
-      <div class="duration-option selected" data-privacy="true">Public</div>
-      <div class="duration-option" data-privacy="false">Private</div>
+    <!-- Main Plugin Interface (shown when authenticated) -->
+    <div id="main-interface" class="main-interface hidden">
+      <!-- Server URL and Logout -->
+      <div class="server-info">
+        <input type="url" id="server-url-display" class="input" disabled />
+        <button type="button" id="logout-button" class="button secondary logout-btn" title="Logout">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16,17 21,12 16,7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </button>
       </div>
-    </div>
 
-    <div id="progress" class="progress">
-      <div class="spinner"></div>
-      <span id="progress-message">Creating voting...</span>
-    </div>
+      <div class="status-container">
+        <div id="status" class="status info hidden">Checking selected elements...</div>
+        <div id="selected-elements" class="selected-elements hidden"></div>
+      </div>
 
-    <div class="footer">
-      <button type="button" id="create-button" class="button primary" disabled>Create</button>
+      <div class="form-group">
+        <label class="label" for="title">Question</label>
+        <input type="text" id="title" class="input" maxlength="100" />
+      </div>
+
+      <div class="form-group">
+        <label class="label" for="duration-options">Duration</label>
+        <div class="duration-options" id="duration-options">
+        <div class="duration-option" data-duration="0.167">10 min</div>
+        <div class="duration-option" data-duration="1">1 h</div>
+        <div class="duration-option" data-duration="2">2 h</div>
+        <div class="duration-option" data-duration="3">3 h</div>
+        <div class="duration-option" data-duration="5">5 h</div>
+        <div class="duration-option" data-duration="8">8 h</div>
+        <div class="duration-option selected" data-duration="24">1 day</div>
+        <div class="duration-option" data-duration="168">7 days</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="label" for="privacy-options">Visibility</label>
+        <div class="duration-options" id="privacy-options">
+        <div class="duration-option selected" data-privacy="true">Public</div>
+        <div class="duration-option" data-privacy="false">Private</div>
+        </div>
+      </div>
+
+      <div id="progress" class="progress">
+        <div class="spinner"></div>
+        <span id="progress-message">Creating voting...</span>
+      </div>
+
+      <div class="footer">
+        <button type="button" id="create-button" class="button primary" disabled>Create</button>
+      </div>
     </div>
   </div>
 
@@ -295,19 +405,29 @@
 
     var statusEl = document.getElementById('status');
     var selectedElementsEl = document.getElementById('selected-elements');
-    var votingFormEl = document.getElementById('voting-form');
     var titleInput = document.getElementById('title');
     var durationOptionsEl = document.getElementById('duration-options');
     var createButton = document.getElementById('create-button');
     var progressEl = document.getElementById('progress');
     var progressMessageEl = document.getElementById('progress-message');
-    var instructionFooterEl = document.getElementById('instruction-footer');
-    var serverUrlInput = document.getElementById('server-url');
+    
+    // Login form elements
+    var loginFormEl = document.getElementById('login-form');
+    var mainInterfaceEl = document.getElementById('main-interface');
+    var loginServerUrlInput = document.getElementById('login-server-url');
+    var loginAuthCodeInput = document.getElementById('login-auth-code');
+    var loginButton = document.getElementById('login-button');
+    var serverUrlDisplayInput = document.getElementById('server-url-display');
+    var logoutButton = document.getElementById('logout-button');
 
     var selectedDuration = 24;
     var selectedPrivacy = true; // true = public, false = private
     var selectedElements = [];
     var currentStatus = 'ready'; // Track current selection status
+    var authCode = '';
+    var isAuthenticated = false;
+    var isAnonymous = null;
+    var currentServerUrl = '';
 
     // Storage keys
     var STORAGE_KEYS = {
@@ -326,14 +446,288 @@
       }, '*');
     }
 
+    // Check authentication status
+    function checkAuthStatus() {
+      console.log('Checking authentication status...');
+      parent.postMessage({
+        pluginMessage: {
+          type: 'check-auth-status'
+        }
+      }, '*');
+    }
+
+    // Show login form
+    function showLoginForm() {
+      if (loginFormEl) loginFormEl.classList.remove('hidden');
+      if (mainInterfaceEl) mainInterfaceEl.classList.add('hidden');
+    }
+
+    // Show main interface
+    function showMainInterface() {
+      if (loginFormEl) loginFormEl.classList.add('hidden');
+      if (mainInterfaceEl) mainInterfaceEl.classList.remove('hidden');
+    }
+
+    // Update auth code field visibility based on auth mode
+    function updateAuthCodeFieldVisibility() {
+      var authCodeGroup = document.getElementById('auth-code-group');
+      if (authCodeGroup) {
+        console.log('updateAuthCodeFieldVisibility called, isAnonymous:', isAnonymous);
+        if (isAnonymous === null) {
+          // Unknown mode - hide field
+          console.log('Hiding field - unknown mode');
+          authCodeGroup.style.display = 'none';
+        } else if (isAnonymous === true) {
+          // Anonymous mode - hide field
+          console.log('Hiding field - anonymous mode');
+          authCodeGroup.style.display = 'none';
+        } else {
+          // Magic-links mode - show field
+          console.log('Showing field - magic-links mode');
+          authCodeGroup.style.display = 'block';
+        }
+      }
+    }
+
+
+    // Get API and client URLs from server URL
+    function getApiAndClientUrls(serverUrl) {
+      try {
+        var normalized = serverUrl && (serverUrl.startsWith('http://') || serverUrl.startsWith('https://'))
+          ? serverUrl
+          : ('http://' + serverUrl);
+        
+        // Parse URL manually since URL constructor is not available in Figma plugin sandbox
+        var protocol, host;
+        if (normalized.startsWith('http://')) {
+          protocol = 'http://';
+          host = normalized.substring(7);
+        } else if (normalized.startsWith('https://')) {
+          protocol = 'https://';
+          host = normalized.substring(8);
+        } else {
+          throw new Error('Invalid URL format');
+        }
+        
+        // Remove path if present
+        var slashIndex = host.indexOf('/');
+        if (slashIndex !== -1) {
+          host = host.substring(0, slashIndex);
+        }
+        
+        if (host === 'localhost' || host === '127.0.0.1') {
+          return {
+            apiUrl: 'http://localhost:3000/api',
+            clientUrl: 'http://localhost:5173'
+          };
+        }
+        
+        return {
+          apiUrl: protocol + host + '/api',
+          clientUrl: protocol + host
+        };
+      } catch (e) {
+        return {
+          apiUrl: 'http://localhost:3000/api',
+          clientUrl: 'http://localhost:5173'
+        };
+      }
+    }
+
+    // Check auth mode for server URL
+    async function checkAuthMode(serverUrl) {
+      try {
+        var urls = getApiAndClientUrls(serverUrl);
+        var apiUrl = urls.apiUrl;
+        
+        var response = await fetch(apiUrl + '/auth/mode', {
+          method: 'GET',
+          headers: {
+            'X-Figma-Plugin': 'SideBySide/1.0'
+          }
+        });
+        
+        if (response.ok) {
+          var modeData = await response.json();
+          isAnonymous = modeData.isAnonymous || false;
+          updateAuthCodeFieldVisibility();
+          updateLoginButtonState();
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Error checking auth mode:', error);
+        return false;
+      }
+    }
+
+    // Handle login
+    function handleLogin() {
+      var serverUrl = loginServerUrlInput && loginServerUrlInput.value ? loginServerUrlInput.value.trim() : '';
+      var authCode = loginAuthCodeInput && loginAuthCodeInput.value ? loginAuthCodeInput.value.trim() : '';
+      
+      if (!serverUrl) {
+        showStatus('error', 'Enter server URL');
+        return;
+      }
+
+      var rootUrl = extractRootUrl(serverUrl);
+      currentServerUrl = rootUrl;
+      
+      // Check if we already know the auth mode
+      if (isAnonymous !== null) {
+        // We know the mode, proceed with login
+        proceedWithLogin(rootUrl, authCode);
+      } else {
+        // First time - check auth mode
+        checkAuthModeAndProceed(rootUrl);
+      }
+    }
+
+    // Check auth mode and proceed with login
+    async function checkAuthModeAndProceed(serverUrl) {
+      try {
+        // Disable login button
+        if (loginButton) {
+          loginButton.disabled = true;
+          loginButton.textContent = 'Checking...';
+        }
+        
+        showProgress('Checking authentication mode...');
+        
+        var urls = getApiAndClientUrls(serverUrl);
+        var apiUrl = urls.apiUrl;
+        
+        var response = await fetch(apiUrl + '/auth/mode', {
+          method: 'GET',
+          headers: {
+            'X-Figma-Plugin': 'SideBySide/1.0'
+          }
+        });
+        
+        if (response.ok) {
+          var modeData = await response.json();
+          console.log('Server auth mode response:', modeData);
+          isAnonymous = modeData.isAnonymous === true;
+          console.log('Set isAnonymous to:', isAnonymous);
+          
+          // Update UI based on auth mode
+          updateAuthCodeFieldVisibility();
+          
+          if (isAnonymous) {
+            // Anonymous mode - proceed with login immediately
+            console.log('Proceeding with anonymous login');
+            proceedWithLogin(serverUrl, '');
+          } else {
+            // Magic-links mode - show code field and wait for user input
+            console.log('Showing code field for magic-links mode');
+            showStatus('info', 'Enter authentication code');
+            
+            // Restore login button
+            if (loginButton) {
+              loginButton.disabled = false;
+              loginButton.textContent = 'Login';
+            }
+            
+            // Focus on code input
+            if (loginAuthCodeInput) {
+              loginAuthCodeInput.focus();
+            }
+          }
+        } else {
+          throw new Error('Failed to check authentication mode');
+        }
+      } catch (error) {
+        console.error('Error checking auth mode:', error);
+        showStatus('error', 'Failed to connect to server');
+        if (loginButton) {
+          loginButton.disabled = false;
+          loginButton.textContent = 'Login';
+        }
+      }
+    }
+
+    // Proceed with actual login
+    function proceedWithLogin(serverUrl, authCode) {
+      // Disable login button
+      if (loginButton) {
+        loginButton.disabled = true;
+        loginButton.textContent = 'Logging in...';
+      }
+      
+      showProgress('Logging in...');
+      
+      parent.postMessage({
+        pluginMessage: {
+          type: 'login',
+          data: { serverUrl: serverUrl, authCode: authCode }
+        }
+      }, '*');
+    }
+
+
+    // Handle logout
+    function handleLogout() {
+      isAuthenticated = false;
+      isAnonymous = null;
+      currentServerUrl = '';
+      
+      if (serverUrlDisplayInput) serverUrlDisplayInput.value = '';
+      if (loginServerUrlInput) loginServerUrlInput.value = '';
+      if (loginAuthCodeInput) loginAuthCodeInput.value = '';
+      
+      updateAuthCodeFieldVisibility();
+      showLoginForm();
+      
+      parent.postMessage({
+        pluginMessage: {
+          type: 'logout'
+        }
+      }, '*');
+    }
+
+    // Update settings link based on server URL
+    function updateSettingsLink() {
+      var settingsLink = document.getElementById('settings-link');
+      if (!settingsLink) return;
+      
+      var serverUrl = loginServerUrlInput && loginServerUrlInput.value ? loginServerUrlInput.value.trim() : 'localhost:3000';
+      var rootUrl = extractRootUrl(serverUrl);
+      
+      // Extract domain and port from server URL
+      var urlObj;
+      try {
+        urlObj = new URL(rootUrl);
+        var domain = urlObj.hostname;
+        var port = urlObj.port;
+        
+        // For client URL, use port 5173 instead of server port
+        var clientPort = port ? '5173' : '';
+        var displayText = domain + (clientPort ? ':' + clientPort : '') + '/#/settings';
+        var settingsUrl = rootUrl.replace(':' + port, ':5173') + '/#/settings';
+        
+        settingsLink.textContent = displayText;
+        settingsLink.href = settingsUrl;
+      } catch (error) {
+        // Fallback for invalid URLs
+        var displayText = 'localhost:5173/#/settings';
+        var settingsUrl = 'http://localhost:5173/#/settings';
+        
+        settingsLink.textContent = displayText;
+        settingsLink.href = settingsUrl;
+      }
+    }
+
     // Save settings by sending to main script
     function saveSettings() {
       console.log('Saving settings via main script...');
       var settings = {};
 
-      if (serverUrlInput && serverUrlInput.value) {
-        settings.serverUrl = serverUrlInput.value;
+      // Save server URL from login form
+      if (loginServerUrlInput && loginServerUrlInput.value) {
+        settings.serverUrl = loginServerUrlInput.value;
       }
+      
       settings.duration = selectedDuration;
       settings.privacy = selectedPrivacy;
 
@@ -389,9 +783,67 @@
     }
 
     function setupEventListeners() {
-      if (votingFormEl) {
-        votingFormEl.addEventListener('submit', handleCreateVotingSubmit);
+      // Login form events
+      if (loginButton) {
+        loginButton.addEventListener('click', handleLogin);
       }
+      if (loginAuthCodeInput) {
+        loginAuthCodeInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            handleLogin();
+          }
+        });
+        loginAuthCodeInput.addEventListener('input', function() {
+          updateLoginButtonState();
+        });
+      }
+      if (loginServerUrlInput) {
+        loginServerUrlInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            handleLogin();
+          }
+        });
+        loginServerUrlInput.addEventListener('input', function() {
+          updateSettingsLink();
+          saveSettings();
+          updateLoginButtonState();
+        });
+        loginServerUrlInput.addEventListener('blur', saveSettings);
+      }
+      
+      // Logout button
+      if (logoutButton) {
+        logoutButton.addEventListener('click', handleLogout);
+      }
+      
+      // Settings link
+      var settingsLink = document.getElementById('settings-link');
+      if (settingsLink) {
+        settingsLink.addEventListener('click', function(e) {
+          e.preventDefault();
+          var serverUrl = loginServerUrlInput && loginServerUrlInput.value ? loginServerUrlInput.value.trim() : 'localhost:3000';
+          var rootUrl = extractRootUrl(serverUrl);
+          
+          // Extract domain and port from server URL
+          var urlObj;
+          try {
+            urlObj = new URL(rootUrl);
+            var port = urlObj.port;
+            var settingsUrl = rootUrl.replace(':' + port, ':5173') + '/#/settings';
+          } catch (error) {
+            var settingsUrl = 'http://localhost:5173/#/settings';
+          }
+          
+          parent.postMessage({
+            pluginMessage: {
+              type: 'open-url',
+              data: { url: settingsUrl }
+            }
+          }, '*');
+        });
+      }
+      
+      // Main interface events
       if (createButton) {
         createButton.addEventListener('click', handleCreateVotingSubmit);
       }
@@ -403,10 +855,7 @@
           }
         });
       }
-      if (serverUrlInput) {
-        serverUrlInput.addEventListener('input', saveSettings);
-        serverUrlInput.addEventListener('blur', saveSettings);
-      }
+      
       setupTitleSuggestions();
       setupDurationOptions();
       setupPrivacyOptions();
@@ -457,10 +906,22 @@
       var hasTitle = !!(titleInput && titleInput.value && titleInput.value.trim().length > 0);
       var hasElements = selectedElements.length >= 2 && selectedElements.length <= 10;
       var isStatusReady = currentStatus === 'ready';
+      var hasAuth = isAuthenticated;
       if (createButton) {
-        createButton.disabled = !hasTitle || !hasElements || !isStatusReady;
+        createButton.disabled = !hasTitle || !hasElements || !isStatusReady || !hasAuth;
       }
     }
+
+    function updateLoginButtonState() {
+      var hasServerUrl = !!(loginServerUrlInput && loginServerUrlInput.value && loginServerUrlInput.value.trim().length > 0);
+      
+      if (loginButton) {
+        // Кнопка активна только при наличии URL сервера
+        // Режим аутентификации проверяется при нажатии кнопки
+        loginButton.disabled = !hasServerUrl;
+      }
+    }
+
 
     function handleCreateVotingSubmit(e) {
       e.preventDefault();
@@ -473,17 +934,22 @@
         showStatus('error', 'Select between 2 and 10 elements');
         return;
       }
-      var serverUrl = serverUrlInput && serverUrlInput.value ? serverUrlInput.value.trim() : '';
-      if (!serverUrl) {
-        showStatus('error', 'Enter server URL');
+      if (!currentServerUrl) {
+        showStatus('error', 'Not authenticated');
         return;
       }
-      var rootUrl = extractRootUrl(serverUrl);
+      
+      // Disable create button to prevent multiple requests
+      if (createButton) {
+        createButton.disabled = true;
+        createButton.textContent = 'Creating...';
+      }
+      
       showProgress('Creating voting...');
       parent.postMessage({
         pluginMessage: {
           type: 'create-voting',
-          data: { title: title, duration: selectedDuration, privacy: selectedPrivacy, serverUrl: rootUrl }
+          data: { title: title, duration: selectedDuration, privacy: selectedPrivacy, serverUrl: currentServerUrl }
         }
       }, '*');
     }
@@ -511,7 +977,6 @@
       selectedElements = elements || [];
       if (selectedElements.length === 0) {
         if (selectedElementsEl) { selectedElementsEl.classList.add('hidden'); }
-        if (instructionFooterEl) { instructionFooterEl.classList.remove('hidden'); }
         return;
       }
       if (selectedElementsEl) {
@@ -526,7 +991,6 @@
         }
         selectedElementsEl.innerHTML = html;
       }
-      if (instructionFooterEl) { instructionFooterEl.classList.add('hidden'); }
       updateCreateButtonState();
     }
 
@@ -548,6 +1012,16 @@
         handleError(pm);
       } else if (type === 'settings-loaded') {
         handleSettingsLoaded(pm);
+      } else if (type === 'auth-verified') {
+        handleAuthVerified(pm);
+      } else if (type === 'auth-error') {
+        handleAuthError(pm);
+      } else if (type === 'login-success') {
+        handleLoginSuccess(pm);
+      } else if (type === 'login-error') {
+        handleLoginError(pm);
+      } else if (type === 'auth-status') {
+        handleAuthStatus(pm);
       }
     });
 
@@ -558,20 +1032,16 @@
       currentStatus = status; // Update current status
       if (status === 'none') {
         showStatus('info', message);
-        if (votingFormEl) { votingFormEl.classList.add('hidden'); }
         updateSelectedElements([]);
       } else if (status === 'partial') {
         showStatus('warning', message);
-        if (votingFormEl) { votingFormEl.classList.add('hidden'); }
         updateSelectedElements([]);
       } else if (status === 'too-many') {
         showStatus('error', message);
-        if (votingFormEl) { votingFormEl.classList.add('hidden'); }
         updateSelectedElements([]);
       } else if (status === 'ready') {
         // Hide status - just show form and update elements
         if (statusEl) { statusEl.classList.add('hidden'); }
-        if (votingFormEl) { votingFormEl.classList.remove('hidden'); }
         updateSelectedElements(elements);
       }
       updateCreateButtonState(); // Update button state based on new status
@@ -581,6 +1051,13 @@
     function handleVotingCreated(data) {
       var url = data.url;
       showStatus('success', 'Voting created! <a href="' + url + '" target="_blank" style="color: #007AFF; text-decoration: underline;">Open in browser</a>');
+      
+      // Restore create button
+      if (createButton) {
+        createButton.disabled = false;
+        createButton.textContent = 'Create';
+      }
+      
       setTimeout(function () {
         parent.postMessage({ pluginMessage: { type: 'close-plugin' } }, '*');
       }, 5000);
@@ -604,6 +1081,12 @@
         message = 'Request limit exceeded. Please try again later.';
       }
       
+      // Restore create button
+      if (createButton) {
+        createButton.disabled = false;
+        createButton.textContent = 'Create';
+      }
+      
       showStatus('error', message);
       hideProgress();
     }
@@ -613,10 +1096,14 @@
       var settings = data.settings || {};
 
       // Load server URL
-      if (settings.serverUrl && serverUrlInput) {
-        serverUrlInput.value = settings.serverUrl;
+      if (settings.serverUrl && loginServerUrlInput) {
+        loginServerUrlInput.value = settings.serverUrl;
+        updateSettingsLink();
         console.log('Set server URL input to:', settings.serverUrl);
       }
+      
+      // Update button states after loading settings
+      updateLoginButtonState();
 
       // Load duration
       if (settings.duration) {
@@ -631,18 +1118,132 @@
         updatePrivacySelection(selectedPrivacy);
         console.log('Set privacy to:', selectedPrivacy);
       }
+      
+      updateCreateButtonState();
+    }
+
+    function handleAuthVerified(data) {
+      isAuthenticated = true;
+      hideProgress();
+      showStatus('success', 'Authentication successful!');
+      updateCreateButtonState();
+    }
+
+    function handleAuthError(data) {
+      isAuthenticated = false;
+      hideProgress();
+      var message = data.message || 'Authentication failed';
+      showStatus('error', message);
+      updateCreateButtonState();
+      
+      // Restore login button
+      if (loginButton) {
+        loginButton.disabled = false;
+        updateLoginButtonState();
+      }
+      
+      // Clear stored tokens and show login form
+      parent.postMessage({
+        pluginMessage: {
+          type: 'logout'
+        }
+      }, '*');
+      
+      // Show login form after a short delay
+      setTimeout(function() {
+        showLoginForm();
+      }, 2000);
+    }
+
+    function handleLoginSuccess(data) {
+      isAuthenticated = true;
+      isAnonymous = data.isAnonymous || false;
+      updateAuthCodeFieldVisibility();
+      hideProgress();
+      showStatus('success', 'Login successful!');
+      
+      
+      // Restore login button
+      if (loginButton) {
+        loginButton.disabled = false;
+        updateLoginButtonState();
+      }
+      
+      // Update server URL display
+      if (serverUrlDisplayInput) {
+        serverUrlDisplayInput.value = currentServerUrl;
+      }
+      
+      // Show main interface
+      showMainInterface();
+      
+      // Load settings for main interface
+      loadSettings();
+    }
+
+    function handleLoginError(data) {
+      isAuthenticated = false;
+      hideProgress();
+      var message = data.message || 'Login failed';
+      showStatus('error', message);
+      
+      // Restore login button
+      if (loginButton) {
+        loginButton.disabled = false;
+        updateLoginButtonState();
+      }
+    }
+
+    function handleAuthStatus(data) {
+      var authenticated = data.authenticated;
+      var serverUrl = data.serverUrl;
+      
+      if (authenticated && serverUrl) {
+        isAuthenticated = true;
+        isAnonymous = data.isAnonymous || false;
+        updateAuthCodeFieldVisibility();
+        currentServerUrl = serverUrl;
+        authCode = data.authCode || '';
+        
+        if (serverUrlDisplayInput) {
+          serverUrlDisplayInput.value = serverUrl;
+        }
+        
+        
+        showMainInterface();
+        loadSettings();
+      } else {
+        isAuthenticated = false;
+        showLoginForm();
+      }
     }
 
     // Initialize
     document.addEventListener('DOMContentLoaded', function () {
-      loadSettings(); // Load saved settings first
       setupEventListeners();
+      
+      // Load settings first
+      loadSettings();
+      
+      // Initialize settings link
+      updateSettingsLink();
+      
+      // Initialize button states
+      updateLoginButtonState();
       updateCreateButtonState();
       
-      // Set focus to title input after a short delay to ensure it's ready
+      // Initialize auth code field visibility
+      updateAuthCodeFieldVisibility();
+      
+      // Check authentication status
+      checkAuthStatus();
+      
+      // Set focus to appropriate input after a short delay
       setTimeout(function() {
-        if (titleInput) {
+        if (isAuthenticated && titleInput) {
           titleInput.focus();
+        } else if (!isAuthenticated && loginServerUrlInput) {
+          loginServerUrlInput.focus();
         }
       }, 100);
     });

@@ -25,6 +25,8 @@ export interface Voting {
   end_at: string;
   duration_hours: number;
   is_public: boolean;
+  user_id: string | null;
+  user_email?: string | null;
 }
 
 export interface VotingOption {
@@ -43,20 +45,26 @@ export interface Vote {
   voting_id: string;
   option_id: number;
   created_at: string;
+  user_id?: string | null;
 }
 
 // Функции для работы с голосованиями
 export function createVoting(voting: Omit<Voting, 'id'>): string {
   const id = uuidv4();
   runQuery(
-    'INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, voting.title, voting.created_at, voting.end_at, voting.duration_hours, voting.is_public]
+    'INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, voting.title, voting.created_at, voting.end_at, voting.duration_hours, voting.is_public, voting.user_id]
   );
   return id;
 }
 
 export function getVoting(id: string): Voting | undefined {
-  return getQuery<Voting>('SELECT * FROM votings WHERE id = ?', [id]);
+  return getQuery<Voting>(`
+    SELECT v.*, u.email as user_email 
+    FROM votings v 
+    LEFT JOIN users u ON v.user_id = u.id 
+    WHERE v.id = ?
+  `, [id]);
 }
 
 export function getAllVotings(): Voting[] {
@@ -64,7 +72,18 @@ export function getAllVotings(): Voting[] {
 }
 
 export function getPublicVotings(): Voting[] {
-  return allQuery<Voting>('SELECT * FROM votings WHERE is_public = 1 ORDER BY created_at DESC');
+  return allQuery<Voting>(`
+    SELECT v.*, u.email as user_email 
+    FROM votings v 
+    LEFT JOIN users u ON v.user_id = u.id 
+    WHERE v.is_public = 1 
+    ORDER BY v.created_at DESC
+  `);
+}
+
+export function deleteVoting(id: string): boolean {
+  const result = runQuery('DELETE FROM votings WHERE id = ?', [id]);
+  return result.changes > 0;
 }
 
 // Функции для работы с вариантами голосования
@@ -87,8 +106,8 @@ export function getVotingOptions(votingId: string): VotingOption[] {
 // Функции для работы с голосами
 export function createVote(vote: Omit<Vote, 'id'>): number {
   const result = runQuery<{ lastInsertRowid: number }>(
-    'INSERT INTO votes (voting_id, option_id, created_at) VALUES (?, ?, ?)',
-    [vote.voting_id, vote.option_id, vote.created_at]
+    'INSERT INTO votes (voting_id, option_id, created_at, user_id) VALUES (?, ?, ?, ?)',
+    [vote.voting_id, vote.option_id, vote.created_at, vote.user_id || null]
   );
   return result.lastInsertRowid;
 }
@@ -110,4 +129,24 @@ export function getVoteCounts(votingId: string): { option_id: number; count: num
     'SELECT option_id, COUNT(*) as count FROM votes WHERE voting_id = ? GROUP BY option_id',
     [votingId]
   );
+}
+
+export function hasUserVoted(votingId: string, userId: string | null): boolean {
+  if (!userId) {
+    return false; // В анонимном режиме не проверяем по серверу
+  }
+  
+  const result = getQuery<{ count: number }>(
+    'SELECT COUNT(*) as count FROM votes WHERE voting_id = ? AND user_id = ?',
+    [votingId, userId]
+  );
+  return (result?.count || 0) > 0;
+}
+
+export function getUserSelectedOption(votingId: string, userId: string): number | null {
+  const result = getQuery<{ option_id: number }>(
+    'SELECT option_id FROM votes WHERE voting_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1',
+    [votingId, userId]
+  );
+  return result ? result.option_id : null;
 }

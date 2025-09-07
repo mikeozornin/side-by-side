@@ -23,6 +23,16 @@
         mode: "0640"
       no_log: true
 
+    - name: Update AUTH_MODE in env file if specified
+      when: auth_mode is defined
+      lineinfile:
+        path: "{{ env_file_path }}"
+        regexp: '^AUTH_MODE='
+        line: "AUTH_MODE={{ auth_mode }}"
+        owner: root
+        group: www-data
+        mode: "0640"
+
     - name: Create release directories
       file:
         path: "{{ item }}"
@@ -49,6 +59,14 @@
         dest: "{{ release_path }}/server/"
         delete: yes
         rsync_path: "rsync"
+        rsync_opts:
+          - "--exclude=app.db"
+          - "--exclude=*.db"
+          - "--exclude=*.sqlite"
+          - "--exclude=*.sqlite3"
+          - "--exclude=data/"
+          - "--exclude=logs/"
+          - "--exclude=.env*"
 
     - name: Remove unnecessary backend files
       file:
@@ -81,6 +99,16 @@
       shell: |
         if [ -d "{{ current_link }}/data" ] && [ "$(ls -A {{ current_link }}/data)" ]; then
           cp -r {{ current_link }}/data/* {{ release_path }}/data/ 2>/dev/null || true
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Copy database from current if exists
+      shell: |
+        if [ -f "{{ current_link }}/app.db" ]; then
+          cp {{ current_link }}/app.db {{ release_path }}/app.db
+          chown www-data:www-data {{ release_path }}/app.db
+          chmod 644 {{ release_path }}/app.db
         fi
       args:
         executable: /bin/bash

@@ -41,6 +41,9 @@ target ansible_host=your-server-ip ansible_user=root
 # Замените на ваш домен
 domain: side-by-side.your-domain.com
 
+# Режим аутентификации (anonymous или magic-links)
+auth_mode: anonymous
+
 # Остальные настройки можно оставить по умолчанию
 ```
 
@@ -49,19 +52,51 @@ domain: side-by-side.your-domain.com
 Создайте файл `server/.env.production` с продакшен настройками:
 
 ```env
+# Конфигурация приложения
 DATA_DIR=/opt/side-by-side/current/data
 LOG_DIR=/opt/side-by-side/current/logs
 DB_PATH=/opt/side-by-side/current/app.db
 PORT=3000
 BASE_URL=https://side-by-side.your-domain.com
 NODE_ENV=production
+
+# URL для ссылок на голосования (клиентская часть)
 VOTING_BASE_URL=https://side-by-side.your-domain.com
+
+# URL клиентской части (для magic links)
+CLIENT_URL=https://side-by-side.your-domain.com
+
+# Режим работы сервера
 SERVER_MODE=production
+
+# Уведомления в чаты
 NOTIFICATIONS_LOCALE=ru
+
+# Mattermost интеграция
 MATTERMOST_ENABLED=false
+# MATTERMOST_WEBHOOK_URL=https://your-mattermost-server.com/hooks/your-webhook-id
+
+# Telegram интеграция (для будущего)
 TELEGRAM_ENABLED=false
+# TELEGRAM_BOT_TOKEN=your-bot-token
+# TELEGRAM_CHAT_ID=your-chat-id
+
+# Rate Limiting
 RATE_LIMIT_VOTING_PER_MINUTE=6
 RATE_LIMIT_VOTING_PER_HOUR=60
+
+# Режим аутентификации
+AUTH_MODE=anonymous
+
+# Автоапрув сессий в dev режиме (без отправки письма). Не используйте в продакшене!
+AUTO_APPROVE_SESSIONS=false
+
+# SMTP настройки для отправки magic link'ов
+# SMTP_HOST=your-smtp-server.com
+# SMTP_PORT=587
+# SMTP_USER=your-smtp-username
+# SMTP_PASS=your-smtp-password
+# SMTP_FROM_EMAIL=noreply@your-domain.com
 ```
 
 ## Первоначальная установка
@@ -72,6 +107,8 @@ RATE_LIMIT_VOTING_PER_HOUR=60
 # В корне проекта
 bun run build
 ```
+
+**⚠️ ВАЖНО:** Убедитесь, что в директории `server/` нет локальных файлов базы данных (`app.db`, `*.db`, `*.sqlite`), так как они могут перезаписать продакшен данные при деплое.
 
 ### 2. Bootstrap сервера
 
@@ -164,6 +201,8 @@ Nginx настроен для:
 
 - Хранится последние 10 релизов (настраивается в `releases_to_keep`)
 - Старые релизы автоматически удаляются при деплое
+- **База данных (`app.db`) автоматически копируется** из текущего релиза в новый при деплое
+- **Данные (`data/`) и логи (`logs/`) также сохраняются** между деплоями
 - Откат: переключить симлинк `current` на предыдущий релиз и перезапустить сервис
 
 ## Мониторинг
@@ -209,6 +248,81 @@ sed -i 's/listen 443 ssl;/listen 443 ssl http2;/' /etc/nginx/sites-available/sid
 
 # Проверить и перезагрузить
 nginx -t && systemctl reload nginx
+```
+
+## Режимы аутентификации
+
+Приложение поддерживает два режима аутентификации:
+
+### AUTH_MODE=anonymous
+- Анонимный доступ - пользователи могут создавать и голосовать без регистрации
+- Кнопка "Войти" скрыта в интерфейсе
+- Голоса сохраняются с `user_id = NULL`
+- Защита от повторного голосования через localStorage
+
+### AUTH_MODE=magic-links  
+- Авторизация через magic links
+- Пользователи должны входить через email
+- Кнопка "Войти" отображается в интерфейсе
+- Голоса привязываются к пользователю
+- **Требует настройки SMTP** для отправки magic links
+
+**Важно:** Режим аутентификации настраивается в `/etc/side-by-side/server.env` и применяется после перезапуска сервиса.
+
+### Быстрое переключение режимов
+
+```bash
+# Переключить на анонимный режим
+ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e auth_mode=anonymous -e restart_service=true
+
+# Переключить на режим magic-links
+ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e auth_mode=magic-links -e restart_service=true
+```
+
+### Настройка SMTP для magic-links режима
+
+Для работы в режиме `magic-links` необходимо настроить SMTP сервер:
+
+```bash
+# Отредактировать env файл на сервере
+ssh root@your-server "nano /etc/side-by-side/server.env"
+
+# Добавить SMTP настройки:
+SMTP_HOST=your-smtp-server.com
+SMTP_PORT=587
+SMTP_USER=your-smtp-username
+SMTP_PASS=your-smtp-password
+SMTP_FROM_EMAIL=noreply@your-domain.com
+
+# Перезапустить сервис
+ssh root@your-server "systemctl restart side-by-side"
+```
+
+**Популярные SMTP провайдеры:**
+- **Gmail**: `smtp.gmail.com:587` (требует App Password)
+- **Yandex**: `smtp.yandex.ru:587`
+- **Mail.ru**: `smtp.mail.ru:587`
+- **SendGrid**: `smtp.sendgrid.net:587`
+
+## Безопасность деплоя
+
+### Защита от перезаписи продакшен данных
+
+**Проблема:** Локальные файлы базы данных могут случайно попасть на продакшен при деплое.
+
+**Решение:** Ansible автоматически исключает следующие файлы при синхронизации:
+- `app.db`, `*.db`, `*.sqlite`, `*.sqlite3` - файлы базы данных
+- `data/` - директория с данными
+- `logs/` - директория с логами  
+- `.env*` - файлы окружения
+
+**Проверка перед деплоем:**
+```bash
+# Убедитесь, что в server/ нет локальных файлов БД
+ls -la server/*.db server/*.sqlite server/*.sqlite3 2>/dev/null || echo "OK: No local database files"
+
+# Удалите локальные файлы БД если они есть
+rm -f server/*.db server/*.sqlite server/*.sqlite3
 ```
 
 ## Troubleshooting
@@ -269,4 +383,61 @@ grep -A 3 "location ~\*" /etc/nginx/sites-available/side-by-side.mikeozornin.ru
 
 # Если неправильно, перезапустить bootstrap:
 ansible-playbook -i ansible/inventory.ini ansible/bootstrap.yml
+```
+
+### Проблемы с нативными модулями (bcrypt и др.)
+Если сервис не запускается с ошибкой "No native build was found", это означает, что нативные модули были скомпилированы на другой платформе (macOS/Windows) и не работают на Linux.
+
+**Решение:**
+1. Убедитесь, что установлены системные зависимости для компиляции:
+   ```bash
+   apt install -y build-essential python3-dev libc6-dev
+   ```
+
+2. Пересоберите зависимости на сервере:
+   ```bash
+   cd /opt/side-by-side/current/server
+   bun install --production
+   ```
+
+3. Или используйте bcryptjs вместо bcrypt (рекомендуется):
+   ```bash
+   # Локально
+   bun remove bcrypt && bun add bcryptjs
+   # Обновить импорт в коде: import bcrypt from 'bcryptjs'
+   # Пересобрать и задеплоить
+   ```
+
+### Проблемы с правами доступа к bun
+Если сервис не может запустить bun из-за прав доступа:
+
+```bash
+# Проверить права
+ls -la /usr/local/bin/bun
+
+# Если это симлинк на /root/.bun/bin/bun, скопировать файл:
+rm /usr/local/bin/bun
+cp /root/.bun/bin/bun /usr/local/bin/bun
+chmod +x /usr/local/bin/bun
+chown root:root /usr/local/bin/bun
+```
+
+### Восстановление базы данных
+Если данные пропали после деплоя, их можно восстановить из предыдущего релиза:
+
+```bash
+# Найти предыдущий релиз с данными
+ls -la /opt/side-by-side/releases/
+
+# Проверить, есть ли данные в предыдущем релизе
+cd /opt/side-by-side/releases/YYYYMMDD_HHMMSS/server
+bun -e "import Database from 'bun:sqlite'; const db = new Database('app.db'); console.log('Votings:', db.prepare('SELECT COUNT(*) FROM votings').get());"
+
+# Восстановить базу данных
+cp /opt/side-by-side/releases/YYYYMMDD_HHMMSS/app.db /opt/side-by-side/current/app.db
+chown www-data:www-data /opt/side-by-side/current/app.db
+chmod 644 /opt/side-by-side/current/app.db
+
+# Перезапустить сервис
+systemctl restart side-by-side
 ```

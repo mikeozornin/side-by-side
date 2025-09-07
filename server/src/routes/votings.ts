@@ -4,6 +4,7 @@ import { logger } from '../utils/logger.js';
 import { uploadImages } from '../utils/images.js';
 import { NotificationService } from '../notifications/index.js';
 import { createVotingLimiter, createVotingHourlyLimiter } from '../utils/rateLimit.js';
+import { requireAuth, requireVotingOwner, requireVotingAuth, optionalVotingAuth, AuthContext } from '../middleware/auth.js';
 import { 
   createVoting, 
   getVoting, 
@@ -14,6 +15,10 @@ import {
   createVote,
   getVoteCounts,
   getVoteCountForVoting,
+  deleteVoting,
+  runQuery,
+  hasUserVoted,
+  getUserSelectedOption,
   VotingOption
 } from '../db/queries.js';
 
@@ -46,7 +51,7 @@ votingRoutes.get('/votings', async (c) => {
 });
 
 // GET /api/votings/:id - детали голосования
-votingRoutes.get('/votings/:id', async (c) => {
+votingRoutes.get('/votings/:id', optionalVotingAuth, async (c: AuthContext) => {
   try {
     const id = c.req.param('id');
     
@@ -58,6 +63,16 @@ votingRoutes.get('/votings/:id', async (c) => {
 
     const options = getVotingOptions(id);
     const isFinished = new Date(voting.end_at) <= new Date();
+    
+    // Проверяем, голосовал ли пользователь (только в неанонимном режиме)
+    let userVoted = false;
+    let selectedOption: number | null = null;
+    if (c.user && c.user.id !== 'anonymous') {
+      userVoted = hasUserVoted(id, c.user.id);
+      if (userVoted) {
+        selectedOption = getUserSelectedOption(id, c.user.id) as number | null;
+      }
+    }
     
     let results = null;
     if (isFinished) {
@@ -110,7 +125,9 @@ votingRoutes.get('/votings/:id', async (c) => {
         ...voting,
         options
       },
-      results
+      results,
+      hasVoted: userVoted,
+      selectedOption
     });
   } catch (error) {
     logger.error('Ошибка получения голосования:', error);
@@ -118,8 +135,8 @@ votingRoutes.get('/votings/:id', async (c) => {
   }
 });
 
-// POST /api/votings - создание голосования
-votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, async (c) => {
+// POST /api/votings - создание голосования (требует авторизацию)
+votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, requireAuth, async (c: AuthContext) => {
   try {
     const contentType = c.req.header('Content-Type') || '';
 
@@ -160,7 +177,8 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, as
       created_at: new Date().toISOString(),
       end_at: endAt.toISOString(),
       duration_hours: durationHours,
-      is_public: isPublic
+      is_public: isPublic,
+      user_id: c.user?.id || null // В анонимном режиме user_id будет null
     });
 
     let uploaded: any[] = [];
@@ -342,7 +360,7 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, as
 });
 
 // POST /api/votings/:id/vote - голосование
-votingRoutes.post('/votings/:id/vote', async (c) => {
+votingRoutes.post('/votings/:id/vote', requireVotingAuth, async (c: AuthContext) => {
   try {
     const id = c.req.param('id');
     const { optionId } = await c.req.json();
@@ -365,10 +383,18 @@ votingRoutes.post('/votings/:id/vote', async (c) => {
       return c.json({ error: 'Выбранный вариант не существует' }, 400);
     }
 
+    // Запрещаем повторное голосование для авторизованных пользователей
+    if (c.user && c.user.id && c.user.id !== 'anonymous') {
+      if (hasUserVoted(id, c.user.id)) {
+        return c.json({ error: 'Вы уже голосовали' }, 400);
+      }
+    }
+
     createVote({
       voting_id: id,
       option_id: optionId,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      user_id: c.user?.id || null
     });
 
     return c.json({ success: true });
@@ -437,6 +463,56 @@ votingRoutes.get('/votings/:id/results', async (c) => {
     });
   } catch (error) {
     logger.error('Ошибка получения результатов:', error);
+    return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
+  }
+});
+
+// POST /api/votings/:id/end-early - завершение голосования досрочно (требует авторизацию и владение)
+votingRoutes.post('/votings/:id/end-early', requireAuth, requireVotingOwner, async (c: AuthContext) => {
+  try {
+    const id = c.req.param('id');
+    
+    const voting = getVoting(id);
+    if (!voting) {
+      return c.json({ error: 'Voting not found' }, 404);
+    }
+
+    // Проверяем, что голосование еще не завершено
+    if (new Date(voting.end_at) <= new Date()) {
+      return c.json({ error: 'Voting already finished' }, 400);
+    }
+
+    // Обновляем время окончания на текущее время
+    const success = runQuery(
+      'UPDATE votings SET end_at = ? WHERE id = ?',
+      [new Date().toISOString(), id]
+    );
+    
+    if (!success) {
+      return c.json({ error: 'Failed to end voting early' }, 500);
+    }
+    
+    return c.json({ message: 'Voting ended early successfully' });
+  } catch (error) {
+    logger.error('Ошибка завершения голосования досрочно:', error);
+    return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
+  }
+});
+
+// DELETE /api/votings/:id - удаление голосования (требует авторизацию и владение)
+votingRoutes.delete('/votings/:id', requireAuth, requireVotingOwner, async (c: AuthContext) => {
+  try {
+    const id = c.req.param('id');
+    
+    const success = deleteVoting(id);
+    
+    if (!success) {
+      return c.json({ error: 'Failed to delete voting' }, 500);
+    }
+    
+    return c.json({ message: 'Voting deleted successfully' });
+  } catch (error) {
+    logger.error('Ошибка удаления голосования:', error);
     return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
   }
 });

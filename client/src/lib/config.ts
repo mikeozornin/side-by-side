@@ -20,8 +20,8 @@ class ConfigManager {
     
     if (isDev) {
       return {
-        apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
-        clientUrl: import.meta.env.VITE_CLIENT_URL || 'http://localhost:5173',
+        apiUrl: import.meta.env.VITE_API_URL || '/api',
+        clientUrl: import.meta.env.VITE_CLIENT_URL || 'https://localhost:5173',
         mode: 'development'
       };
     } else {

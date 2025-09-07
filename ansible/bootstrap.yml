@@ -19,6 +19,8 @@
           - ca-certificates
           - build-essential
           - git
+          - python3-dev
+          - libc6-dev
         state: present
 
     - name: Remove old Node.js packages completely
@@ -100,6 +102,19 @@
     - name: Display Bun version
       debug:
         msg: "Bun version: {{ bun_version.stdout }}"
+      when: bun_binary.stat.exists
+
+    - name: Ensure bun binary is accessible by www-data
+      shell: |
+        # Если bun - это симлинк на /root/.bun/bin/bun, копируем файл
+        if [ -L /usr/local/bin/bun ] && [ "$(readlink /usr/local/bin/bun)" = "/root/.bun/bin/bun" ]; then
+          rm /usr/local/bin/bun
+          cp /root/.bun/bin/bun /usr/local/bin/bun
+          chmod +x /usr/local/bin/bun
+          chown root:root /usr/local/bin/bun
+        fi
+      args:
+        executable: /bin/bash
       when: bun_binary.stat.exists
 
     - name: Fail if Bun not installed
@@ -209,23 +224,10 @@
                   proxy_set_header X-Real-IP $remote_addr;
                   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                   proxy_set_header X-Forwarded-Proto $scheme;
-
-                  # CORS headers
-                  add_header Access-Control-Allow-Origin "https://{{ cors_allowed_origins }}" always;
-                  add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
-                  add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
-                  add_header Access-Control-Allow-Credentials "true" always;
-
-                  # Handle preflight requests
-                  if ($request_method = 'OPTIONS') {
-                      add_header Access-Control-Allow-Origin "https://{{ cors_allowed_origins }}" always;
-                      add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
-                      add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
-                      add_header Access-Control-Allow-Credentials "true" always;
-                      add_header Content-Length 0;
-                      add_header Content-Type text/plain;
-                      return 204;
-                  }
+                  # Проксируем Origin и preflight заголовки к backend (CORS управляется приложением)
+                  proxy_set_header Origin $http_origin;
+                  proxy_set_header Access-Control-Request-Method $http_access_control_request_method;
+                  proxy_set_header Access-Control-Request-Headers $http_access_control_request_headers;
 
                   proxy_set_header Upgrade $http_upgrade;
                   proxy_set_header Connection "upgrade";
@@ -306,19 +308,65 @@
       copy:
         dest: "{{ env_file_path }}"
         content: |
+          # Конфигурация приложения
           DATA_DIR={{ current_link | dirname }}/data
           LOG_DIR={{ current_link | dirname }}/logs
           DB_PATH={{ current_link | dirname }}/app.db
           PORT={{ port }}
           BASE_URL=https://{{ domain }}
           NODE_ENV=production
+
+          # URL для ссылок на голосования (клиентская часть)
           VOTING_BASE_URL=https://{{ domain }}
+
+          # URL клиентской части (для magic links)
+          CLIENT_URL=https://{{ domain }}
+
+          # Режим работы сервера
+          # development - для разработки (API на /api, клиент отдельно)
+          # production - для продакшна (API на /api, клиент на /)
           SERVER_MODE=production
+
+          # Уведомления в чаты
+          # Локализация уведомлений (ru/en)
           NOTIFICATIONS_LOCALE=ru
+
+          # Mattermost интеграция
           MATTERMOST_ENABLED=false
+          # MATTERMOST_WEBHOOK_URL=https://your-mattermost-server.com/hooks/your-webhook-id
+
+          # Telegram интеграция (для будущего)
           TELEGRAM_ENABLED=false
+          # TELEGRAM_BOT_TOKEN=your-bot-token
+          # TELEGRAM_CHAT_ID=your-chat-id
+
+          # Rate Limiting
+          # Максимальное количество созданий голосований за минуту с одного IP
           RATE_LIMIT_VOTING_PER_MINUTE=6
+          # Максимальное количество созданий голосований за час с одного IP
           RATE_LIMIT_VOTING_PER_HOUR=60
+
+          # JWT секретный ключ для подписи токенов
+          # В продакшене ОБЯЗАТЕЛЬНО используйте сложный случайный ключ!
+          JWT_SECRET=CHANGE_ME_IN_PRODUCTION_USE_STRONG_RANDOM_KEY
+
+          # Режим аутентификации
+          # anonymous - анонимный доступ (кто угодно может создавать и голосовать)
+          # magic-links - авторизация через magic links
+          AUTH_MODE={{ auth_mode }}
+
+          # Автоапрув сессий в dev режиме (без отправки письма). Не используйте в продакшене!
+          # true - автоматически авторизует пользователя без отправки magic link
+          # false - отправляет magic link как обычно
+          AUTO_APPROVE_SESSIONS=false
+
+          # SMTP настройки для отправки magic link'ов
+          # Порт можно не указывать - будет определен автоматически по хосту
+          # SMTP_HOST=your-smtp-server.com
+          # SMTP_PORT=587  # Опционально: 587 (STARTTLS), 465 (SSL), или 0 для автоопределения
+          # SMTP_USER=your-smtp-username
+          # SMTP_PASS=your-smtp-password
+          # SMTP_FROM_EMAIL=noreply@your-domain.com
         owner: root
         group: www-data
         mode: "0640"
@@ -328,6 +376,9 @@
       debug:
         msg: |
           Bootstrap completed! Next steps:
-          1. Update /etc/side-by-side/server.env with your real configuration
+          1. Update /etc/side-by-side/server.env with your real configuration:
+             - Generate a strong JWT_SECRET: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+             - Configure SMTP settings for magic links
+             - Set up notification webhooks if needed
           2. Run the deploy playbook to deploy your application:
              ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e restart_service=true

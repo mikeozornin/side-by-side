@@ -1,12 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, X, Check, Medal, Clock, Share } from 'lucide-react'
+import { ArrowLeft, X, Check, Medal, Clock, Share, Trash2, Clock12 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
+import { useAuth } from '@/contexts/AuthContext'
+import { AuthModal } from '@/components/AuthModal'
 
 interface VotingOption {
   id: number;
@@ -24,6 +27,8 @@ interface Voting {
   created_at: string
   end_at: string
   isPublic: boolean
+  user_id: string | null
+  user_email?: string | null
   options: VotingOption[]
 }
 
@@ -40,8 +45,16 @@ interface Results {
   winner: number | 'tie' | null
 }
 
+interface VotingResponse {
+  voting: Voting
+  results: Results | null
+  hasVoted: boolean
+  selectedOption?: number | null
+}
+
 export function VotingPage() {
   const { t } = useTranslation()
+  const { user, accessToken, isAnonymous, authMode } = useAuth()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
@@ -50,10 +63,17 @@ export function VotingPage() {
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [votingLoading, setVotingLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [error, setError] = useState('')
   const [hasVoted, setHasVoted] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [notificationShown, setNotificationShown] = useState(false)
+  const [deletePopoverOpen, setDeletePopoverOpen] = useState(false)
+  const [endEarlyPopoverOpen, setEndEarlyPopoverOpen] = useState(false)
+  const [endEarlyLoading, setEndEarlyLoading] = useState(false)
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [infoModalOpen, setInfoModalOpen] = useState(false)
+  const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [showLeftShadow, setShowLeftShadow] = useState(false)
@@ -76,6 +96,9 @@ export function VotingPage() {
     // Если результатов нет, перемешиваем массив опций
     return [...voting.options].sort(() => Math.random() - 0.5)
   }, [voting, results])
+
+  // Проверяем, является ли пользователь владельцем голосования
+  const isOwner = user && voting && voting.user_id === user.id
 
   const isFinished = (endAt: string) => {
     return new Date(endAt) <= new Date()
@@ -176,18 +199,59 @@ export function VotingPage() {
     }
   }, [shuffledOptions])
 
+  // Синхронизация статуса голосования между вкладками
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (!id) return
+      if (e.key === `voted_${id}`) {
+        const voted = localStorage.getItem(`voted_${id}`) !== null
+        setHasVoted(voted)
+        if (voted) {
+          const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
+          if (voteData?.optionId) setSelectedChoice(voteData.optionId)
+        }
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [id])
+
   const fetchVoting = async () => {
     try {
-      const response = await fetch(`/api/votings/${id}`)
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+
+      // Добавляем токен авторизации если пользователь авторизован
+      if (accessToken && !isAnonymous) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+      }
+
+      const response = await fetch(`/api/votings/${id}`, { headers })
       if (!response.ok) {
         throw new Error(t('voting.notFound'))
       }
-      const data = await response.json()
+      const data: VotingResponse = await response.json()
       setVoting(data.voting)
       
       // Результаты приходят вместе с данными голосования, если оно завершено
       if (data.results) {
         setResults(data.results)
+      }
+
+      // В неанонимном режиме используем флаг с сервера, в анонимном - localStorage
+      if (authMode === 'magic-links' && !isAnonymous) {
+        setHasVoted(data.hasVoted)
+        if (data.hasVoted) {
+          // Если сервер прислал выбранный вариант — используем его
+          if (typeof data.selectedOption === 'number') {
+            setSelectedChoice(data.selectedOption)
+          } else {
+            // Иначе пробуем из localStorage (на случай старых голосов)
+            const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
+            if (voteData?.optionId) setSelectedChoice(voteData.optionId)
+          }
+        }
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : t('voting.errorLoading'))
@@ -198,31 +262,60 @@ export function VotingPage() {
 
 
   const checkVotedStatus = () => {
-    const voted = localStorage.getItem(`voted_${id}`) !== null
-    setHasVoted(voted)
-    
-    if (voted) {
-      const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
-      setSelectedChoice(voteData.optionId)
+    // В анонимном режиме проверяем localStorage
+    if (authMode === 'anonymous') {
+      const voted = localStorage.getItem(`voted_${id}`) !== null
+      setHasVoted(voted)
+      
+      if (voted) {
+        const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
+        setSelectedChoice(voteData.optionId)
+      }
     }
+    // В неанонимном режиме статус голосования приходит с сервера в fetchVoting
   }
 
   const handleVote = async () => {
     if (selectedChoice === null || !id) return
 
+    // Проверяем авторизацию в неанонимном режиме
+    if (authMode === 'magic-links' && !isAnonymous && !user) {
+      setAuthModalOpen(true)
+      return
+    }
+
     setVotingLoading(true)
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+
+      // Добавляем токен авторизации если пользователь авторизован
+      if (accessToken && !isAnonymous) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+      }
+
       const response = await fetch(`/api/votings/${id}/vote`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ optionId: selectedChoice }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || t('voting.errorVoting'))
+        const errMsg: string = errorData?.error || ''
+        const isAlreadyVoted = typeof errMsg === 'string' && (errMsg.includes('Уже') || errMsg.includes('голосовали') || errMsg.toLowerCase().includes('already'))
+        if (isAlreadyVoted) {
+          setHasVoted(true)
+          // Пытаемся отобразить выбор
+          const voteData = JSON.parse(localStorage.getItem(`voted_${id}`) || '{}')
+          if (voteData?.optionId) setSelectedChoice(voteData.optionId)
+          // Показываем информ-модалку вместо перехода на отдельную страницу
+          setInfoMessage(t('voting.alreadyVoted'))
+          setInfoModalOpen(true)
+          return
+        }
+        throw new Error(errMsg || t('voting.errorVoting'))
       }
 
       // Сохраняем в IndexedDB (используем localStorage как fallback)
@@ -259,6 +352,77 @@ export function VotingPage() {
       document.execCommand('copy')
       document.body.removeChild(textArea)
       toast.success(t('voting.linkCopied'))
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!id || !accessToken) return
+
+    setDeleteLoading(true)
+    setDeletePopoverOpen(false)
+    
+    try {
+      const response = await fetch(`/api/votings/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || t('voting.deleteError'))
+      }
+
+      navigate('/')
+    } catch (error) {
+      console.error('Error deleting voting:', error)
+      toast.error(error instanceof Error ? error.message : t('voting.deleteError'))
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const handleEndEarlyConfirm = async () => {
+    if (!id || !accessToken) return
+
+    setEndEarlyLoading(true)
+    setEndEarlyPopoverOpen(false)
+    
+    try {
+      const response = await fetch(`/api/votings/${id}/end-early`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || t('voting.endEarlyError'))
+      }
+
+      // Обновляем данные голосования
+      await fetchVoting()
+    } catch (error) {
+      console.error('Error ending voting early:', error)
+      toast.error(error instanceof Error ? error.message : t('voting.endEarlyError'))
+    } finally {
+      setEndEarlyLoading(false)
+    }
+  }
+
+  const handleAuthModalClose = () => {
+    setAuthModalOpen(false)
+  }
+
+  const handleAuthSuccess = () => {
+    setAuthModalOpen(false)
+    // После успешной авторизации повторно пытаемся проголосовать
+    if (selectedChoice !== null) {
+      handleVote()
     }
   }
 
@@ -304,11 +468,78 @@ export function VotingPage() {
             {!finished && (
               <div className="flex items-center gap-2 mt-2 mb-3 text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                <span className="text-sm">{getTimeRemaining(voting.end_at)}</span>
+                <span className="text-sm">
+                  {getTimeRemaining(voting.end_at)}
+                  {voting.user_email && ` · ${voting.user_email}`}
+                </span>
               </div>
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {isOwner && !finished && (
+              <Popover open={endEarlyPopoverOpen} onOpenChange={setEndEarlyPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={endEarlyPopoverOpen ? "default" : "ghost"}
+                    size="sm"
+                    disabled={endEarlyLoading}
+                    className="gap-2"
+                  >
+                    <Clock12 className="h-4 w-4" />
+                    <span className="hidden sm:inline">{t('voting.endEarly')}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium leading-none">{t('voting.endEarlyQuestion')}</h4>
+                    </div>
+                    <div className="flex justify-start">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleEndEarlyConfirm}
+                        disabled={endEarlyLoading}
+                      >
+                        {t('voting.endEarlyConfirmButton')}
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+            {isOwner && (
+              <Popover open={deletePopoverOpen} onOpenChange={setDeletePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={deletePopoverOpen ? "default" : "ghost"}
+                    size="sm"
+                    disabled={deleteLoading}
+                    className="gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">{t('voting.delete')}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium leading-none">{t('voting.deleteQuestion')}</h4>
+                    </div>
+                    <div className="flex justify-start">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleDeleteConfirm}
+                        disabled={deleteLoading}
+                      >
+                        {t('voting.deleteConfirmButton')}
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -432,6 +663,28 @@ export function VotingPage() {
           </div>
         </div>
       </div>
+
+      {/* Модалка авторизации */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={handleAuthModalClose}
+        returnTo={window.location.hash}
+        onSuccess={handleAuthSuccess}
+      />
+
+      {/* Информационная модалка */}
+      {infoModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setInfoModalOpen(false)}>
+          <Card className="w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">{t('voting.title')}</h3>
+                <p className="text-sm text-foreground">{infoMessage || t('voting.alreadyVoted')}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
