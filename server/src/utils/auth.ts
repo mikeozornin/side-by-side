@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto';
 import { env } from '../load-env';
 
 // Секретный ключ для подписи JWT (в продакшене должен быть в переменных окружения)
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = env.JWT_SECRET;
 
 export interface User {
   id: string;

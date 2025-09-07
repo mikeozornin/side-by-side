@@ -25,6 +25,9 @@ export const env = {
   // Автоапрув сессий (без отправки письма)
   AUTO_APPROVE_SESSIONS: process.env.AUTO_APPROVE_SESSIONS === 'true',
   
+  // JWT секретный ключ
+  JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+  
   // SMTP настройки
   SMTP_HOST: process.env.SMTP_HOST || '',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '587'),

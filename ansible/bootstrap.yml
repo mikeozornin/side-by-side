@@ -346,6 +346,10 @@
           # Максимальное количество созданий голосований за час с одного IP
           RATE_LIMIT_VOTING_PER_HOUR=60
 
+          # JWT секретный ключ для подписи токенов
+          # В продакшене ОБЯЗАТЕЛЬНО используйте сложный случайный ключ!
+          JWT_SECRET=CHANGE_ME_IN_PRODUCTION_USE_STRONG_RANDOM_KEY
+
           # Режим аутентификации
           # anonymous - анонимный доступ (кто угодно может создавать и голосовать)
           # magic-links - авторизация через magic links
@@ -372,6 +376,9 @@
       debug:
         msg: |
           Bootstrap completed! Next steps:
-          1. Update /etc/side-by-side/server.env with your real configuration
+          1. Update /etc/side-by-side/server.env with your real configuration:
+             - Generate a strong JWT_SECRET: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+             - Configure SMTP settings for magic links
+             - Set up notification webhooks if needed
           2. Run the deploy playbook to deploy your application:
              ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e restart_service=true
