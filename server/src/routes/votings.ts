@@ -28,18 +28,23 @@ export const votingRoutes = new Hono();
 const notificationService = new NotificationService();
 
 // GET /api/votings - список публичных голосований
-votingRoutes.get('/votings', async (c) => {
+votingRoutes.get('/votings', optionalVotingAuth, async (c: AuthContext) => {
   try {
     const votings = getPublicVotings();
     
     const votingsWithOptions = votings.map((voting) => {
       const options = getVotingOptions(voting.id);
       const voteCount = getVoteCountForVoting(voting.id);
+      let userVoted = false;
+      if (c.user && c.user.id && c.user.id !== 'anonymous') {
+        userVoted = hasUserVoted(voting.id, c.user.id);
+      }
       
       return {
         ...voting,
         options,
-        vote_count: voteCount
+        vote_count: voteCount,
+        hasVoted: userVoted
       };
     });
 

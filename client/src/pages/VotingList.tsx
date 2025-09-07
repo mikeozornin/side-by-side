@@ -27,6 +27,7 @@ interface Voting {
   options: VotingOption[]
   vote_count: number
   user_email?: string | null
+  hasVoted?: boolean
 }
 
 export function VotingList() {
@@ -56,7 +57,10 @@ export function VotingList() {
     try {
       setError(null)
       setLoading(true)
-      const response = await fetch(`${configManager.getApiUrl()}/votings`)
+      const response = await fetch(`${configManager.getApiUrl()}/votings`, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        credentials: 'include',
+      })
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -96,9 +100,10 @@ export function VotingList() {
 
 
 
-  const hasVoted = (votingId: string) => {
-    // Проверяем IndexedDB
-    return localStorage.getItem(`voted_${votingId}`) !== null
+  const hasVoted = (voting: Voting) => {
+    // Проверяем серверный флаг и локальное хранилище (анонимные голоса)
+    const local = localStorage.getItem(`voted_${voting.id}`) !== null
+    return Boolean(voting.hasVoted) || local
   }
 
   const isVotingActive = (endAt: string) => {
@@ -199,14 +204,14 @@ export function VotingList() {
                   <Link key={voting.id} to={`/v/${voting.id}`} className="block">
                     <Card 
                       className={`transition-all hover:bg-muted cursor-pointer ${
-                        hasVoted(voting.id) ? 'opacity-60 grayscale bg-muted/30' : ''
+                        hasVoted(voting) ? 'opacity-60 grayscale bg-muted/30' : ''
                       }`}
                     >
                       <CardHeader>
                         <div className="space-y-2">
                           <CardTitle className="text-xl">{voting.title}</CardTitle>
                           <div className="flex items-center gap-2">
-                            {hasVoted(voting.id) && (
+                            {hasVoted(voting) && (
                               <CheckCircle className="h-5 w-5 text-green-500" />
                             )}
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -241,14 +246,14 @@ export function VotingList() {
                   <Link key={voting.id} to={`/v/${voting.id}`} className="block">
                     <Card 
                       className={`transition-all hover:bg-muted cursor-pointer ${
-                        hasVoted(voting.id) ? 'opacity-60 grayscale bg-muted/30' : 'opacity-60 grayscale bg-muted/30'
+                        hasVoted(voting) ? 'opacity-60 grayscale bg-muted/30' : 'opacity-60 grayscale bg-muted/30'
                       }`}
                     >
                       <CardHeader>
                         <div className="space-y-2">
                           <CardTitle className="text-xl">{voting.title}</CardTitle>
                           <div className="flex items-center gap-2">
-                            {hasVoted(voting.id) && (
+                            {hasVoted(voting) && (
                               <CheckCircle className="h-5 w-5 text-green-500" />
                             )}
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
