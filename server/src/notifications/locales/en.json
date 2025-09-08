@@ -50,6 +50,10 @@
     }
   },
   "webPush": {
-    "newVotingTitle": "New side-by-side voting"
+    "newVotingTitle": "New side-by-side voting",
+    "providerName": "Web Push",
+    "notConfigured": "Web Push not properly configured",
+    "votingCompleteTitle": "Voting completed!",
+    "votingCompleteBody": "Results are ready: {title}"
   }
 }

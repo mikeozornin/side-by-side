@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { Copy, Check, RefreshCw, LogOut, X, AlertCircle } from 'lucide-react';
 import { configManager } from '@/lib/config';
 import { useWebPush } from '@/hooks/useWebPush';
-import { NotificationDemo } from '@/components/NotificationDemo';
+
 
 export function Settings() {
   const { t } = useTranslation();
@@ -24,7 +24,6 @@ export function Settings() {
   const {
     permission,
     isSupported,
-    isSubscribed,
     settings,
     isLoading: notificationsLoading,
     error: notificationsError,
@@ -389,16 +388,7 @@ export function Settings() {
           </div>
         </div>
 
-        {/* Демо уведомлений (только в dev режиме) */}
-        {process.env.NODE_ENV === 'development' && (
-          <div>
-            <NotificationDemo
-              isSupported={isSupported}
-              permission={permission}
-              onRequestPermission={requestPermission}
-            />
-          </div>
-        )}
+        
       </div>
 
       {/* Кнопка выхода внизу страницы */}

@@ -26,7 +26,7 @@ export class WebPushProvider extends NotificationProvider {
   }
 
   get name(): string {
-    return 'Web Push';
+    return i18n.t('webPush.providerName');
   }
 
   validate(): boolean {
@@ -67,7 +67,7 @@ export class WebPushProvider extends NotificationProvider {
     if (!this.vapidKeys) {
       return {
         success: false,
-        error: 'Web Push not properly configured',
+        error: i18n.t('webPush.notConfigured'),
         provider: this.name,
       };
     }
@@ -119,7 +119,7 @@ export class WebPushProvider extends NotificationProvider {
     data?: Record<string, any>;
   }): Promise<boolean> {
     if (!this.vapidKeys) {
-      logger.error('Web Push not properly configured');
+      logger.error(i18n.t('webPush.notConfigured'));
       return false;
     }
 
@@ -157,7 +157,7 @@ export class WebPushProvider extends NotificationProvider {
     data?: Record<string, any>;
   }): Promise<{ success: number; failed: number }> {
     if (!this.vapidKeys) {
-      logger.error('Web Push not properly configured');
+      logger.error(i18n.t('webPush.notConfigured'));
       return { success: 0, failed: 0 };
     }
 
@@ -196,7 +196,7 @@ export class WebPushProvider extends NotificationProvider {
   // Метод для отправки уведомления о новых голосованиях
   async sendNewVotingNotification(votingTitle: string, votingUrl: string): Promise<{ success: number; failed: number }> {
     const notification = {
-      title: 'Новое голосование!',
+      title: i18n.t('webPush.newVotingTitle'),
       body: votingTitle,
       icon: '/icon.svg',
       badge: '/icon.svg',
@@ -211,8 +211,8 @@ export class WebPushProvider extends NotificationProvider {
   // Метод для отправки уведомления о завершении голосования
   async sendVotingCompleteNotification(votingTitle: string, votingUrl: string, userId: string): Promise<{ success: number; failed: number }> {
     const notification = {
-      title: 'Голосование завершено!',
-      body: `Результаты готовы: ${votingTitle}`,
+      title: i18n.t('webPush.votingCompleteTitle'),
+      body: i18n.t('webPush.votingCompleteBody', { title: votingTitle }),
       icon: '/icon.svg',
       badge: '/icon.svg',
       url: votingUrl,
@@ -226,7 +226,7 @@ export class WebPushProvider extends NotificationProvider {
   // Вспомогательный метод для отправки уведомлений списку подписок
   private async sendToSubscriptions(subscriptions: any[], notification: any): Promise<{ success: number; failed: number }> {
     if (!this.vapidKeys) {
-      logger.error('Web Push not properly configured');
+      logger.error(i18n.t('webPush.notConfigured'));
       return { success: 0, failed: 0 };
     }
 
