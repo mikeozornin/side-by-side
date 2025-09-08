@@ -1,9 +1,11 @@
 import { NotificationProvider } from './providers/base.js';
 import { MattermostProvider } from './providers/mattermost.js';
 import { TelegramProvider } from './providers/telegram.js';
+import { WebPushProvider } from './providers/webPush.js';
 import { NotificationData, NotificationResult, NotificationConfig } from './types.js';
 import { logger } from '../utils/logger.js';
 import { i18n } from './i18n.js';
+import { configManager } from '../utils/config.js';
 
 export class NotificationService {
   private providers: NotificationProvider[] = [];
@@ -44,6 +46,16 @@ export class NotificationService {
       this.providers.push(new TelegramProvider(telegramConfig));
     }
 
+    // Web Push провайдер
+    const webPushConfig = configManager.getWebPushConfig();
+    if (configManager.isWebPushEnabled()) {
+      const webPushProvider = new WebPushProvider(webPushConfig);
+      this.providers.push(webPushProvider);
+      logger.info(`Web Push provider added. Valid: ${webPushProvider.validate()}`);
+    } else {
+      logger.info('Web Push provider not enabled or not configured');
+    }
+
     logger.info(i18n.t('service.providersInitialized', { count: this.providers.length }));
   }
 
@@ -58,7 +70,7 @@ export class NotificationService {
     }
   }
 
-  async sendVotingCreatedNotification(votingId: string, title: string, expiresAt?: string, isPublic: boolean = true): Promise<void> {
+  async sendVotingCreatedNotification(votingId: string, title: string, expiresAt?: string, isPublic: boolean = true, authorUserId?: string): Promise<void> {
     // Не отправляем уведомления для приватных голосований
     if (!isPublic) {
       logger.info(`Skipping notification for private voting: ${votingId}`);
@@ -72,7 +84,8 @@ export class NotificationService {
       votingId,
       votingUrl,
       createdAt: new Date().toISOString(),
-      expiresAt
+      expiresAt,
+      authorUserId
     };
 
     // Отправляем уведомления асинхронно
@@ -141,5 +154,26 @@ export class NotificationService {
     }
 
     return results;
+  }
+
+  // Отправка уведомления о завершении голосования владельцу (если он подписан на этот тип)
+  async sendVotingCompletedNotification(votingId: string, title: string, ownerUserId?: string | null): Promise<void> {
+    if (!ownerUserId) {
+      logger.info('Skipping voting completed notification: owner is null');
+      return;
+    }
+
+    const webPushProvider = this.providers.find(p => p.name === 'Web Push') as WebPushProvider | undefined;
+    if (!webPushProvider) {
+      logger.info('Web Push provider not available, skipping voting completed notification');
+      return;
+    }
+
+    const votingUrl = configManager.getVotingUrl(votingId);
+    try {
+      await webPushProvider.sendVotingCompleteNotification(title, votingUrl, ownerUserId);
+    } catch (error) {
+      logger.error('Error sending voting completed notification:', error);
+    }
   }
 }

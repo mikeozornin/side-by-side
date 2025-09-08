@@ -4,6 +4,7 @@ import { logger } from '../utils/logger.js';
 import { uploadImages } from '../utils/images.js';
 import { NotificationService } from '../notifications/index.js';
 import { createVotingLimiter, createVotingHourlyLimiter } from '../utils/rateLimit.js';
+import { configManager } from '../utils/config.js';
 import { requireAuth, requireVotingOwner, requireVotingAuth, optionalVotingAuth, AuthContext } from '../middleware/auth.js';
 import { 
   createVoting, 
@@ -141,7 +142,9 @@ votingRoutes.get('/votings/:id', optionalVotingAuth, async (c: AuthContext) => {
 });
 
 // POST /api/votings - создание голосования (требует авторизацию)
-votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, requireAuth, async (c: AuthContext) => {
+votingRoutes.post('/votings', 
+  configManager.isDevelopment() ? requireAuth : [createVotingLimiter, createVotingHourlyLimiter, requireAuth], 
+  async (c: AuthContext) => {
   try {
     const contentType = c.req.header('Content-Type') || '';
 
@@ -333,8 +336,15 @@ votingRoutes.post('/votings', createVotingLimiter, createVotingHourlyLimiter, re
 
     createVotingOptions(optionsToCreate);
     
-    // Отправляем уведомление асинхронно (только для публичных голосований)
-    notificationService.sendVotingCreatedNotification(votingId, title, endAt.toISOString(), isPublic).catch(error => {
+    // Отправляем уведомление асинхронно (только для публичных голосований).
+    // Автор не должен получать пуш о собственном голосовании.
+    notificationService.sendVotingCreatedNotification(
+      votingId,
+      title,
+      endAt.toISOString(),
+      isPublic,
+      c.user?.id || undefined
+    ).catch(error => {
       logger.error('Error sending notification:', error);
     });
 

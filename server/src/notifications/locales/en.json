@@ -48,5 +48,8 @@
       "button": "Confirm and sign in",
       "footer": "If not, delete this email, someone might have made a typo."
     }
+  },
+  "webPush": {
+    "newVotingTitle": "New side-by-side voting"
   }
 }
