@@ -50,6 +50,10 @@
     }
   },
   "webPush": {
-    "newVotingTitle": "Новое сайд-бай-сайд голосование"
+    "newVotingTitle": "Новое сайд-бай-сайд голосование",
+    "providerName": "Web Push",
+    "notConfigured": "Web Push настроен некорректно",
+    "votingCompleteTitle": "Голосование завершено!",
+    "votingCompleteBody": "Результаты готовы: {title}"
   }
 }
