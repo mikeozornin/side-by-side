@@ -332,30 +332,6 @@ export function Settings() {
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <Switch
-                  id="newVotings"
-                  checked={settings.newVotings || false}
-                  onCheckedChange={(value) => handleSettingChange('newVotings', value)}
-                  disabled={permission !== 'granted' || notificationsLoading}
-                />
-                <Label 
-                  htmlFor="newVotings"
-                  className={`text-sm font-medium cursor-pointer ${
-                    permission !== 'granted' || notificationsLoading 
-                      ? 'text-muted-foreground cursor-not-allowed' 
-                      : ''
-                  }`}
-                  onClick={() => {
-                    if (permission === 'granted' && !notificationsLoading) {
-                      handleSettingChange('newVotings', !(settings.newVotings || false));
-                    }
-                  }}
-                >
-                  {t('settings.notifications.newVotings.label')}
-                </Label>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <Switch
                   id="myVotingsComplete"
                   checked={settings.myVotingsComplete || false}
                   onCheckedChange={(value) => handleSettingChange('myVotingsComplete', value)}
@@ -375,6 +351,30 @@ export function Settings() {
                   }}
                 >
                   {t('settings.notifications.myVotingsComplete.label')}
+                </Label>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Switch
+                  id="newVotings"
+                  checked={settings.newVotings || false}
+                  onCheckedChange={(value) => handleSettingChange('newVotings', value)}
+                  disabled={permission !== 'granted' || notificationsLoading}
+                />
+                <Label 
+                  htmlFor="newVotings"
+                  className={`text-sm font-medium cursor-pointer ${
+                    permission !== 'granted' || notificationsLoading 
+                      ? 'text-muted-foreground cursor-not-allowed' 
+                      : ''
+                  }`}
+                  onClick={() => {
+                    if (permission === 'granted' && !notificationsLoading) {
+                      handleSettingChange('newVotings', !(settings.newVotings || false));
+                    }
+                  }}
+                >
+                  {t('settings.notifications.newVotings.label')}
                 </Label>
               </div>
             </div>

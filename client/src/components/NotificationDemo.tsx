@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bell, BellOff } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 
 interface NotificationDemoProps {
   isSupported: boolean;
@@ -15,7 +14,6 @@ export function NotificationDemo({
   permission, 
   onRequestPermission 
 }: NotificationDemoProps) {
-  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRequestPermission = async () => {

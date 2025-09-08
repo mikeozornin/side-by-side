@@ -36,7 +36,7 @@ export function useWebPush() {
       const isSupported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
       
       // Принудительно проверяем разрешения
-      let permission = 'denied';
+      let permission: NotificationPermission = 'denied';
       if (isSupported) {
         permission = Notification.permission;
         console.log('Current notification permission:', permission);
@@ -170,7 +170,7 @@ export function useWebPush() {
       console.log('Subscribing to push manager...');
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
+        applicationServerKey: urlBase64ToArrayBuffer(publicKey),
       });
       console.log('Push subscription created:', subscription);
 
@@ -398,7 +398,7 @@ export function useWebPush() {
 }
 
 // Утилита для конвертации VAPID ключа
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding)
     .replace(/-/g, '+')
@@ -410,5 +410,5 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
   }
-  return outputArray;
+  return outputArray.buffer;
 }
