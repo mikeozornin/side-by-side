@@ -122,6 +122,12 @@
         msg: "Bun installation failed. Please check the installation script."
       when: not bun_binary.stat.exists
 
+    - name: Install PostgreSQL client if needed
+      apt:
+        name: postgresql-client
+        state: present
+      when: db_provider == 'postgres'
+
     - name: Install system dependencies for image optimization
       apt:
         name: "{{ image_optimization_packages }}"
@@ -316,6 +322,11 @@
           BASE_URL=https://{{ domain }}
           NODE_ENV=production
 
+          # Настройки базы данных
+          DB_PROVIDER={{ db_provider }}
+          DB_PATH={{ current_link | dirname }}/app.db
+          DATABASE_URL={{ database_url }}
+
           # URL для ссылок на голосования (клиентская часть)
           VOTING_BASE_URL=https://{{ domain }}
 
@@ -340,11 +351,22 @@
           # TELEGRAM_BOT_TOKEN=your-bot-token
           # TELEGRAM_CHAT_ID=your-chat-id
 
+          # Web Push уведомления
+          WEB_PUSH_ENABLED={{ web_push_enabled | lower }}
+          # Сгенерируйте ключи командой: npx web-push generate-vapid-keys
+          VAPID_PUBLIC_KEY={{ vapid_public_key }}
+          VAPID_PRIVATE_KEY={{ vapid_private_key }}
+          VAPID_EMAIL={{ vapid_email }}
+
           # Rate Limiting
           # Максимальное количество созданий голосований за минуту с одного IP
           RATE_LIMIT_VOTING_PER_MINUTE=6
           # Максимальное количество созданий голосований за час с одного IP
           RATE_LIMIT_VOTING_PER_HOUR=60
+          # Максимальное количество запросов magic link за минуту с одного IP
+          RATE_LIMIT_AUTH_MAGIC_LINK_PER_MINUTE=5
+          # Максимальное количество попыток верификации токена за минуту с одного IP
+          RATE_LIMIT_AUTH_VERIFY_TOKEN_PER_MINUTE=5
 
           # JWT секретный ключ для подписи токенов
           # В продакшене ОБЯЗАТЕЛЬНО используйте сложный случайный ключ!

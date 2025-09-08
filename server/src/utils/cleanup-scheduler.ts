@@ -68,7 +68,7 @@ export class CleanupScheduler {
     try {
       logger.info('🔄 Начинаем автоматическую очистку истекших данных...');
 
-      const result = cleanupExpiredAuthData();
+      const result = await cleanupExpiredAuthData();
 
       // Дополнительная очистка: удаляем старые сессии пользователей
       await this.cleanupOldUserSessions();
@@ -91,14 +91,14 @@ export class CleanupScheduler {
       const { getDatabase } = await import('../db/init.js');
       const db = getDatabase();
 
-      const users = db.prepare(`
-        SELECT DISTINCT user_id FROM sessions
-      `).all() as { user_id: string }[];
+      const users = await db.query<{ user_id: string }>(
+        'SELECT DISTINCT user_id FROM sessions WHERE user_id IS NOT NULL'
+      );
 
       let totalCleaned = 0;
 
       for (const { user_id } of users) {
-        const cleaned = cleanupOldUserSessions(user_id, USER_SESSION_CLEANUP_LIMIT);
+        const cleaned = await cleanupOldUserSessions(user_id, USER_SESSION_CLEANUP_LIMIT);
         totalCleaned += cleaned;
       }
 
@@ -133,13 +133,13 @@ export class CleanupScheduler {
       const { NotificationService } = await import('../notifications/index.js');
       const service = new NotificationService();
 
-      const due = getDueCompletedVotings(50);
+      const due = await getDueCompletedVotings(50);
       if (due.length === 0) return;
 
       for (const v of due) {
         try {
           await service.sendVotingCompletedNotification(v.id, v.title, v.user_id || undefined);
-          markVotingCompleteNotified(v.id);
+          await markVotingCompleteNotified(v.id);
           logger.info(`Отправлено уведомление о завершении голосования ${v.id}`);
         } catch (err) {
           logger.error(`Ошибка отправки уведомления о завершении голосования ${v.id}:`, err);

@@ -224,3 +224,4 @@ build/
 server/logs/
 server/data/
 .env.development
+ssl

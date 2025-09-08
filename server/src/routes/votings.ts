@@ -31,14 +31,14 @@ const notificationService = new NotificationService();
 // GET /api/votings - список публичных голосований
 votingRoutes.get('/votings', optionalVotingAuth, async (c: AuthContext) => {
   try {
-    const votings = getPublicVotings();
+    const votings = await getPublicVotings();
     
-    const votingsWithOptions = votings.map((voting) => {
-      const options = getVotingOptions(voting.id);
-      const voteCount = getVoteCountForVoting(voting.id);
+    const votingsWithOptions = await Promise.all(votings.map(async (voting) => {
+      const options = await getVotingOptions(voting.id);
+      const voteCount = await getVoteCountForVoting(voting.id);
       let userVoted = false;
       if (c.user && c.user.id && c.user.id !== 'anonymous') {
-        userVoted = hasUserVoted(voting.id, c.user.id);
+        userVoted = await hasUserVoted(voting.id, c.user.id);
       }
       
       return {
@@ -47,7 +47,7 @@ votingRoutes.get('/votings', optionalVotingAuth, async (c: AuthContext) => {
         vote_count: voteCount,
         hasVoted: userVoted
       };
-    });
+    }));
 
     return c.json({ votings: votingsWithOptions });
   } catch (error) {
@@ -61,29 +61,29 @@ votingRoutes.get('/votings/:id', optionalVotingAuth, async (c: AuthContext) => {
   try {
     const id = c.req.param('id');
     
-    const voting = getVoting(id);
+    const voting = await getVoting(id);
     
     if (!voting) {
       return c.json({ error: 'Голосование не найдено' }, 404);
     }
 
-    const options = getVotingOptions(id);
+    const options = await getVotingOptions(id);
     const isFinished = new Date(voting.end_at) <= new Date();
     
     // Проверяем, голосовал ли пользователь (только в неанонимном режиме)
     let userVoted = false;
     let selectedOption: number | null = null;
     if (c.user && c.user.id !== 'anonymous') {
-      userVoted = hasUserVoted(id, c.user.id);
+      userVoted = await hasUserVoted(id, c.user.id);
       if (userVoted) {
-        selectedOption = getUserSelectedOption(id, c.user.id) as number | null;
+        selectedOption = await getUserSelectedOption(id, c.user.id);
       }
     }
     
     let results = null;
     if (isFinished) {
       // Если голосование завершено, загружаем результаты
-      const voteCounts = getVoteCounts(id);
+      const voteCounts = await getVoteCounts(id);
       const totalVotes = voteCounts.reduce((sum, r) => sum + r.count, 0);
 
       const resultsData = options.map(option => {
@@ -142,8 +142,14 @@ votingRoutes.get('/votings/:id', optionalVotingAuth, async (c: AuthContext) => {
 });
 
 // POST /api/votings - создание голосования (требует авторизацию)
+const middlewaresForCreate: any[] = configManager.isDevelopment()
+  ? [requireAuth]
+  : [createVotingLimiter, createVotingHourlyLimiter, requireAuth];
+
+// Apply middlewares to /votings path
+votingRoutes.use('/votings', ...middlewaresForCreate as any);
+
 votingRoutes.post('/votings', 
-  configManager.isDevelopment() ? requireAuth : [createVotingLimiter, createVotingHourlyLimiter, requireAuth], 
   async (c: AuthContext) => {
   try {
     const contentType = c.req.header('Content-Type') || '';
@@ -170,6 +176,12 @@ votingRoutes.post('/votings',
       isPublic = isPublicStr !== 'false'; // Default to true if not specified
     }
 
+    // Keep fractional for end_at; store integer for Postgres until migration is applied
+    const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
+    const durationHoursForDB = DB_PROVIDER === 'postgres'
+      ? Math.max(1, Math.round(durationHours))
+      : Math.max(0.01, durationHours);
+
     if (!title || !images || images.length < 2) {
       return c.json({ error: 'Необходимо указать название и загрузить от 2 до 10 медиафайлов' }, 400);
     }
@@ -180,11 +192,11 @@ votingRoutes.post('/votings',
 
     const endAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
 
-    const votingId = createVoting({
+    const votingId = await createVoting({
       title,
-      created_at: new Date().toISOString(),
-      end_at: endAt.toISOString(),
-      duration_hours: durationHours,
+      created_at: new Date(),
+      end_at: endAt,
+      duration_hours: durationHoursForDB,
       is_public: isPublic,
       user_id: c.user?.id || null // В анонимном режиме user_id будет null
     });
@@ -334,7 +346,7 @@ votingRoutes.post('/votings',
       media_type: upload.mediaType
     }));
 
-    createVotingOptions(optionsToCreate);
+    await createVotingOptions(optionsToCreate);
     
     // Отправляем уведомление асинхронно (только для публичных голосований).
     // Автор не должен получать пуш о собственном голосовании.
@@ -384,7 +396,7 @@ votingRoutes.post('/votings/:id/vote', requireVotingAuth, async (c: AuthContext)
       return c.json({ error: 'Неверный выбор' }, 400);
     }
 
-    const voting = getVoting(id);
+    const voting = await getVoting(id);
     if (!voting) {
       return c.json({ error: 'Голосование не найдено' }, 404);
     }
@@ -393,22 +405,22 @@ votingRoutes.post('/votings/:id/vote', requireVotingAuth, async (c: AuthContext)
       return c.json({ error: 'Голосование завершено' }, 400);
     }
 
-    const options = getVotingOptions(id);
+    const options = await getVotingOptions(id);
     if (!options.some(o => o.id === optionId)) {
       return c.json({ error: 'Выбранный вариант не существует' }, 400);
     }
 
     // Запрещаем повторное голосование для авторизованных пользователей
     if (c.user && c.user.id && c.user.id !== 'anonymous') {
-      if (hasUserVoted(id, c.user.id)) {
+      if (await hasUserVoted(id, c.user.id)) {
         return c.json({ error: 'Вы уже голосовали' }, 400);
       }
     }
 
-    createVote({
+    await createVote({
       voting_id: id,
       option_id: optionId,
-      created_at: new Date().toISOString(),
+      created_at: new Date(),
       user_id: c.user?.id || null
     });
 
@@ -424,7 +436,7 @@ votingRoutes.get('/votings/:id/results', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const voting = getVoting(id);
+    const voting = await getVoting(id);
 
     if (!voting) {
       return c.json({ error: 'Голосование не найдено' }, 404);
@@ -437,8 +449,8 @@ votingRoutes.get('/votings/:id/results', async (c) => {
       return c.json({ error: 'Голосование еще не завершено' }, 400);
     }
 
-    const voteCounts = getVoteCounts(id);
-    const options = getVotingOptions(id);
+    const voteCounts = await getVoteCounts(id);
+    const options = await getVotingOptions(id);
     const totalVotes = voteCounts.reduce((sum, r) => sum + r.count, 0);
 
     const results = options.map(option => {
@@ -487,7 +499,7 @@ votingRoutes.post('/votings/:id/end-early', requireAuth, requireVotingOwner, asy
   try {
     const id = c.req.param('id');
     
-    const voting = getVoting(id);
+    const voting = await getVoting(id);
     if (!voting) {
       return c.json({ error: 'Voting not found' }, 404);
     }
@@ -498,7 +510,7 @@ votingRoutes.post('/votings/:id/end-early', requireAuth, requireVotingOwner, asy
     }
 
     // Обновляем время окончания на текущее время
-    const success = runQuery(
+    const success = await runQuery(
       'UPDATE votings SET end_at = ? WHERE id = ?',
       [new Date().toISOString(), id]
     );
@@ -519,7 +531,7 @@ votingRoutes.delete('/votings/:id', requireAuth, requireVotingOwner, async (c: A
   try {
     const id = c.req.param('id');
     
-    const success = deleteVoting(id);
+    const success = await deleteVoting(id);
     
     if (!success) {
       return c.json({ error: 'Failed to delete voting' }, 500);

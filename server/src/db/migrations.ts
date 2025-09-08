@@ -1,243 +1,67 @@
-// @ts-ignore - types for bun:sqlite are provided at runtime in Bun env
-import { Database } from 'bun:sqlite';
-import { logger } from '../utils/logger.js';
+import { migrations as sqliteMigrations } from './migrations.sqlite';
+import { migrations as postgresMigrations } from './migrations.postgres';
+import { DbClient } from './db-client';
+import { logger } from '../utils/logger';
 
 export interface Migration {
   version: number;
   name: string;
-  up: (db: Database) => void;
-  down?: (db: Database) => void;
+  up: (db: DbClient) => Promise<void>;
+  down?: (db: DbClient) => Promise<void>;
 }
 
-// Создаем таблицу для отслеживания миграций
-function createMigrationsTable(db: Database): void {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
+async function createMigrationsTable(db: DbClient): Promise<void> {
+  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
+  const sql = DB_PROVIDER === 'postgres' 
+    ? `CREATE TABLE IF NOT EXISTS schema_migrations (
+        version BIGINT PRIMARY KEY,
+        name TEXT NOT NULL,
+        applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )`
+    : `CREATE TABLE IF NOT EXISTS schema_migrations (
       version INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
       applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+      )`;
+  await db.exec(sql);
 }
 
-// Получаем список применённых миграций
-function getAppliedMigrations(db: Database): number[] {
+async function getAppliedMigrations(db: DbClient): Promise<number[]> {
   try {
-    const result = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as { version: number }[];
-    return result.map(row => row.version);
+    const result = await db.query<{ version: number }>('SELECT version FROM schema_migrations ORDER BY version');
+    return result.map((row: { version: number }) => Number(row.version));
   } catch (error) {
-    // Если таблица не существует, возвращаем пустой массив
     return [];
   }
 }
 
-// Отмечаем миграцию как применённую
-function markMigrationAsApplied(db: Database, version: number, name: string): void {
-  db.prepare('INSERT INTO schema_migrations (version, name) VALUES (?, ?)')
-    .run(version, name);
+async function markMigrationAsApplied(db: DbClient, version: number, name: string): Promise<void> {
+  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
+  const sql = DB_PROVIDER === 'postgres'
+    ? 'INSERT INTO schema_migrations (version, name) VALUES ($1, $2)'
+    : 'INSERT INTO schema_migrations (version, name) VALUES (?, ?)';
+  await db.run(sql, [version, name]);
 }
 
-// Определяем все миграции
-const migrations: Migration[] = [
-  {
-    version: 1,
-    name: 'initial_schema',
-    up: (db: Database) => {
-      // Создаем базовые таблицы
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS users (
-          id TEXT PRIMARY KEY,
-          email TEXT UNIQUE NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS votings (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          end_at DATETIME NOT NULL,
-          duration_hours INTEGER NOT NULL DEFAULT 24,
-          is_public BOOLEAN NOT NULL DEFAULT 1,
-          user_id TEXT REFERENCES users(id)
-        )
-      `);
-
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS voting_options (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          voting_id TEXT NOT NULL,
-          file_path TEXT NOT NULL,
-          sort_order INTEGER NOT NULL,
-          pixel_ratio REAL NOT NULL DEFAULT 1,
-          width INTEGER NOT NULL,
-          height INTEGER NOT NULL,
-          media_type TEXT NOT NULL DEFAULT 'image',
-          FOREIGN KEY (voting_id) REFERENCES votings(id) ON DELETE CASCADE
-        )
-      `);
-
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS votes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          voting_id TEXT NOT NULL,
-          option_id INTEGER NOT NULL,
-          user_id TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (voting_id) REFERENCES votings(id) ON DELETE CASCADE,
-          FOREIGN KEY (option_id) REFERENCES voting_options(id) ON DELETE CASCADE,
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-        )
-      `);
-
-      // Создаем индексы
-      db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_votings_created_at ON votings(created_at);
-        CREATE INDEX IF NOT EXISTS idx_votings_end_at ON votings(end_at);
-        CREATE INDEX IF NOT EXISTS idx_votings_user_id ON votings(user_id);
-        CREATE INDEX IF NOT EXISTS idx_voting_options_voting_id ON voting_options(voting_id);
-        CREATE INDEX IF NOT EXISTS idx_votes_voting_id ON votes(voting_id);
-        CREATE INDEX IF NOT EXISTS idx_votes_user_id ON votes(user_id);
-        CREATE INDEX IF NOT EXISTS idx_votes_created_at ON votes(created_at);
-        CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-      `);
-    }
-  },
-  {
-    version: 2,
-    name: 'add_magic_tokens',
-    up: (db: Database) => {
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS magic_tokens (
-          token_hash TEXT PRIMARY KEY,
-          user_email TEXT NOT NULL,
-          expires_at DATETIME NOT NULL,
-          used_at DATETIME
-        )
-      `);
-      
-      db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_magic_tokens_expires_at ON magic_tokens(expires_at);
-      `);
-    }
-  },
-  {
-    version: 3,
-    name: 'add_sessions',
-    up: (db: Database) => {
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS sessions (
-          id TEXT PRIMARY KEY,
-          user_id TEXT NOT NULL,
-          refresh_token_hash TEXT NOT NULL,
-          expires_at DATETIME NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-      `);
-      
-      db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-        CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
-      `);
-    }
-  },
-  {
-    version: 4,
-    name: 'add_figma_auth_codes',
-    up: (db: Database) => {
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS figma_auth_codes (
-          code_hash TEXT PRIMARY KEY,
-          user_id TEXT NOT NULL,
-          expires_at DATETIME NOT NULL,
-          used_at DATETIME,
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-      `);
-      
-      db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_figma_auth_codes_expires_at ON figma_auth_codes(expires_at);
-      `);
-    }
-  },
-  {
-    version: 5,
-    name: 'add_web_push_tables',
-    up: (db: Database) => {
-      // Таблица для хранения подписок на push-уведомления
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS web_push_subscriptions (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT NOT NULL,
-          endpoint TEXT NOT NULL,
-          p256dh TEXT NOT NULL,
-          auth TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-      `);
-      
-      // Таблица для настроек уведомлений пользователей
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS notification_settings (
-          user_id TEXT PRIMARY KEY,
-          new_votings BOOLEAN NOT NULL DEFAULT 0,
-          my_votings_complete BOOLEAN NOT NULL DEFAULT 0,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-      `);
-      
-      // Создаем индексы
-      db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_web_push_subscriptions_user_id ON web_push_subscriptions(user_id);
-        CREATE INDEX IF NOT EXISTS idx_web_push_subscriptions_endpoint ON web_push_subscriptions(endpoint);
-        CREATE INDEX IF NOT EXISTS idx_notification_settings_user_id ON notification_settings(user_id);
-      `);
-    }
-  },
-  {
-    version: 6,
-    name: 'webpush_unique_endpoint',
-    up: (db: Database) => {
-      // Обеспечиваем уникальность endpoint, чтобы корректно делать upsert
-      db.exec(`
-        CREATE UNIQUE INDEX IF NOT EXISTS uniq_web_push_subscriptions_endpoint ON web_push_subscriptions(endpoint);
-      `);
-    }
-  },
-  {
-    version: 7,
-    name: 'add_completed_notified_flag',
-    up: (db: Database) => {
-      // Безопасно добавляем колонку только если её нет (поддержка старых SQLite)
-      const cols = db.prepare(`PRAGMA table_info(votings)`).all() as { name: string }[];
-      const hasColumn = cols.some(c => c.name === 'complete_notified');
-      if (!hasColumn) {
-        db.exec(`ALTER TABLE votings ADD COLUMN complete_notified BOOLEAN NOT NULL DEFAULT 0`);
-      }
-
-      // Индекс по времени завершения для быстрых выборок
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_votings_end_at_notified ON votings(end_at, complete_notified)`);
-    }
+async function loadMigrations(): Promise<Migration[]> {
+  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
+  if (DB_PROVIDER === 'postgres') {
+    return postgresMigrations;
   }
-];
+  return sqliteMigrations;
+}
 
-// Применяем все миграции
-export function runMigrations(db: Database): void {
+export async function runMigrations(db: DbClient): Promise<void> {
   try {
     logger.info('Проверяем и применяем миграции...');
     
-    // Создаем таблицу для отслеживания миграций
-    createMigrationsTable(db);
+    await createMigrationsTable(db);
     
-    // Получаем список применённых миграций
-    const appliedMigrations = getAppliedMigrations(db);
+    const appliedMigrations = await getAppliedMigrations(db);
     logger.info(`Применённые миграции: ${appliedMigrations.join(', ')}`);
     
-    // Находим миграции, которые нужно применить
+    const migrations = await loadMigrations();
+
     const pendingMigrations = migrations.filter(migration => 
       !appliedMigrations.includes(migration.version)
     );
@@ -249,13 +73,12 @@ export function runMigrations(db: Database): void {
     
     logger.info(`Найдено ${pendingMigrations.length} миграций для применения`);
     
-    // Применяем каждую миграцию
     for (const migration of pendingMigrations) {
       logger.info(`Применяем миграцию ${migration.version}: ${migration.name}`);
       
       try {
-        migration.up(db);
-        markMigrationAsApplied(db, migration.version, migration.name);
+        await migration.up(db);
+        await markMigrationAsApplied(db, migration.version, migration.name);
         logger.info(`Миграция ${migration.version} успешно применена`);
       } catch (error) {
         logger.error(`Ошибка применения миграции ${migration.version}:`, error);
@@ -271,19 +94,18 @@ export function runMigrations(db: Database): void {
   }
 }
 
-// Получаем текущую версию схемы
-export function getCurrentSchemaVersion(db: Database): number {
+export async function getCurrentSchemaVersion(db: DbClient): Promise<number> {
   try {
-    const result = db.prepare('SELECT MAX(version) as version FROM schema_migrations').get() as { version: number | null };
-    return result.version || 0;
+    const result = await db.get<{ version: number | null }>('SELECT MAX(version) as version FROM schema_migrations');
+    return result?.version || 0;
   } catch (error) {
     return 0;
   }
 }
 
-// Проверяем, нужно ли применять миграции
-export function needsMigration(db: Database): boolean {
-  const currentVersion = getCurrentSchemaVersion(db);
+export async function needsMigration(db: DbClient): Promise<boolean> {
+  const currentVersion = await getCurrentSchemaVersion(db);
+  const migrations = await loadMigrations();
   const latestVersion = Math.max(...migrations.map(m => m.version));
   return currentVersion < latestVersion;
 }

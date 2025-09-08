@@ -39,6 +39,16 @@ update_env: false
 # Режим аутентификации (anonymous или magic-links)
 auth_mode: anonymous
 
+# Настройки базы данных
+db_provider: "sqlite"  # "sqlite" или "postgres"
+database_url: ""      # Только для postgres
+
+# Web Push уведомления
+web_push_enabled: false
+vapid_public_key: ""
+vapid_private_key: ""
+vapid_email: ""
+
 # Системные зависимости для оптимизации изображений
 image_optimization_packages:
   - imagemagick

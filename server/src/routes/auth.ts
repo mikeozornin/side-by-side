@@ -30,8 +30,7 @@ import { runManualCleanup, getCleanupStatus } from '../utils/cleanup-scheduler.j
 import { env } from '../load-env.js';
 import {
   magicLinkLimiter,
-  verifyTokenLimiter,
-  figmaAuthLimiter
+  verifyTokenLimiter
 } from '../utils/rateLimit.js';
 
 export const authRoutes = new Hono();
@@ -66,7 +65,7 @@ authRoutes.post('/magic-link', magicLinkLimiter, async (c) => {
     }
 
     // Создаем или получаем пользователя
-    const user = createOrGetUser(email);
+    const user = await createOrGetUser(email);
 
     // Логируем переменную окружения для отладки
     console.log('NODE_ENV:', env.NODE_ENV);
@@ -80,7 +79,7 @@ authRoutes.post('/magic-link', magicLinkLimiter, async (c) => {
       const refreshToken = createRefreshToken({ sessionId, userId: user.id });
 
       // Создаем сессию
-      createSession(
+      await createSession(
         sessionId,
         user.id,
         await hashToken(refreshToken),
@@ -104,7 +103,7 @@ authRoutes.post('/magic-link', magicLinkLimiter, async (c) => {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 часа
 
     // Сохраняем токен в БД
-    saveMagicToken(tokenHash, email, expiresAt);
+    await saveMagicToken(tokenHash, email, expiresAt);
 
     // Формируем URL для входа (используем CLIENT_URL для фронтенда)
     const magicLinkUrl = `${env.CLIENT_URL}/#/auth/callback?token=${token}&returnTo=${encodeURIComponent(returnTo || '/')}`;
@@ -226,7 +225,7 @@ authRoutes.post('/refresh', async (c) => {
     }
 
     // Получаем сессию из БД
-    const session = getSession(payload.sessionId);
+    const session = await getSession(payload.sessionId);
     console.log('🔍 Session from DB:', session ? 'found' : 'not found');
     if (!session) {
       console.log('❌ Session not found in database');
@@ -252,7 +251,7 @@ authRoutes.post('/refresh', async (c) => {
     }
 
     // Получаем пользователя
-    const user = getUserById(session.user_id);
+    const user = await getUserById(session.user_id);
     if (!user) {
       return c.json({ error: 'User not found' }, 401);
     }
@@ -264,8 +263,8 @@ authRoutes.post('/refresh', async (c) => {
     const sessionExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
 
     // Удаляем старую сессию и создаем новую
-    deleteSession(payload.sessionId);
-    createSession(newSessionId, user.id, newRefreshTokenHash, sessionExpiresAt);
+    await deleteSession(payload.sessionId);
+    await createSession(newSessionId, user.id, newRefreshTokenHash, sessionExpiresAt);
 
     // Создаем новый access token
     const accessToken = createAccessToken({ userId: user.id, email: user.email });
@@ -320,7 +319,7 @@ authRoutes.post('/logout', async (c) => {
 });
 
 // GET /api/auth/figma-code - Генерация кода для Figma (требует авторизации)
-authRoutes.get('/figma-code', figmaAuthLimiter, async (c) => {
+authRoutes.get('/figma-code', async (c) => {
   try {
     const authHeader = c.req.header('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -340,7 +339,10 @@ authRoutes.get('/figma-code', figmaAuthLimiter, async (c) => {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 минут
 
     // Сохраняем код в БД
-    createFigmaCode(payload.userId, codeHash, expiresAt);
+    if (!payload.userId) {
+      return c.json({ error: 'User not found' }, 401);
+    }
+    await createFigmaCode(payload.userId, codeHash, expiresAt);
 
     return c.json({
       code,
@@ -354,7 +356,7 @@ authRoutes.get('/figma-code', figmaAuthLimiter, async (c) => {
 });
 
 // POST /api/auth/figma-verify - Верификация кода от Figma плагина
-authRoutes.post('/figma-verify', figmaAuthLimiter, figmaPluginMiddleware, async (c) => {
+authRoutes.post('/figma-verify', figmaPluginMiddleware, async (c) => {
   try {
     // В анонимном режиме возвращаем успешный ответ без проверки кода
     if (env.AUTH_MODE === 'anonymous') {

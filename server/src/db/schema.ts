@@ -1,103 +1,15 @@
-import { Database } from 'bun:sqlite';
+import { DbClient } from './db-client';
 
-export function createTables(db: Database): void {
-  // Таблица пользователей
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
 
-  // Таблица голосований
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS votings (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      end_at DATETIME NOT NULL,
-      duration_hours INTEGER NOT NULL DEFAULT 24,
-      is_public BOOLEAN NOT NULL DEFAULT 1,
-      user_id TEXT REFERENCES users(id)
-    )
-  `);
-
-  // Таблица вариантов голосований
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS voting_options (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      voting_id TEXT NOT NULL,
-      file_path TEXT NOT NULL,
-      sort_order INTEGER NOT NULL,
-      pixel_ratio REAL NOT NULL DEFAULT 1,
-      width INTEGER NOT NULL,
-      height INTEGER NOT NULL,
-      media_type TEXT NOT NULL DEFAULT 'image',
-      FOREIGN KEY (voting_id) REFERENCES votings(id) ON DELETE CASCADE
-    )
-  `);
-
-  // Таблица голосов
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS votes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      voting_id TEXT NOT NULL,
-      option_id INTEGER NOT NULL,
-      user_id TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (voting_id) REFERENCES votings(id) ON DELETE CASCADE,
-      FOREIGN KEY (option_id) REFERENCES voting_options(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-    )
-  `);
-
-  // Таблица одноразовых токенов для magic link
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS magic_tokens (
-      token_hash TEXT PRIMARY KEY,
-      user_email TEXT NOT NULL,
-      expires_at DATETIME NOT NULL,
-      used_at DATETIME
-    )
-  `);
-
-  // Таблица сессий для refresh токенов
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS sessions (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      refresh_token_hash TEXT NOT NULL,
-      expires_at DATETIME NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
-
-  // Таблица кодов для авторизации Figma-плагина
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS figma_auth_codes (
-      code_hash TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      expires_at DATETIME NOT NULL,
-      used_at DATETIME,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
-
-  // Индексы для производительности
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_votings_created_at ON votings(created_at);
-    CREATE INDEX IF NOT EXISTS idx_votings_end_at ON votings(end_at);
-    CREATE INDEX IF NOT EXISTS idx_votings_user_id ON votings(user_id);
-    CREATE INDEX IF NOT EXISTS idx_voting_options_voting_id ON voting_options(voting_id);
-    CREATE INDEX IF NOT EXISTS idx_votes_voting_id ON votes(voting_id);
-    CREATE INDEX IF NOT EXISTS idx_votes_user_id ON votes(user_id);
-    CREATE INDEX IF NOT EXISTS idx_votes_created_at ON votes(created_at);
-    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-    CREATE INDEX IF NOT EXISTS idx_magic_tokens_expires_at ON magic_tokens(expires_at);
-    CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
-    CREATE INDEX IF NOT EXISTS idx_figma_auth_codes_expires_at ON figma_auth_codes(expires_at);
-  `);
+export async function createTables(db: DbClient): Promise<void> {
+  if (DB_PROVIDER === 'sqlite') {
+    const { createTables: createSqliteTables } = await import('./schema.sqlite.js');
+    return createSqliteTables(db);
+  } else if (DB_PROVIDER === 'postgres') {
+    const { createTables: createPostgresTables } = await import('./schema.postgres.js');
+    return createPostgresTables(db);
+  } else {
+    throw new Error(`Unsupported DB_PROVIDER: ${DB_PROVIDER}`);
+  }
 }

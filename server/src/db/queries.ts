@@ -1,21 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from './init.js';
-
-// Вспомогательные функции для выполнения запросов с Bun SQLite
-export function runQuery<T = any>(sql: string, params: any[] = []): T {
-  const db = getDatabase();
-  return db.prepare(sql).run(...params) as T;
-}
-
-export function getQuery<T = any>(sql: string, params: any[] = []): T | undefined {
-  const db = getDatabase();
-  return db.prepare(sql).get(...params) as T | undefined;
-}
-
-export function allQuery<T = any>(sql: string, params: any[] = []): T[] {
-  const db = getDatabase();
-  return db.prepare(sql).all(...params) as T[];
-}
+import { prepareQuery } from './utils.js';
 
 // Интерфейсы для типизации
 export interface Voting {
@@ -50,121 +35,144 @@ export interface Vote {
 }
 
 // Функции для работы с голосованиями
-export function createVoting(voting: Omit<Voting, 'id'>): string {
+export async function createVoting(voting: Omit<Voting, 'id' | 'created_at' | 'end_at'> & { created_at: Date, end_at: Date }): Promise<string> {
   const id = uuidv4();
-  runQuery(
-    'INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [id, voting.title, voting.created_at, voting.end_at, voting.duration_hours, voting.is_public, voting.user_id]
-  );
+  const db = getDatabase();
+  const sql = prepareQuery('INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  await db.run(sql, [id, voting.title, voting.created_at.toISOString(), voting.end_at.toISOString(), voting.duration_hours, voting.is_public, voting.user_id]);
   return id;
 }
 
-export function getVoting(id: string): Voting | undefined {
-  return getQuery<Voting>(`
+export async function getVoting(id: string): Promise<Voting | null> {
+  const db = getDatabase();
+  const sql = prepareQuery(`
     SELECT v.*, u.email as user_email 
     FROM votings v 
     LEFT JOIN users u ON v.user_id = u.id 
     WHERE v.id = ?
-  `, [id]);
+  `);
+  return await db.get<Voting>(sql, [id]);
 }
 
-export function getAllVotings(): Voting[] {
-  return allQuery<Voting>('SELECT * FROM votings ORDER BY created_at DESC');
+export async function getAllVotings(): Promise<Voting[]> {
+  const db = getDatabase();
+  const sql = prepareQuery('SELECT * FROM votings ORDER BY created_at DESC');
+  return await db.query<Voting>(sql);
 }
 
-export function getPublicVotings(): Voting[] {
-  return allQuery<Voting>(`
+export async function getPublicVotings(): Promise<Voting[]> {
+  const db = getDatabase();
+  const sql = prepareQuery(`
     SELECT v.*, u.email as user_email 
     FROM votings v 
     LEFT JOIN users u ON v.user_id = u.id 
-    WHERE v.is_public = 1 
+    WHERE v.is_public = TRUE
     ORDER BY v.created_at DESC
   `);
+  return await db.query<Voting>(sql);
 }
 
 // Возвращает публичные голосования, которые завершились и по которым ещё не отправляли уведомление
-export function getDueCompletedVotings(limit: number = 50): Voting[] {
-  return allQuery<Voting>(`
+export async function getDueCompletedVotings(limit: number = 50): Promise<Voting[]> {
+  const db = getDatabase();
+  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
+  const nowFn = DB_PROVIDER === 'postgres' ? 'NOW()' : 'datetime(\'now\')';
+  
+  const sql = prepareQuery(`
     SELECT v.* FROM votings v
-    WHERE v.is_public = 1
-      AND datetime(v.end_at) <= datetime('now')
-      AND (v.complete_notified IS NULL OR v.complete_notified = 0)
+    WHERE v.is_public = TRUE
+      AND v.end_at <= ${nowFn}
+      AND (v.complete_notified IS NULL OR v.complete_notified = FALSE)
     ORDER BY v.end_at ASC
     LIMIT ?
-  `, [limit]);
+  `);
+  return await db.query<Voting>(sql, [limit]);
 }
 
 // Пометить голосование как уведомлённое о завершении
-export function markVotingCompleteNotified(id: string): void {
-  runQuery('UPDATE votings SET complete_notified = 1 WHERE id = ?', [id]);
+export async function markVotingCompleteNotified(id: string): Promise<void> {
+  const db = getDatabase();
+  const sql = prepareQuery('UPDATE votings SET complete_notified = TRUE WHERE id = ?');
+  await db.run(sql, [id]);
 }
 
-export function deleteVoting(id: string): boolean {
-  const result = runQuery('DELETE FROM votings WHERE id = ?', [id]);
-  return result.changes > 0;
+export async function deleteVoting(id: string): Promise<boolean> {
+  const db = getDatabase();
+  const sql = prepareQuery('DELETE FROM votings WHERE id = ?');
+  const result = await db.run(sql, [id]);
+  return (result.changes ?? 0) > 0;
 }
 
 // Функции для работы с вариантами голосования
-export function createVotingOptions(options: Omit<VotingOption, 'id'>[]): void {
+export async function createVotingOptions(options: Omit<VotingOption, 'id'>[]): Promise<void> {
+  const db = getDatabase();
+  const sql = prepareQuery('INSERT INTO voting_options (voting_id, file_path, sort_order, pixel_ratio, width, height, media_type) VALUES (?, ?, ?, ?, ?, ?, ?)');
   for (const option of options) {
-    runQuery(
-      'INSERT INTO voting_options (voting_id, file_path, sort_order, pixel_ratio, width, height, media_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [option.voting_id, option.file_path, option.sort_order, option.pixel_ratio, option.width, option.height, option.media_type]
-    );
+    await db.run(sql, [option.voting_id, option.file_path, option.sort_order, option.pixel_ratio, option.width, option.height, option.media_type]);
   }
 }
 
-export function getVotingOptions(votingId: string): VotingOption[] {
-  return allQuery<VotingOption>(
-    'SELECT * FROM voting_options WHERE voting_id = ? ORDER BY sort_order',
-    [votingId]
-  );
+export async function getVotingOptions(votingId: string): Promise<VotingOption[]> {
+  const db = getDatabase();
+  const sql = prepareQuery('SELECT * FROM voting_options WHERE voting_id = ? ORDER BY sort_order');
+  return await db.query<VotingOption>(sql, [votingId]);
 }
 
 // Функции для работы с голосами
-export function createVote(vote: Omit<Vote, 'id'>): number {
-  const result = runQuery<{ lastInsertRowid: number }>(
-    'INSERT INTO votes (voting_id, option_id, created_at, user_id) VALUES (?, ?, ?, ?)',
-    [vote.voting_id, vote.option_id, vote.created_at, vote.user_id || null]
-  );
+export async function createVote(vote: Omit<Vote, 'id' | 'created_at'> & { created_at: Date }): Promise<number | bigint | undefined> {
+  const db = getDatabase();
+  const sql = prepareQuery('INSERT INTO votes (voting_id, option_id, created_at, user_id) VALUES (?, ?, ?, ?)');
+  const result = await db.run(sql, [vote.voting_id, vote.option_id, vote.created_at.toISOString(), vote.user_id || null]);
   return result.lastInsertRowid;
 }
 
-export function getVotesForVoting(votingId: string): Vote[] {
-  return allQuery<Vote>('SELECT * FROM votes WHERE voting_id = ?', [votingId]);
+export async function getVotesForVoting(votingId: string): Promise<Vote[]> {
+  const db = getDatabase();
+  const sql = prepareQuery('SELECT * FROM votes WHERE voting_id = ?');
+  return await db.query<Vote>(sql, [votingId]);
 }
 
-export function getVoteCountForVoting(votingId: string): number {
-  const result = getQuery<{ count: number }>(
-    'SELECT COUNT(*) as count FROM votes WHERE voting_id = ?',
-    [votingId]
-  );
-  return result?.count || 0;
+export async function getVoteCountForVoting(votingId: string): Promise<number> {
+  const db = getDatabase();
+  const sql = prepareQuery('SELECT COUNT(*) as count FROM votes WHERE voting_id = ?');
+  const result = await db.get<{ count: number }>(sql, [votingId]);
+  return Number(result?.count || 0);
 }
 
-export function getVoteCounts(votingId: string): { option_id: number; count: number }[] {
-  return allQuery<{ option_id: number; count: number }>(
-    'SELECT option_id, COUNT(*) as count FROM votes WHERE voting_id = ? GROUP BY option_id',
-    [votingId]
-  );
+export async function getVoteCounts(votingId: string): Promise<{ option_id: number; count: number }[]> {
+  const db = getDatabase();
+  const sql = prepareQuery('SELECT option_id, COUNT(*) as count FROM votes WHERE voting_id = ? GROUP BY option_id');
+  const results = await db.query<{ option_id: number; count: any }>(sql, [votingId]);
+  return results.map(r => ({ ...r, count: Number(r.count) }));
 }
 
-export function hasUserVoted(votingId: string, userId: string | null): boolean {
+export async function hasUserVoted(votingId: string, userId: string | null): Promise<boolean> {
   if (!userId) {
     return false; // В анонимном режиме не проверяем по серверу
   }
   
-  const result = getQuery<{ count: number }>(
-    'SELECT COUNT(*) as count FROM votes WHERE voting_id = ? AND user_id = ?',
-    [votingId, userId]
-  );
-  return (result?.count || 0) > 0;
+  const db = getDatabase();
+  const sql = prepareQuery('SELECT COUNT(*) as count FROM votes WHERE voting_id = ? AND user_id = ?');
+  const result = await db.get<{ count: number }>(sql, [votingId, userId]);
+  return (Number(result?.count) || 0) > 0;
 }
 
-export function getUserSelectedOption(votingId: string, userId: string): number | null {
-  const result = getQuery<{ option_id: number }>(
-    'SELECT option_id FROM votes WHERE voting_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1',
-    [votingId, userId]
-  );
+export async function getUserSelectedOption(votingId: string, userId: string): Promise<number | null> {
+  const db = getDatabase();
+  const sql = prepareQuery('SELECT option_id FROM votes WHERE voting_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1');
+  const result = await db.get<{ option_id: number }>(sql, [votingId, userId]);
   return result ? result.option_id : null;
+}
+
+// Функция для выполнения SQL запросов (для обратной совместимости)
+export async function runQuery(sql: string, params: any[] = []): Promise<boolean> {
+  try {
+    const db = getDatabase();
+    const preparedSql = prepareQuery(sql);
+    await db.run(preparedSql, params);
+    return true;
+  } catch (error) {
+    console.error('Error executing query:', error);
+    return false;
+  }
 }

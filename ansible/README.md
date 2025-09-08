@@ -60,6 +60,14 @@ PORT=3000
 BASE_URL=https://side-by-side.your-domain.com
 NODE_ENV=production
 
+# Настройки базы данных
+# Провайдер: "sqlite" или "postgres"
+DB_PROVIDER=sqlite
+# Путь для SQLite (используется, если DB_PROVIDER="sqlite")
+DB_PATH=/opt/side-by-side/current/app.db
+# URL для PostgreSQL (используется, если DB_PROVIDER="postgres")
+# DATABASE_URL=postgresql://user:password@host:port/dbname
+
 # URL для ссылок на голосования (клиентская часть)
 VOTING_BASE_URL=https://side-by-side.your-domain.com
 
@@ -81,9 +89,18 @@ TELEGRAM_ENABLED=false
 # TELEGRAM_BOT_TOKEN=your-bot-token
 # TELEGRAM_CHAT_ID=your-chat-id
 
+# Web Push уведомления
+WEB_PUSH_ENABLED=false
+# Сгенерируйте ключи командой: npx web-push generate-vapid-keys
+# VAPID_PUBLIC_KEY=your_vapid_public_key_here
+# VAPID_PRIVATE_KEY=your_vapid_private_key_here
+# VAPID_EMAIL=mailto:admin@your-domain.com
+
 # Rate Limiting
 RATE_LIMIT_VOTING_PER_MINUTE=6
 RATE_LIMIT_VOTING_PER_HOUR=60
+RATE_LIMIT_AUTH_MAGIC_LINK_PER_MINUTE=5
+RATE_LIMIT_AUTH_VERIFY_TOKEN_PER_MINUTE=5
 
 # Режим аутентификации
 AUTH_MODE=anonymous
@@ -201,9 +218,9 @@ Nginx настроен для:
 
 - Хранится последние 10 релизов (настраивается в `releases_to_keep`)
 - Старые релизы автоматически удаляются при деплое
-- **База данных (`app.db`) автоматически копируется** из текущего релиза в новый при деплое
-- **Данные (`data/`) и логи (`logs/`) также сохраняются** между деплоями
-- Откат: переключить симлинк `current` на предыдущий релиз и перезапустить сервис
+- **База данных (`app.db`) автоматически копируется** из текущего релиза в новый при деплое, если используется `DB_PROVIDER=sqlite`. При использовании PostgreSQL база данных является внешней и не затрагивается при деплое.
+- **Данные (`data/`) и логи (`logs/`) также сохраняются** между деплоями.
+- Откат: переключить симлинк `current` на предыдущий релиз и перезапустить сервис.
 
 ## Мониторинг
 

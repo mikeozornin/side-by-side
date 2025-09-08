@@ -112,6 +112,7 @@
         fi
       args:
         executable: /bin/bash
+      when: db_provider == 'sqlite'
 
     - name: Copy logs directory from current if exists
       shell: |

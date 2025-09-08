@@ -106,11 +106,17 @@ webPushRoutes.get('/settings', requireAuth, async (c: AuthContext) => {
     
     logger.info(`Loading settings for user ${userId}:`, settings);
     
+    // Преобразуем snake_case в camelCase для клиента
+    const clientSettings = settings ? {
+      newVotings: settings.new_votings,
+      myVotingsComplete: settings.my_votings_complete
+    } : {
+      newVotings: false,
+      myVotingsComplete: false
+    };
+    
     return c.json({
-      settings: settings || {
-        newVotings: false,
-        myVotingsComplete: false
-      },
+      settings: clientSettings,
       isSubscribed: !!subscription
     });
   } catch (error) {
@@ -150,8 +156,8 @@ webPushRoutes.post('/settings', requireAuth, async (c: AuthContext) => {
     
     // Обновляем только переданные поля
     const updatedSettings = {
-      newVotings: newVotings !== undefined ? newVotings : (currentSettings?.newVotings || false),
-      myVotingsComplete: myVotingsComplete !== undefined ? myVotingsComplete : (currentSettings?.myVotingsComplete || false)
+      newVotings: newVotings !== undefined ? newVotings : (currentSettings?.new_votings || false),
+      myVotingsComplete: myVotingsComplete !== undefined ? myVotingsComplete : (currentSettings?.my_votings_complete || false)
     };
     
     await updateNotificationSettings(userId, updatedSettings);
