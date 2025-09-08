@@ -52,7 +52,7 @@ class ConfigManager {
 
   // Сформировать полный URL для голосования
   getVotingUrl(votingId: string): string {
-    return `${this.config.clientUrl}/#/voting/${votingId}`;
+    return `${this.config.clientUrl}/#/v/${votingId}`;
   }
 
   // Проверить, является ли режим разработки

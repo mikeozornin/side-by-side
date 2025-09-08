@@ -85,10 +85,10 @@ export class ConfigManager {
   getVotingUrl(votingId: string): string {
     if (this.isDevelopment()) {
       // В dev режиме используем клиентский URL с хешем
-      return `${this.config.votingBaseUrl}/#/voting/${votingId}`;
+      return `${this.config.votingBaseUrl}/#/v/${votingId}`;
     } else {
       // В prod режиме используем базовый URL с хешем
-      return `${this.config.baseUrl}/#/voting/${votingId}`;
+      return `${this.config.baseUrl}/#/v/${votingId}`;
     }
   }
 
