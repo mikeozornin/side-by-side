@@ -12,10 +12,13 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    https: {
-      key: '../ssl/key.pem',
-      cert: '../ssl/cert.pem',
-    },
+    // Используем HTTPS только если явно указано в переменной окружения
+    ...(process.env.VITE_USE_HTTPS === 'true' ? {
+      https: {
+        key: '../ssl/key.pem',
+        cert: '../ssl/cert.pem',
+      },
+    } : {}),
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
@@ -26,7 +29,10 @@ export default defineConfig({
   define: {
     // Передаем переменные окружения в клиент
     __API_URL__: JSON.stringify(process.env.VITE_API_URL || '/api'),
-    __CLIENT_URL__: JSON.stringify(process.env.VITE_CLIENT_URL || 'https://localhost:5173'),
+    __CLIENT_URL__: JSON.stringify(
+      process.env.VITE_CLIENT_URL || 
+      (process.env.VITE_USE_HTTPS === 'true' ? 'https://localhost:5173' : 'http://localhost:5173')
+    ),
   },
   build: {
     outDir: 'dist',

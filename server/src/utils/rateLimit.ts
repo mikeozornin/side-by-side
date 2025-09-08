@@ -30,16 +30,19 @@ class RateLimiter {
           resetTime: now + options.windowMs
         };
         this.storage.set(key, entry);
+        console.log(`Rate limit: New entry for IP ${ip}, window: ${options.windowMs}ms, max: ${options.maxRequests}`);
       } else {
         // Проверяем лимит
         if (entry.count >= options.maxRequests) {
           const resetInSeconds = Math.ceil((entry.resetTime - now) / 1000);
+          console.log(`Rate limit exceeded for IP ${ip}: ${entry.count}/${options.maxRequests} in ${options.windowMs}ms window`);
           return c.json({
             error: options.message || 'RATE_LIMIT_EXCEEDED',
             retryAfter: resetInSeconds
           }, 429);
         }
         entry.count++;
+        console.log(`Rate limit: IP ${ip} made request ${entry.count}/${options.maxRequests} in ${options.windowMs}ms window`);
       }
 
       await next();

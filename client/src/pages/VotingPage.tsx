@@ -492,7 +492,7 @@ export function VotingPage() {
                 <PopoverContent className="w-80">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <h4 className="font-medium leading-none">{t('voting.endEarlyQuestion')}</h4>
+                      <h4 className="font-medium leading-snug">{t('voting.endEarlyQuestion')}</h4>
                     </div>
                     <div className="flex justify-start">
                       <Button
@@ -524,7 +524,7 @@ export function VotingPage() {
                 <PopoverContent className="w-80">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <h4 className="font-medium leading-none">{t('voting.deleteQuestion')}</h4>
+                      <h4 className="font-medium leading-snug">{t('voting.deleteQuestion')}</h4>
                     </div>
                     <div className="flex justify-start">
                       <Button

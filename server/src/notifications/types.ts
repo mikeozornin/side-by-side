@@ -10,6 +10,7 @@ export interface NotificationData {
   votingUrl: string;
   createdAt: string;
   expiresAt?: string;
+  authorUserId?: string;
 }
 
 export interface NotificationResult {
