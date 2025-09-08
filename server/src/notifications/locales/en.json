@@ -48,5 +48,12 @@
       "button": "Confirm and sign in",
       "footer": "If not, delete this email, someone might have made a typo."
     }
+  },
+  "webPush": {
+    "newVotingTitle": "New side-by-side voting",
+    "providerName": "Web Push",
+    "notConfigured": "Web Push not properly configured",
+    "votingCompleteTitle": "Voting completed!",
+    "votingCompleteBody": "Results are ready: {title}"
   }
 }

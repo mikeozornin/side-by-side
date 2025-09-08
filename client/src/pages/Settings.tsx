@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, RefreshCw, LogOut, X } from 'lucide-react';
+import { Copy, Check, RefreshCw, LogOut, X, AlertCircle } from 'lucide-react';
 import { configManager } from '@/lib/config';
+import { useWebPush } from '@/hooks/useWebPush';
+
 
 export function Settings() {
   const { t } = useTranslation();
@@ -15,6 +19,17 @@ export function Settings() {
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+  
+  // Web Push уведомления
+  const {
+    permission,
+    isSupported,
+    settings,
+    isLoading: notificationsLoading,
+    error: notificationsError,
+    requestPermission,
+    updateSettings,
+  } = useWebPush();
 
   const handleLogout = async () => {
     await logout();
@@ -63,6 +78,78 @@ export function Settings() {
     } catch (error) {
       console.error('Error copying to clipboard:', error);
     }
+  };
+
+  // Обработчики для уведомлений
+  const handleNotificationPermission = async () => {
+    await requestPermission();
+  };
+
+  const handleRefreshPermission = () => {
+    // Принудительно обновляем состояние разрешений
+    const permission = Notification.permission;
+    console.log('Refreshed permission:', permission);
+    // Перезагружаем страницу для обновления состояния
+    window.location.reload();
+  };
+
+  const handleSettingChange = async (key: 'newVotings' | 'myVotingsComplete', value: boolean) => {
+    await updateSettings({ [key]: value });
+  };
+
+  const getNotificationStatus = () => {
+    if (!isSupported) {
+      return {
+        icon: <AlertCircle className="h-4 w-4" />,
+        text: t('settings.notifications.notSupported'),
+        color: 'text-muted-foreground',
+        showButton: false,
+      };
+    }
+
+    if (permission === 'denied') {
+      return {
+        icon: <X className="h-4 w-4" />,
+        text: t('settings.notifications.permissionDenied'),
+        color: 'text-red-600',
+        showButton: true,
+        buttonText: t('settings.notifications.configure'),
+        buttonAction: () => {
+          // Показываем инструкции для разных браузеров
+          const userAgent = navigator.userAgent.toLowerCase();
+          if (userAgent.includes('chrome')) {
+            window.open('chrome://settings/content/notifications');
+          } else if (userAgent.includes('safari')) {
+            alert('Откройте Safari → Настройки → Сайты → Уведомления → localhost:5173 → Разрешить\n\nПосле изменения настроек нажмите "Обновить"');
+          } else if (userAgent.includes('firefox')) {
+            window.open('about:preferences#privacy');
+          } else {
+            alert('Откройте настройки браузера и разрешите уведомления для этого сайта');
+          }
+        },
+        showRefreshButton: true,
+        refreshButtonText: 'Обновить',
+        refreshButtonAction: handleRefreshPermission,
+      };
+    }
+
+    if (permission === 'granted') {
+      return {
+        icon: <Check className="h-4 w-4 text-green-600" />,
+        text: t('settings.notifications.permissionGranted'),
+        color: 'text-green-600',
+        showButton: false,
+      };
+    }
+
+    return {
+      icon: null,
+      text: t('settings.notifications.permissionRequired'),
+      color: 'text-muted-foreground',
+      showButton: true,
+      buttonText: t('settings.notifications.allow'),
+      buttonAction: handleNotificationPermission,
+    };
   };
 
 
@@ -200,6 +287,108 @@ export function Settings() {
             )}
           </div>
         </div>
+
+        {/* Уведомления */}
+        <div>
+          <div className="space-y-4">
+            <h4 className="font-medium">{t('settings.notifications.title')}</h4>
+            
+            {/* Статус разрешений */}
+            <div className="flex items-center gap-2 text-sm">
+              {(() => {
+                const status = getNotificationStatus();
+                return (
+                  <>
+                    {status.icon}
+                    <span className={status.color}>{status.text}</span>
+                    {status.showButton && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={status.buttonAction}
+                        className="h-7 px-3 ml-2"
+                        disabled={notificationsLoading}
+                      >
+                        {status.buttonText}
+                      </Button>
+                    )}
+                    {status.showRefreshButton && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={status.refreshButtonAction}
+                        className="h-7 px-3 ml-2"
+                        disabled={notificationsLoading}
+                      >
+                        {status.refreshButtonText}
+                      </Button>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Switch'и для настроек */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Switch
+                  id="myVotingsComplete"
+                  checked={settings.myVotingsComplete || false}
+                  onCheckedChange={(value) => handleSettingChange('myVotingsComplete', value)}
+                  disabled={permission !== 'granted' || notificationsLoading}
+                />
+                <Label 
+                  htmlFor="myVotingsComplete"
+                  className={`text-sm font-medium cursor-pointer ${
+                    permission !== 'granted' || notificationsLoading 
+                      ? 'text-muted-foreground cursor-not-allowed' 
+                      : ''
+                  }`}
+                  onClick={() => {
+                    if (permission === 'granted' && !notificationsLoading) {
+                      handleSettingChange('myVotingsComplete', !(settings.myVotingsComplete || false));
+                    }
+                  }}
+                >
+                  {t('settings.notifications.myVotingsComplete.label')}
+                </Label>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Switch
+                  id="newVotings"
+                  checked={settings.newVotings || false}
+                  onCheckedChange={(value) => handleSettingChange('newVotings', value)}
+                  disabled={permission !== 'granted' || notificationsLoading}
+                />
+                <Label 
+                  htmlFor="newVotings"
+                  className={`text-sm font-medium cursor-pointer ${
+                    permission !== 'granted' || notificationsLoading 
+                      ? 'text-muted-foreground cursor-not-allowed' 
+                      : ''
+                  }`}
+                  onClick={() => {
+                    if (permission === 'granted' && !notificationsLoading) {
+                      handleSettingChange('newVotings', !(settings.newVotings || false));
+                    }
+                  }}
+                >
+                  {t('settings.notifications.newVotings.label')}
+                </Label>
+              </div>
+            </div>
+
+            {/* Ошибки уведомлений */}
+            {notificationsError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700">{notificationsError}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        
       </div>
 
       {/* Кнопка выхода внизу страницы */}

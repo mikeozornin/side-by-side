@@ -2,8 +2,9 @@ import { cleanupExpiredAuthData, cleanupOldUserSessions } from '../db/auth-queri
 import { logger } from './logger.js';
 import { env } from '../load-env.js';
 
-// Настройки очистки
+// Настройки
 const CLEANUP_INTERVAL_HOURS = 24; // Запускать очистку каждые 24 часа
+const COMPLETION_CHECK_INTERVAL_MS = 60 * 1000; // Проверять завершения каждую минуту
 const USER_SESSION_CLEANUP_LIMIT = 10; // Оставлять максимум 5 сессий на пользователя
 
 // Флаг для предотвращения одновременного выполнения очистки
@@ -12,6 +13,7 @@ let isCleanupRunning = false;
 // Планировщик очистки
 export class CleanupScheduler {
   private intervalId: NodeJS.Timeout | null = null;
+  private completionIntervalId: NodeJS.Timeout | null = null;
   private isRunning = false;
 
   // Запуск планировщика
@@ -35,6 +37,9 @@ export class CleanupScheduler {
         logger.error('Ошибка при периодической очистке:', error);
       });
     }, CLEANUP_INTERVAL_HOURS * 60 * 60 * 1000);
+
+    // Запуск проверки завершённых голосований
+    this.startCompletionWatcher();
   }
 
   // Остановка планировщика
@@ -42,6 +47,10 @@ export class CleanupScheduler {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
+    }
+    if (this.completionIntervalId) {
+      clearInterval(this.completionIntervalId);
+      this.completionIntervalId = null;
     }
     this.isRunning = false;
     logger.info('Cleanup scheduler остановлен');
@@ -107,6 +116,38 @@ export class CleanupScheduler {
       isRunning: this.isRunning,
       nextCleanup: this.intervalId ? new Date(Date.now() + CLEANUP_INTERVAL_HOURS * 60 * 60 * 1000) : undefined
     };
+  }
+
+  private startCompletionWatcher(): void {
+    if (this.completionIntervalId) return;
+    this.completionIntervalId = setInterval(() => {
+      this.checkCompletedVotings().catch((e) => {
+        logger.error('Ошибка проверки завершённых голосований:', e);
+      });
+    }, COMPLETION_CHECK_INTERVAL_MS);
+  }
+
+  private async checkCompletedVotings(): Promise<void> {
+    try {
+      const { getDueCompletedVotings, markVotingCompleteNotified } = await import('../db/queries.js');
+      const { NotificationService } = await import('../notifications/index.js');
+      const service = new NotificationService();
+
+      const due = getDueCompletedVotings(50);
+      if (due.length === 0) return;
+
+      for (const v of due) {
+        try {
+          await service.sendVotingCompletedNotification(v.id, v.title, v.user_id || undefined);
+          markVotingCompleteNotified(v.id);
+          logger.info(`Отправлено уведомление о завершении голосования ${v.id}`);
+        } catch (err) {
+          logger.error(`Ошибка отправки уведомления о завершении голосования ${v.id}:`, err);
+        }
+      }
+    } catch (error) {
+      logger.error('Критическая ошибка в checkCompletedVotings:', error);
+    }
   }
 }
 

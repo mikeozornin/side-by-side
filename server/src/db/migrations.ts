@@ -1,3 +1,4 @@
+// @ts-ignore - types for bun:sqlite are provided at runtime in Bun env
 import { Database } from 'bun:sqlite';
 import { logger } from '../utils/logger.js';
 
@@ -159,6 +160,67 @@ const migrations: Migration[] = [
       db.exec(`
         CREATE INDEX IF NOT EXISTS idx_figma_auth_codes_expires_at ON figma_auth_codes(expires_at);
       `);
+    }
+  },
+  {
+    version: 5,
+    name: 'add_web_push_tables',
+    up: (db: Database) => {
+      // Таблица для хранения подписок на push-уведомления
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS web_push_subscriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          endpoint TEXT NOT NULL,
+          p256dh TEXT NOT NULL,
+          auth TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+      
+      // Таблица для настроек уведомлений пользователей
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS notification_settings (
+          user_id TEXT PRIMARY KEY,
+          new_votings BOOLEAN NOT NULL DEFAULT 0,
+          my_votings_complete BOOLEAN NOT NULL DEFAULT 0,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+      
+      // Создаем индексы
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_web_push_subscriptions_user_id ON web_push_subscriptions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_web_push_subscriptions_endpoint ON web_push_subscriptions(endpoint);
+        CREATE INDEX IF NOT EXISTS idx_notification_settings_user_id ON notification_settings(user_id);
+      `);
+    }
+  },
+  {
+    version: 6,
+    name: 'webpush_unique_endpoint',
+    up: (db: Database) => {
+      // Обеспечиваем уникальность endpoint, чтобы корректно делать upsert
+      db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uniq_web_push_subscriptions_endpoint ON web_push_subscriptions(endpoint);
+      `);
+    }
+  },
+  {
+    version: 7,
+    name: 'add_completed_notified_flag',
+    up: (db: Database) => {
+      // Безопасно добавляем колонку только если её нет (поддержка старых SQLite)
+      const cols = db.prepare(`PRAGMA table_info(votings)`).all() as { name: string }[];
+      const hasColumn = cols.some(c => c.name === 'complete_notified');
+      if (!hasColumn) {
+        db.exec(`ALTER TABLE votings ADD COLUMN complete_notified BOOLEAN NOT NULL DEFAULT 0`);
+      }
+
+      // Индекс по времени завершения для быстрых выборок
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_votings_end_at_notified ON votings(end_at, complete_notified)`);
     }
   }
 ];

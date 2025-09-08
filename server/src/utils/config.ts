@@ -15,6 +15,12 @@ export interface ServerConfig {
     authVerifyTokenPerMinute: number;
     figmaAuthPerMinute: number;
   };
+  webPush: {
+    enabled: boolean;
+    vapidPublicKey: string;
+    vapidPrivateKey: string;
+    vapidEmail: string;
+  };
 }
 
 export class ConfigManager {
@@ -25,8 +31,9 @@ export class ConfigManager {
   }
 
   private loadConfig(): ServerConfig {
+    const mode = (process.env.SERVER_MODE as 'development' | 'production') || 'development';
     return {
-      mode: (process.env.SERVER_MODE as 'development' | 'production') || 'development',
+      mode,
       port: parseInt(process.env.PORT || '3000'),
       baseUrl: process.env.BASE_URL || 'http://localhost:3000',
       votingBaseUrl: process.env.VOTING_BASE_URL || 'https://localhost:5173',
@@ -34,11 +41,17 @@ export class ConfigManager {
       logDir: process.env.LOG_DIR || './logs',
       dbPath: process.env.DB_PATH || './app.db',
       rateLimit: {
-        votingPerMinute: parseInt(process.env.RATE_LIMIT_VOTING_PER_MINUTE || '6'),
-        votingPerHour: parseInt(process.env.RATE_LIMIT_VOTING_PER_HOUR || '60'),
+        votingPerMinute: parseInt(process.env.RATE_LIMIT_VOTING_PER_MINUTE || (mode === 'development' ? '100' : '6')),
+        votingPerHour: parseInt(process.env.RATE_LIMIT_VOTING_PER_HOUR || (mode === 'development' ? '1000' : '60')),
         authMagicLinkPerMinute: parseInt(process.env.RATE_LIMIT_AUTH_MAGIC_LINK_PER_MINUTE || '5'),
         authVerifyTokenPerMinute: parseInt(process.env.RATE_LIMIT_AUTH_VERIFY_TOKEN_PER_MINUTE || '5'),
         figmaAuthPerMinute: parseInt(process.env.RATE_LIMIT_FIGMA_AUTH_PER_MINUTE || '10')
+      },
+      webPush: {
+        enabled: process.env.WEB_PUSH_ENABLED === 'true',
+        vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '',
+        vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
+        vapidEmail: process.env.VAPID_EMAIL || 'mailto:admin@side-by-side.com'
       }
     };
   }
@@ -72,10 +85,10 @@ export class ConfigManager {
   getVotingUrl(votingId: string): string {
     if (this.isDevelopment()) {
       // В dev режиме используем клиентский URL с хешем
-      return `${this.config.votingBaseUrl}/#/voting/${votingId}`;
+      return `${this.config.votingBaseUrl}/#/v/${votingId}`;
     } else {
       // В prod режиме используем базовый URL с хешем
-      return `${this.config.baseUrl}/#/voting/${votingId}`;
+      return `${this.config.baseUrl}/#/v/${votingId}`;
     }
   }
 
@@ -153,6 +166,18 @@ export class ConfigManager {
         serveStatic: false
       };
     }
+  }
+
+  // Получить конфигурацию Web Push
+  getWebPushConfig() {
+    return this.config.webPush;
+  }
+
+  // Проверить, включены ли Web Push уведомления
+  isWebPushEnabled(): boolean {
+    return this.config.webPush.enabled && 
+           !!this.config.webPush.vapidPublicKey && 
+           !!this.config.webPush.vapidPrivateKey;
   }
 }
 
