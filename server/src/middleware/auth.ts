@@ -32,7 +32,7 @@ export async function requireFigmaAuth(c: AuthContext, next: Next) {
     }
     
     // Получаем пользователя из БД
-    const user = getUserById(payload.userId);
+    const user = await getUserById(payload.userId);
     if (!user) {
       return c.json({ error: 'User not found' }, 401);
     }
@@ -78,7 +78,7 @@ export async function requireAuth(c: AuthContext, next: Next) {
     }
     
     // Получаем пользователя из БД
-    const user = getUserById(payload.userId);
+    const user = await getUserById(payload.userId);
     if (!user) {
       return c.json({ error: 'User not found' }, 401);
     }
@@ -117,7 +117,7 @@ export async function requireVotingAuth(c: AuthContext, next: Next) {
     }
     
     // Получаем пользователя из БД
-    const user = getUserById(payload.userId);
+    const user = await getUserById(payload.userId);
     if (!user) {
       return c.json({ error: 'User not found' }, 401);
     }
@@ -151,7 +151,7 @@ export async function requireVotingOwner(c: AuthContext, next: Next) {
     
     // Получаем голосование из БД
     const { getVoting } = await import('../db/queries.js');
-    const voting = getVoting(votingId);
+    const voting = await getVoting(votingId);
     
     if (!voting) {
       return c.json({ error: 'Voting not found' }, 404);
@@ -187,7 +187,7 @@ export async function optionalVotingAuth(c: AuthContext, next: Next) {
       
       if (payload) {
         // Получаем пользователя из БД
-        const user = getUserById(payload.userId);
+        const user = await getUserById(payload.userId);
         if (user) {
           c.user = user;
         }

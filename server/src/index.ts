@@ -24,7 +24,7 @@ async function startServer() {
 
     // Комплексная очистка истекших данных аутентификации при запуске
     logger.info('🧹 Выполняем начальную очистку истекших данных аутентификации...');
-    const cleanupResult = cleanupExpiredAuthData();
+    const cleanupResult = await cleanupExpiredAuthData();
     if (cleanupResult.total > 0) {
       logger.info(`🗑️  Очищено при запуске: ${cleanupResult.total} записей`);
     }

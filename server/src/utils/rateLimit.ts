@@ -142,12 +142,3 @@ export const verifyTokenLimiter = ((): MiddlewareHandler => {
   });
 })();
 
-// Middleware для Figma аутентификации
-export const figmaAuthLimiter = ((): MiddlewareHandler => {
-  const config = configManager.getConfig();
-  return rateLimiter.limit({
-    windowMs: 60 * 1000, // 1 минута
-    maxRequests: config.rateLimit.figmaAuthPerMinute,
-    message: 'Too many Figma authentication attempts, please try again in a minute.'
-  });
-})();

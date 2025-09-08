@@ -1,11 +1,26 @@
 import { initDatabase, closeDatabase, getDatabase } from './init.js';
-import { getAllVotings, getVotingOptions, getVotesForVoting } from './queries.js';
+import { getAllVotings, getVotesForVoting } from './queries.js';
 import { logger } from '../utils/logger.js';
 
 interface CompatibilityCheck {
   test: string;
   passed: boolean;
   message: string;
+}
+
+async function checkTableExists(db: any, tableName: string): Promise<boolean> {
+  try {
+    const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
+    if (DB_PROVIDER === 'postgres') {
+        const res = await db.query(`SELECT to_regclass(?) as name`, [`public.${tableName}`]);
+        return res[0].name === tableName;
+    } else {
+        const res = await db.get(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, [tableName]);
+        return !!res;
+    }
+  } catch (e) {
+    return false;
+  }
 }
 
 async function checkBackwardCompatibility(): Promise<void> {
@@ -20,7 +35,7 @@ async function checkBackwardCompatibility(): Promise<void> {
     
     // Проверка 1: Существующие голосования без user_id должны работать
     logger.info('Проверка 1: Голосования без user_id');
-    const votings = getAllVotings();
+    const votings = await getAllVotings();
     const anonymousVotings = votings.filter(v => !v.user_id);
     checks.push({
       test: 'Анонимные голосования',
@@ -41,7 +56,7 @@ async function checkBackwardCompatibility(): Promise<void> {
     logger.info('Проверка 3: Анонимные голоса');
     let anonymousVotes = 0;
     for (const voting of votings) {
-      const votes = getVotesForVoting(voting.id);
+      const votes = await getVotesForVoting(voting.id);
       anonymousVotes += votes.filter(v => !v.user_id).length;
     }
     checks.push({
@@ -54,7 +69,7 @@ async function checkBackwardCompatibility(): Promise<void> {
     logger.info('Проверка 4: Голоса с пользователями');
     let userVotes = 0;
     for (const voting of votings) {
-      const votes = getVotesForVoting(voting.id);
+      const votes = await getVotesForVoting(voting.id);
       userVotes += votes.filter(v => v.user_id).length;
     }
     checks.push({
@@ -84,10 +99,13 @@ async function checkBackwardCompatibility(): Promise<void> {
     // Проверка 7: Все таблицы авторизации должны существовать
     logger.info('Проверка 7: Таблицы авторизации');
     const authTables = ['users', 'sessions', 'magic_tokens', 'figma_auth_codes'];
-    const existingTables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[];
-    const tableNames = existingTables.map(t => t.name);
+    const missingTables: string[] = [];
+    for (const table of authTables) {
+      if (!await checkTableExists(db, table)) {
+        missingTables.push(table);
+      }
+    }
     
-    const missingTables = authTables.filter(table => !tableNames.includes(table));
     checks.push({
       test: 'Таблицы авторизации',
       passed: missingTables.length === 0,

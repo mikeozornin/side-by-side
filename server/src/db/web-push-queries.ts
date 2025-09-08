@@ -1,21 +1,21 @@
-import { Database } from 'bun:sqlite';
 import { getDatabase } from './init.js';
 import { logger } from '../utils/logger.js';
+import { prepareQuery } from './utils.js';
 
 export interface WebPushSubscription {
   id: number;
-  userId: string;
+  user_id: string;
   endpoint: string;
   p256dh: string;
   auth: string;
-  createdAt: string;
+  created_at: string;
 }
 
 export interface NotificationSettings {
-  userId: string;
-  newVotings: boolean;
-  myVotingsComplete: boolean;
-  updatedAt: string;
+  user_id: string;
+  new_votings: boolean;
+  my_votings_complete: boolean;
+  updated_at: string;
 }
 
 // Сохранить подписку на Web Push
@@ -26,20 +26,28 @@ export async function saveWebPushSubscription(data: {
   auth: string;
 }): Promise<void> {
   const db = getDatabase();
-  
+  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
+
   try {
-    // Создаем или обновляем подписку по endpoint
-    // Требует уникального индекса на endpoint
-    const stmt = db.prepare(`
+    const sql = DB_PROVIDER === 'postgres'
+      ? `
+      INSERT INTO web_push_subscriptions (user_id, endpoint, p256dh, auth)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT(endpoint) DO UPDATE SET
+        user_id = EXCLUDED.user_id,
+        p256dh = EXCLUDED.p256dh,
+        auth = EXCLUDED.auth
+    `
+      : `
       INSERT INTO web_push_subscriptions (user_id, endpoint, p256dh, auth)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(endpoint) DO UPDATE SET
         user_id = excluded.user_id,
         p256dh = excluded.p256dh,
         auth = excluded.auth
-    `);
+    `;
 
-    stmt.run(data.userId, data.endpoint, data.p256dh, data.auth);
+    await db.run(sql, [data.userId, data.endpoint, data.p256dh, data.auth]);
     
     logger.info(`Web Push subscription saved for user ${data.userId}`);
   } catch (error) {
@@ -53,13 +61,10 @@ export async function deleteWebPushSubscription(userId: string): Promise<void> {
   const db = getDatabase();
   
   try {
-    const stmt = db.prepare(`
-      DELETE FROM web_push_subscriptions WHERE user_id = ?
-    `);
+    const sql = prepareQuery('DELETE FROM web_push_subscriptions WHERE user_id = ?');
+    const result = await db.run(sql, [userId]);
     
-    const result = stmt.run(userId);
-    
-    if (result.changes > 0) {
+    if (result.changes && result.changes > 0) {
       logger.info(`Web Push subscription deleted for user ${userId}`);
     }
   } catch (error) {
@@ -73,13 +78,10 @@ export async function deleteWebPushSubscriptionByEndpoint(userId: string, endpoi
   const db = getDatabase();
 
   try {
-    const stmt = db.prepare(`
-      DELETE FROM web_push_subscriptions WHERE user_id = ? AND endpoint = ?
-    `);
+    const sql = prepareQuery('DELETE FROM web_push_subscriptions WHERE user_id = ? AND endpoint = ?');
+    const result = await db.run(sql, [userId, endpoint]);
 
-    const result = stmt.run(userId, endpoint);
-
-    if (result.changes > 0) {
+    if (result.changes && result.changes > 0) {
       logger.info(`Web Push subscription deleted for user ${userId} by endpoint`);
     }
   } catch (error) {
@@ -93,12 +95,8 @@ export async function getWebPushSubscription(userId: string): Promise<WebPushSub
   const db = getDatabase();
   
   try {
-    const stmt = db.prepare(`
-      SELECT * FROM web_push_subscriptions WHERE user_id = ?
-    `);
-    
-    const result = stmt.get(userId) as WebPushSubscription | undefined;
-    return result || null;
+    const sql = prepareQuery('SELECT * FROM web_push_subscriptions WHERE user_id = ?');
+    return await db.get<WebPushSubscription>(sql, [userId]);
   } catch (error) {
     logger.error('Error getting Web Push subscription:', error);
     throw error;
@@ -110,12 +108,8 @@ export async function getAllWebPushSubscriptions(): Promise<WebPushSubscription[
   const db = getDatabase();
   
   try {
-    const stmt = db.prepare(`
-      SELECT * FROM web_push_subscriptions ORDER BY created_at DESC
-    `);
-    
-    const results = stmt.all() as WebPushSubscription[];
-    return results;
+    const sql = prepareQuery('SELECT * FROM web_push_subscriptions ORDER BY created_at DESC');
+    return await db.query<WebPushSubscription>(sql);
   } catch (error) {
     logger.error('Error getting all Web Push subscriptions:', error);
     throw error;
@@ -127,21 +121,17 @@ export async function getNotificationSettings(userId: string): Promise<Notificat
   const db = getDatabase();
   
   try {
-    const stmt = db.prepare(`
-      SELECT user_id, new_votings, my_votings_complete, updated_at FROM notification_settings WHERE user_id = ?
-    `);
+    const sql = prepareQuery('SELECT user_id, new_votings, my_votings_complete, updated_at FROM notification_settings WHERE user_id = ?');
+    const result = await db.get<NotificationSettings>(sql, [userId]);
     
-    const result = stmt.get(userId) as any;
     if (!result) {
       return null;
     }
     
-    // Конвертируем числа в булевы значения
     return {
-      userId: result.user_id,
-      newVotings: Boolean(result.new_votings),
-      myVotingsComplete: Boolean(result.my_votings_complete),
-      updatedAt: result.updated_at
+      ...result,
+      new_votings: Boolean(result.new_votings),
+      my_votings_complete: Boolean(result.my_votings_complete),
     };
   } catch (error) {
     logger.error('Error getting notification settings:', error);
@@ -155,14 +145,24 @@ export async function updateNotificationSettings(
   settings: { newVotings: boolean; myVotingsComplete: boolean }
 ): Promise<void> {
   const db = getDatabase();
+  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
   
   try {
-    const stmt = db.prepare(`
+    const sql = DB_PROVIDER === 'postgres'
+      ? `
+      INSERT INTO notification_settings (user_id, new_votings, my_votings_complete, updated_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT(user_id) DO UPDATE SET
+        new_votings = EXCLUDED.new_votings,
+        my_votings_complete = EXCLUDED.my_votings_complete,
+        updated_at = NOW()
+    `
+      : `
       INSERT OR REPLACE INTO notification_settings (user_id, new_votings, my_votings_complete, updated_at)
       VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    `);
+    `;
     
-    stmt.run(userId, settings.newVotings ? 1 : 0, settings.myVotingsComplete ? 1 : 0);
+    await db.run(sql, [userId, settings.newVotings, settings.myVotingsComplete]);
     
     logger.info(`Notification settings updated for user ${userId}`);
   } catch (error) {
@@ -176,14 +176,13 @@ export async function getUsersSubscribedToNewVotings(): Promise<WebPushSubscript
   const db = getDatabase();
   
   try {
-    const stmt = db.prepare(`
+    const sql = prepareQuery(`
       SELECT wps.* FROM web_push_subscriptions wps
       INNER JOIN notification_settings ns ON wps.user_id = ns.user_id
-      WHERE ns.new_votings = 1
+      WHERE ns.new_votings = TRUE
     `);
     
-    const results = stmt.all() as WebPushSubscription[];
-    return results;
+    return await db.query<WebPushSubscription>(sql);
   } catch (error) {
     logger.error('Error getting users subscribed to new votings:', error);
     throw error;
@@ -195,14 +194,13 @@ export async function getUsersSubscribedToMyVotingsComplete(): Promise<WebPushSu
   const db = getDatabase();
   
   try {
-    const stmt = db.prepare(`
+    const sql = prepareQuery(`
       SELECT wps.* FROM web_push_subscriptions wps
       INNER JOIN notification_settings ns ON wps.user_id = ns.user_id
-      WHERE ns.my_votings_complete = 1
+      WHERE ns.my_votings_complete = TRUE
     `);
     
-    const results = stmt.all() as WebPushSubscription[];
-    return results;
+    return await db.query<WebPushSubscription>(sql);
   } catch (error) {
     logger.error('Error getting users subscribed to my votings complete:', error);
     throw error;
@@ -214,14 +212,13 @@ export async function getUserSubscriptionsForVotingComplete(userId: string): Pro
   const db = getDatabase();
   
   try {
-    const stmt = db.prepare(`
+    const sql = prepareQuery(`
       SELECT wps.* FROM web_push_subscriptions wps
       INNER JOIN notification_settings ns ON wps.user_id = ns.user_id
-      WHERE wps.user_id = ? AND ns.my_votings_complete = 1
+      WHERE wps.user_id = ? AND ns.my_votings_complete = TRUE
     `);
     
-    const results = stmt.all(userId) as WebPushSubscription[];
-    return results;
+    return await db.query<WebPushSubscription>(sql, [userId]);
   } catch (error) {
     logger.error('Error getting user subscriptions for voting complete:', error);
     throw error;

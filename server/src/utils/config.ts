@@ -13,7 +13,6 @@ export interface ServerConfig {
     votingPerHour: number;
     authMagicLinkPerMinute: number;
     authVerifyTokenPerMinute: number;
-    figmaAuthPerMinute: number;
   };
   webPush: {
     enabled: boolean;
@@ -44,8 +43,7 @@ export class ConfigManager {
         votingPerMinute: parseInt(process.env.RATE_LIMIT_VOTING_PER_MINUTE || (mode === 'development' ? '100' : '6')),
         votingPerHour: parseInt(process.env.RATE_LIMIT_VOTING_PER_HOUR || (mode === 'development' ? '1000' : '60')),
         authMagicLinkPerMinute: parseInt(process.env.RATE_LIMIT_AUTH_MAGIC_LINK_PER_MINUTE || '5'),
-        authVerifyTokenPerMinute: parseInt(process.env.RATE_LIMIT_AUTH_VERIFY_TOKEN_PER_MINUTE || '5'),
-        figmaAuthPerMinute: parseInt(process.env.RATE_LIMIT_FIGMA_AUTH_PER_MINUTE || '10')
+        authVerifyTokenPerMinute: parseInt(process.env.RATE_LIMIT_AUTH_VERIFY_TOKEN_PER_MINUTE || '5')
       },
       webPush: {
         enabled: process.env.WEB_PUSH_ENABLED === 'true',
