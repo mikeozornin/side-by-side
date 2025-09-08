@@ -103,6 +103,30 @@
       "step2": "Click the \"Login\" button",
       "step3": "Enter the code:",
       "step4": "Done!"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "permissionRequired": "Allow notifications in your browser to get started.",
+      "permissionGranted": "Browser notifications are enabled",
+      "permissionDenied": "Notifications are blocked in your browser",
+      "notSupported": "Your browser doesn't support notifications",
+      "allow": "Allow",
+      "configure": "Configure",
+      "newVotings": {
+        "label": "Notify about new votings",
+        "description": "Receive notifications when new votings are created"
+      },
+      "myVotingsComplete": {
+        "label": "Notify about completion of my votings",
+        "description": "Receive notifications when your votings are completed"
+      },
+      "errors": {
+        "loadSettings": "Failed to load notification settings",
+        "updateSettings": "Failed to update settings",
+        "requestPermission": "Failed to request notification permission",
+        "subscribe": "Failed to subscribe to notifications",
+        "unsubscribe": "Failed to unsubscribe from notifications"
+      }
     }
   },
   "common": {

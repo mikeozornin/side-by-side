@@ -27,6 +27,7 @@ export interface Voting {
   is_public: boolean;
   user_id: string | null;
   user_email?: string | null;
+  complete_notified?: number;
 }
 
 export interface VotingOption {
@@ -79,6 +80,23 @@ export function getPublicVotings(): Voting[] {
     WHERE v.is_public = 1 
     ORDER BY v.created_at DESC
   `);
+}
+
+// Возвращает публичные голосования, которые завершились и по которым ещё не отправляли уведомление
+export function getDueCompletedVotings(limit: number = 50): Voting[] {
+  return allQuery<Voting>(`
+    SELECT v.* FROM votings v
+    WHERE v.is_public = 1
+      AND datetime(v.end_at) <= datetime('now')
+      AND (v.complete_notified IS NULL OR v.complete_notified = 0)
+    ORDER BY v.end_at ASC
+    LIMIT ?
+  `, [limit]);
+}
+
+// Пометить голосование как уведомлённое о завершении
+export function markVotingCompleteNotified(id: string): void {
+  runQuery('UPDATE votings SET complete_notified = 1 WHERE id = ?', [id]);
 }
 
 export function deleteVoting(id: string): boolean {
