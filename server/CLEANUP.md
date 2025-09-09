@@ -1,74 +1,74 @@
-# Система очистки истекших данных
+# Expired Data Cleanup System
 
-## Обзор
+## Overview
 
-Система очистки автоматически удаляет истекшие данные аутентификации для поддержания чистоты базы данных и предотвращения накопления устаревшей информации.
+The cleanup system automatically removes expired authentication data to maintain database cleanliness and prevent accumulation of outdated information.
 
-## Что очищается
+## What Gets Cleaned
 
-### 1. Сессии (sessions)
-- **Условие**: `expires_at <= datetime('now')`
-- **Описание**: Удаляются сессии с истекшим сроком действия
+### 1. Sessions (sessions)
+- **Condition**: `expires_at <= datetime('now')`
+- **Description**: Removes sessions with expired validity period
 
 ### 2. Magic Tokens (magic_tokens)
-- **Условие**: `expires_at <= datetime('now')` ИЛИ `used_at <= datetime('now', '-1 hour')`
-- **Описание**: Удаляются истекшие токены и использованные токены старше 1 часа
+- **Condition**: `expires_at <= datetime('now')` OR `used_at <= datetime('now', '-1 hour')`
+- **Description**: Removes expired tokens and used tokens older than 1 hour
 
 ### 3. Figma Auth Codes (figma_auth_codes)
-- **Условие**: `expires_at <= datetime('now')` ИЛИ `used_at <= datetime('now', '-1 hour')`
-- **Описание**: Удаляются истекшие коды и использованные коды старше 1 часа
+- **Condition**: `expires_at <= datetime('now')` OR `used_at <= datetime('now', '-1 hour')`
+- **Description**: Removes expired codes and used codes older than 1 hour
 
-## Когда запускается очистка
+## When Cleanup Runs
 
-### Автоматическая очистка
-- **При запуске сервера**: Немедленная комплексная очистка всех данных
-- **Периодически**: Каждые 24 часа (настраивается в `CLEANUP_INTERVAL_HOURS`)
-- **При создании сессии**: Очистка старых сессий пользователя (оставляются последние 5)
+### Automatic Cleanup
+- **On server startup**: Immediate comprehensive cleanup of all data
+- **Periodically**: Every 24 hours (configurable in `CLEANUP_INTERVAL_HOURS`)
+- **On session creation**: Cleanup of old user sessions (keeps last 5)
 
-### Ручная очистка
-Через API эндпоинты (требуют авторизации):
+### Manual Cleanup
+Via API endpoints (requires authorization):
 
 ```bash
-# Комплексная очистка всех данных
+# Comprehensive cleanup of all data
 POST /api/auth/cleanup
 
-# Очистка только Figma кодов
+# Cleanup Figma codes only
 POST /api/auth/cleanup-figma-codes
 
-# Проверка статуса планировщика
+# Check scheduler status
 GET /api/auth/cleanup/status
 ```
 
-## Настройка
+## Configuration
 
-### Переменные окружения
+### Environment Variables
 ```bash
-# Интервал автоматической очистки (часы)
+# Automatic cleanup interval (hours)
 CLEANUP_INTERVAL_HOURS=24
 
-# Максимальное количество сессий на пользователя
+# Maximum number of sessions per user
 USER_SESSION_CLEANUP_LIMIT=5
 ```
 
-### Настройка интервала
-Измените константу в файле `src/utils/cleanup-scheduler.ts`:
+### Interval Configuration
+Change the constant in `src/utils/cleanup-scheduler.ts`:
 ```typescript
-const CLEANUP_INTERVAL_HOURS = 24; // Измените на нужное значение
+const CLEANUP_INTERVAL_HOURS = 24; // Change to desired value
 ```
 
-## Мониторинг
+## Monitoring
 
-### Логи
-Система записывает в логи информацию о каждой очистке:
+### Logs
+The system logs information about each cleanup:
 ```
-🧹 Выполняем начальную очистку истекших данных аутентификации...
-🗑️  Очищено при запуске: 15 записей
-Очищено истекших сессий: 5
-Очищено magic tokens: 8 (истекших: 6, использованных: 2)
-Очищено кодов Figma: 2 (истекших: 1, использованных: 1)
+🧹 Performing initial cleanup of expired authentication data...
+🗑️  Cleaned on startup: 15 records
+Cleaned expired sessions: 5
+Cleaned magic tokens: 8 (expired: 6, used: 2)
+Cleaned Figma codes: 2 (expired: 1, used: 1)
 ```
 
-### API статус
+### API Status
 ```json
 {
   "cleanupScheduler": {
@@ -79,45 +79,45 @@ const CLEANUP_INTERVAL_HOURS = 24; // Измените на нужное зна�
 }
 ```
 
-## Безопасность
+## Security
 
-- **Атомарные операции**: Все очистки выполняются в рамках транзакций БД
-- **Защита от гонок**: Предотвращение одновременного запуска нескольких очисток
-- **Логирование**: Все операции записываются для аудита
-- **Graceful shutdown**: Планировщик корректно останавливается при завершении сервера
+- **Atomic operations**: All cleanups are performed within database transactions
+- **Race condition protection**: Prevents simultaneous execution of multiple cleanups
+- **Logging**: All operations are logged for audit
+- **Graceful shutdown**: Scheduler properly stops on server termination
 
-## Производительность
+## Performance
 
-- **Батчевая обработка**: Очистка выполняется пакетами для минимизации нагрузки
-- **Индексы**: Используются существующие индексы по `expires_at` полям
-- **Фоновая работа**: Очистка не блокирует основной поток приложения
+- **Batch processing**: Cleanup is performed in batches to minimize load
+- **Indexes**: Uses existing indexes on `expires_at` fields
+- **Background work**: Cleanup doesn't block the main application thread
 
-## Отладка
+## Debugging
 
-### Ручной запуск
+### Manual Run
 ```bash
-# В коде сервера
+# In server code
 import { runManualCleanup } from './utils/cleanup-scheduler.js';
 const result = await runManualCleanup();
-console.log('Результат очистки:', result);
+console.log('Cleanup result:', result);
 ```
 
-### Проверка состояния
+### Status Check
 ```bash
-# Получение статуса планировщика
+# Get scheduler status
 GET /api/auth/cleanup/status
 ```
 
-## Расширение
+## Extension
 
-Для добавления новой категории данных для очистки:
+To add a new data category for cleanup:
 
-1. **Создайте функцию очистки** в `src/db/auth-queries.ts`
-2. **Добавьте вызов** в `cleanupExpiredAuthData()`
-3. **Обновите типы** возвращаемых значений
-4. **Добавьте логирование** для новой категории
+1. **Create cleanup function** in `src/db/auth-queries.ts`
+2. **Add call** in `cleanupExpiredAuthData()`
+3. **Update types** for return values
+4. **Add logging** for new category
 
-Пример:
+Example:
 ```typescript
 export function cleanupExpiredTable(): number {
   const db = getDatabase();

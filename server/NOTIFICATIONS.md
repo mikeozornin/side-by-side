@@ -1,153 +1,153 @@
-# Система уведомлений
+# Notification System
 
-Система уведомлений позволяет отправлять сообщения в чаты при создании новых сайд-бай-сайдов.
+The notification system allows sending messages to chats when new side-by-sides are created.
 
-## Поддерживаемые провайдеры
+## Supported Providers
 
-- **Mattermost** - через webhook (реализован)
-- **Telegram** - заготовка для будущего
+- **Mattermost** - via webhook (implemented)
+- **Telegram** - placeholder for future
 
-## Настройка
+## Configuration
 
-### 1. ENV переменные
+### 1. ENV Variables
 
-Скопируйте `env.example` в `.env.development` (или `.env`) и настройте переменные:
+Copy `env.example` to `.env.development` (or `.env`) and configure variables:
 
-**Приоритет загрузки .env файлов:**
+**ENV file loading priority:**
 1. `.env.development`
 2. `.env.local` 
 3. `.env`
 4. `.env.production`
 
 ```bash
-# URL для ссылок на голосования (клиентская часть)
+# URL for voting links (client side)
 VOTING_BASE_URL=http://localhost:5173
 
-# Уведомления в чаты
-# Локализация уведомлений (ru/en)
+# Chat notifications
+# Notification localization (ru/en)
 NOTIFICATIONS_LOCALE=ru
 
 # Mattermost
 MATTERMOST_ENABLED=true
 MATTERMOST_WEBHOOK_URL=https://your-mattermost-server.com/hooks/your-webhook-id
 
-# Telegram (для будущего)
+# Telegram (for future)
 TELEGRAM_ENABLED=false
 TELEGRAM_BOT_TOKEN=your-bot-token
 TELEGRAM_CHAT_ID=your-chat-id
 ```
 
-### 2. Настройка Mattermost Webhook
+### 2. Mattermost Webhook Setup
 
-1. В Mattermost перейдите в **System Console** → **Integrations** → **Custom Integrations**
-2. Включите **Enable Incoming Webhooks**
-3. Создайте новый webhook:
-   - Выберите канал для уведомлений
-   - Скопируйте URL webhook'а
-   - Вставьте в `MATTERMOST_WEBHOOK_URL`
+1. In Mattermost go to **System Console** → **Integrations** → **Custom Integrations**
+2. Enable **Enable Incoming Webhooks**
+3. Create a new webhook:
+   - Select channel for notifications
+   - Copy webhook URL
+   - Paste into `MATTERMOST_WEBHOOK_URL`
 
-## Тестирование
+## Testing
 
-Запустите команду тестирования:
+Run the testing command:
 
 ```bash
 npm run test:notifications
 ```
 
-Команда отправит тестовое сообщение во все активные провайдеры и покажет результаты.
+The command will send a test message to all active providers and show results.
 
-### Тестирование локализации
+### Localization Testing
 
 ```bash
 npm run test:locale
 ```
 
-Команда покажет текущую локаль и протестирует переводы на разных языках.
+The command will show current locale and test translations in different languages.
 
-### Диагностика проблем
+### Problem Diagnostics
 
 ```bash
 npm run check:env
 ```
 
-Команда проверит все ENV переменные и покажет их значения. Полезно для диагностики проблем с настройкой.
+The command will check all ENV variables and show their values. Useful for diagnosing configuration issues.
 
-**Частые проблемы:**
-- `.env` файл не найден или не загружается
-- `MATTERMOST_ENABLED` не установлен в `true` (строгое сравнение)
-- `MATTERMOST_WEBHOOK_URL` не установлен или имеет неверный формат
+**Common issues:**
+- `.env` file not found or not loading
+- `MATTERMOST_ENABLED` not set to `true` (strict comparison)
+- `MATTERMOST_WEBHOOK_URL` not set or has invalid format
 
-## Архитектура
+## Architecture
 
 ```
 server/src/notifications/
-├── types.ts                    # Интерфейсы и типы
-├── i18n.ts                     # Система локализации
-├── notificationService.ts      # Основной сервис
+├── types.ts                    # Interfaces and types
+├── i18n.ts                     # Localization system
+├── notificationService.ts      # Main service
 ├── locales/
-│   ├── ru.json                # Русские переводы
-│   └── en.json                # Английские переводы
+│   ├── ru.json                # Russian translations
+│   └── en.json                # English translations
 ├── providers/
-│   ├── base.ts                # Базовый класс провайдера
-│   ├── mattermost.ts          # Mattermost провайдер
-│   └── telegram.ts            # Заготовка для Telegram
-└── index.ts                   # Экспорты
+│   ├── base.ts                # Base provider class
+│   ├── mattermost.ts          # Mattermost provider
+│   └── telegram.ts            # Telegram placeholder
+└── index.ts                   # Exports
 ```
 
-## Добавление нового провайдера
+## Adding New Provider
 
-1. Создайте новый класс, наследующий от `NotificationProvider`
-2. Реализуйте методы `send()`, `validate()`, `name`
-3. Добавьте провайдер в `NotificationService.initializeProviders()`
-4. Добавьте соответствующие ENV переменные
+1. Create a new class inheriting from `NotificationProvider`
+2. Implement `send()`, `validate()`, `name` methods
+3. Add provider to `NotificationService.initializeProviders()`
+4. Add corresponding ENV variables
 
-## Формат сообщения
+## Message Format
 
-Сообщения отправляются в формате:
+Messages are sent in format:
 
 ```
-**Новый сайд-бай-сайд для голосования!**
+**New side-by-side for voting!**
 
-[Название голосования](ссылка)
+[Voting Title](link)
 ```
 
-## Логирование
+## Logging
 
-Все операции логируются через существующую систему логирования:
-- Успешные отправки: `INFO` уровень
-- Ошибки: `ERROR` уровень  
-- Предупреждения: `WARN` уровень
+All operations are logged through the existing logging system:
+- Successful sends: `INFO` level
+- Errors: `ERROR` level  
+- Warnings: `WARN` level
 
-**Примечание:** Логи пишутся на английском языке для универсальности.
+**Note:** Logs are written in English for universality.
 
-## Локализация
+## Localization
 
-Система поддерживает локализацию через файлы в `locales/`:
-- `ru.json` - русские переводы (по умолчанию)
-- `en.json` - английские переводы
+The system supports localization through files in `locales/`:
+- `ru.json` - Russian translations (default)
+- `en.json` - English translations
 
-### Настройка локали
+### Locale Configuration
 
-**Через ENV переменную (рекомендуется):**
+**Via ENV variable (recommended):**
 ```bash
-NOTIFICATIONS_LOCALE=en  # или ru
+NOTIFICATIONS_LOCALE=en  # or ru
 ```
 
-**Программно:**
+**Programmatically:**
 ```typescript
 import { i18n } from './notifications/i18n.js';
-i18n.setLocale('en'); // или 'ru'
+i18n.setLocale('en'); // or 'ru'
 ```
 
-### Поддерживаемые языки
+### Supported Languages
 
-- `ru` - Русский (по умолчанию)
-- `en` - Английский
+- `ru` - Russian (default)
+- `en` - English
 
-При неверном значении `NOTIFICATIONS_LOCALE` система автоматически использует русский язык и выводит предупреждение в лог.
+When `NOTIFICATIONS_LOCALE` has an invalid value, the system automatically uses Russian language and outputs a warning to the log.
 
-### Особенности
+### Features
 
-- Все пользовательские сообщения (в консоли, уведомлениях) локализованы
-- Логи остаются на английском для универсальности
-- Система автоматически инициализируется с локалью из ENV при старте
+- All user messages (in console, notifications) are localized
+- Logs remain in English for universality
+- System automatically initializes with locale from ENV on startup
