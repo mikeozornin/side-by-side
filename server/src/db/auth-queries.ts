@@ -97,14 +97,10 @@ export async function createFigmaCode(userId: string, codeHash: string, expiresA
   const db = getDatabase();
   
   // Удаляем ВСЕ существующие коды этого пользователя (включая активные)
-  const deleteResult = await db.run(prepareQuery(`
+  await db.run(prepareQuery(`
     DELETE FROM figma_auth_codes 
     WHERE user_id = ?
   `), [userId]);
-  
-  if (deleteResult.changes && deleteResult.changes > 0) {
-    console.log(`Удалено ${deleteResult.changes} существующих кодов для пользователя ${userId}`);
-  }
   
   // Создаем новый код
   await db.run(prepareQuery('INSERT INTO figma_auth_codes (code_hash, user_id, expires_at) VALUES (?, ?, ?)'), [codeHash, userId, expiresAt]);
@@ -124,6 +120,7 @@ export async function verifyAndUseFigmaCode(code: string): Promise<{ user: User;
   // Проверяем каждый код
   for (const codeRecord of codes) {
     const isValid = await verifyToken(code, codeRecord.code_hash);
+    
     if (isValid) {
       // Помечаем код как использованный
       await db.run(prepareQuery('UPDATE figma_auth_codes SET used_at = ? WHERE code_hash = ?'), [new Date().toISOString(), codeRecord.code_hash]);
