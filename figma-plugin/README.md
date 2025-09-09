@@ -1,48 +1,48 @@
 # Side by Side Figma Plugin
 
-Плагин для Figma, который позволяет быстро создавать голосования прямо из интерфейса дизайна.
+Figma plugin that allows quick creation of votings directly from the design interface.
 
-## Возможности
+## Features
 
-- Выбор двух элементов (фреймы, группы, компоненты) в Figma
-- Автоматический экспорт в PNG с разрешением 2x
-- Настройка названия голосования с предустановленными вариантами
-- Выбор длительности голосования (от 10 минут до 7 дней)
-- Автоматическое копирование ссылки на созданное голосование
-- Интеграция с существующим API сервера
+- Select two elements (frames, groups, components) in Figma
+- Automatic PNG export with 2x resolution
+- Voting title configuration with preset options
+- Voting duration selection (from 10 minutes to 7 days)
+- Automatic copying of created voting link
+- Integration with existing server API
 
-## Установка
+## Installation
 
-1. Скопируйте папку `figma-plugin` в ваш проект
-2. Откройте Figma Desktop App
-3. Перейдите в настройки плагинов:
-   - Меню → Plugins → Development → Import plugin from manifest...
-4. Выберите файл `figma-plugin/manifest.json`
+1. Copy the `figma-plugin` folder to your project
+2. Open Figma Desktop App
+3. Go to plugin settings:
+   - Menu → Plugins → Development → Import plugin from manifest...
+4. Select the `figma-plugin/manifest.json` file
 
-## Использование
+## Usage
 
-1. Выберите два и более элементов на canvas (фреймы, группы или компоненты)
-2. Запустите плагин "Side-by-Side Voting"
-3. Заполните название голосования (или выберите из предложенных)
-4. Выберите длительность голосования
-5. Нажмите «Создать голосование»
+1. Select two or more elements on canvas (frames, groups, or components)
+2. Run the "Side-by-Side Voting" plugin
+3. Fill in the voting title (or select from suggested options)
+4. Select voting duration
+5. Click "Create Voting"
 
-## Структура проекта
+## Project Structure
 
 ```
 figma-plugin/
-├── code.js              # Основная логика плагина (выполняется в sandbox)
-├── ui.html              # HTML интерфейса с inline JavaScript
-├── manifest.json        # Манифест плагина
+├── code.js              # Main plugin logic (runs in sandbox)
+├── ui.html              # Plugin interface HTML with inline JavaScript
+├── manifest.json        # Plugin manifest
 └── README.md
 ```
 
-## API интеграция
+## API Integration
 
-Плагин отправляет POST запрос на `/api/votings` с данными:
+The plugin sends a POST request to `/api/votings` with data:
 ```json
 {
-  "title": "Название голосования",
+  "title": "Voting Title",
   "duration": 24,
   "isPublic": true,
   "images": ["data:image/png;base64,...", "data:image/png;base64,..."],
@@ -50,7 +50,7 @@ figma-plugin/
 }
 ```
 
-## Требования
+## Requirements
 
 - Figma Desktop App
-- Доступ к API серверу side-by-side
+- Access to side-by-side API server

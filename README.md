@@ -1,58 +1,58 @@
 # Side-by-Side Voting
 
-Веб-приложение для быстрого тестирования дизайн-макетов.
+Web application for rapid design testing.
 
-## Описание
+## Description
 
-Side by Side позволяет дизайнерам загружать варианты дизайна и легко получать обратную связь от команды через голосование без писем, подсчетов эмодзи в чатах. Голосование длится указанное время, после чего показываются результаты.
+Side by Side allows designers to upload design variants and easily get team feedback through voting without emails or emoji counting in chats. Voting lasts for the specified time, after which results are shown.
 
-Публичная версия плагина для загрузки: https://www.figma.com/community/plugin/1545946464465075859/side-by-side-voting
+Public plugin for download: https://www.figma.com/community/plugin/1545946464465075859/side-by-side-voting
 
-## Технический стек
+## Tech Stack
 
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS + shadcn/ui
 - **Backend**: Bun + TypeScript + Hono + SQLite (bun:sqlite)
-- **Оптимизация изображений**: ImageMagick, jpegoptim, pngquant, cwebp, avifenc
-- **Figma плагин**: Vanilla JavaScript для интеграции с Figma Desktop App
+- **Image optimization**: ImageMagick, jpegoptim, pngquant, cwebp, avifenc
+- **Figma plugin**: Vanilla JavaScript for integration with Figma Desktop App
 
-## Установка и запуск
+## Installation and Setup
 
-Есть готовый скрипт ансибла, попробуйте его. Если нет, то читайте ниже.
+There's a ready Ansible script, try it. If not, read below.
 
-### Требования
+### Requirements
 
-- Bun 1.0+ (вместо Node.js)
-- Утилиты для оптимизации изображений (Ubuntu):
+- Bun 1.0+ (instead of Node.js)
+- Image optimization utilities (Ubuntu):
   ```bash
   sudo apt update
   sudo apt install imagemagick jpegoptim pngquant webp avif-tools
   ```
 
-### Установка Bun
+### Installing Bun
 
 ```bash
-# Установка Bun
+# Install Bun
 curl -fsSL https://bun.sh/install | bash
 
-# Перезагрузите терминал или выполните:
+# Reload terminal or run:
 source ~/.bashrc
 ```
 
-### Установка зависимостей
+### Installing Dependencies
 
 ```bash
-# Установка всех зависимостей
+# Install all dependencies
 bun install
 ```
 
-### Настройка окружения
+### Environment Setup
 
-Скопируйте файл конфигурации:
+Copy the configuration file:
 ```bash
 cp env.example .env
 ```
 
-Отредактируйте `.env` при необходимости:
+Edit `.env` if necessary:
 ```env
 DATA_DIR=./data
 LOG_DIR=./logs
@@ -62,89 +62,89 @@ BASE_URL=http://localhost:3000
 NODE_ENV=development
 ```
 
-### Запуск в режиме разработки
+### Development Mode
 
 ```bash
-# Запуск сервера и клиента одновременно
+# Run server and client simultaneously
 bun run dev
 ```
 
-Или по отдельности:
+Or separately:
 ```bash
-# Только сервер (порт 3000)
+# Server only (port 3000)
 bun run dev:server
 
-# Только клиент (порт 5173)
+# Client only (port 5173)
 bun run dev:client
 ```
 
-### Сборка для продакшена
+### Production Build
 
 ```bash
-# Сборка клиента и сервера
+# Build client and server
 bun run build
 
-# Запуск продакшен сервера
+# Run production server
 bun run start
 ```
 
-## Структура проекта
+## Project Structure
 
 ```
 side-by-side/
-├── client/                # React фронтенд
+├── client/                # React frontend
 │   ├── src/
-│   │   ├── components/    # UI компоненты
-│   │   ├── pages/         # Страницы приложения
-│   │   └── lib/           # Утилиты
+│   │   ├── components/    # UI components
+│   │   ├── pages/         # Application pages
+│   │   └── lib/           # Utilities
 │   └── package.json
-├── server/                # Bun бэкенд
+├── server/                # Bun backend
 │   ├── src/
-│   │   ├── db/            # База данных и схемы (bun:sqlite)
-│   │   ├── routes/        # API маршруты (Hono)
-│   │   └── utils/         # Утилиты сервера
+│   │   ├── db/            # Database and schemas (bun:sqlite)
+│   │   ├── routes/        # API routes (Hono)
+│   │   └── utils/         # Server utilities
 │   └── package.json
-├── figma-plugin/          # Figma плагин
-│   ├── code.js            # Основная логика плагина
-│   ├── ui.html            # HTML интерфейса
-│   └── manifest.json      # Манифест плагина
-├── data/                  # Загруженные изображения
-├── logs/                  # Логи сервера
-└── package.json           # Корневой package.json
+├── figma-plugin/          # Figma plugin
+│   ├── code.js            # Main plugin logic
+│   ├── ui.html            # Plugin interface HTML
+│   └── manifest.json      # Plugin manifest
+├── data/                  # Uploaded images
+├── logs/                  # Server logs
+└── package.json           # Root package.json
 ```
 
 ## API
 
-### Голосования
+### Votings
 
-- `GET /api/votings` - список всех голосований
-- `GET /api/votings/:id` - детали голосования
-- `POST /api/votings` - создание голосования
-- `POST /api/votings/:id/vote` - голосование
-- `GET /api/votings/:id/results` - результаты голосования
+- `GET /api/votings` - list of all votings
+- `GET /api/votings/:id` - voting details
+- `POST /api/votings` - create voting
+- `POST /api/votings/:id/vote` - vote
+- `GET /api/votings/:id/results` - voting results
 
-### Изображения
+### Images
 
-- `GET /api/images/:filename` - получение изображения
+- `GET /api/images/:filename` - get image
 
-## Особенности
+## Features
 
-- **Антинакрутка**: Использует IndexedDB для предотвращения повторного голосования в одном браузере
-- **Оптимизация изображений**: Автоматическая оптимизация загруженных изображений
-- **Темный режим**: Поддержка светлого и темного режимов
-- **Responsive**: Адаптивный дизайн для десктопа
-- **Hash routing**: SPA с hash-based роутингом
+- **Anti-fraud**: Uses IndexedDB to prevent duplicate voting in the same browser
+- **Image optimization**: Automatic optimization of uploaded images
+- **Dark mode**: Support for light and dark modes
+- **Responsive**: Adaptive design for desktop
+- **Hash routing**: SPA with hash-based routing
 
-## Деплой
+## Deployment
 
 ### Ubuntu + Nginx
 
-1. Соберите проект: `bun run build`
-2. Настройте Nginx для раздачи статики и проксирования API
-3. Запустите сервер: `bun run start`
-4. Настройте systemd сервис для автозапуска
+1. Build the project: `bun run build`
+2. Configure Nginx for static file serving and API proxying
+3. Start the server: `bun run start`
+4. Set up systemd service for auto-start
 
-### Переменные окружения для продакшена
+### Production Environment Variables
 
 ```env
 DATA_DIR=/var/app/side-by-side/data
@@ -155,34 +155,34 @@ BASE_URL=https://yourdomain.com
 NODE_ENV=production
 ```
 
-## Figma плагин
+## Figma Plugin
 
-Приложение включает в себя плагин для Figma, который позволяет создавать голосования прямо из интерфейса дизайна.
+The application includes a Figma plugin that allows creating votings directly from the design interface.
 
-### Разработка плагина (developer-версия)
+### Plugin Development (developer version)
 
-1. Откройте Figma Desktop App
-2. Перейдите в настройки плагинов: Меню → Plugins → Development → Import plugin from manifest...
-3. Выберите файл `figma-plugin/manifest.json`
+1. Open Figma Desktop App
+2. Go to plugin settings: Menu → Plugins → Development → Import plugin from manifest...
+3. Select the `figma-plugin/manifest.json` file
 
-### Использование
+### Usage
 
-1. Выберите два или более элемента на canvas (фреймы, группы или компоненты)
-2. Запустите плагин «Side-by-Side Voting»
-3. Заполните название голосования и выберите длительность
-4. Нажмите «Создать голосование»
-5. Ссылка на голосование будет скопирована в буфер обмена
+1. Select two or more elements on canvas (frames, groups, or components)
+2. Run the "Side-by-Side Voting" plugin
+3. Fill in the voting title and select duration
+4. Click "Create Voting"
+5. The voting link will be copied to clipboard
 
-Подробная документация плагина доступна в [figma-plugin/README.md](figma-plugin/README.md).
+Detailed plugin documentation is available in [figma-plugin/README.md](figma-plugin/README.md).
 
-## Разработка
+## Development
 
-### Структура базы данных
+### Database Structure
 
-- `votings` - голосования
-- `voting_images` - изображения голосований
-- `votes` - голоса пользователей
+- `votings` - votings
+- `voting_images` - voting images
+- `votes` - user votes
 
-### Логирование
+### Logging
 
-Логи сохраняются в `LOG_DIR/server.log` с ротацией через logrotate.
+Logs are saved to `LOG_DIR/server.log` with rotation via logrotate.

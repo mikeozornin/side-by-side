@@ -1,58 +1,58 @@
-# Ansible Deployment для Side-by-Side Voting
+# Ansible Deployment for Side-by-Side Voting
 
-Этот каталог содержит Ansible playbooks для деплоя веб-приложения Side-by-Side Voting на Ubuntu сервер.
+This directory contains Ansible playbooks for deploying the Side-by-Side Voting web application to Ubuntu servers.
 
-## Структура
+## Structure
 
-- `bootstrap.yml` - первоначальная настройка сервера (системные зависимости, systemd, nginx)
-- `deploy.yml` - деплой новых версий приложения
-- `inventory.ini` - список серверов для деплоя
-- `group_vars/all.yml` - переменные конфигурации
+- `bootstrap.yml` - initial server setup (system dependencies, systemd, nginx)
+- `deploy.yml` - deployment of new application versions
+- `inventory.ini` - list of servers for deployment
+- `group_vars/all.yml` - configuration variables
 
-## Требования
+## Requirements
 
-### На сервере
+### On the server
 - Ubuntu 20.04+ 
-- Root доступ
-- Nginx установлен
-- Bun 1.0+ (устанавливается автоматически)
+- Root access
+- Nginx installed
+- Bun 1.0+ (installed automatically)
 
-### На машине разработчика
+### On developer machine
 - Ansible 2.9+
-- SSH доступ к серверу
-- Собранные артефакты (frontend и backend)
+- SSH access to server
+- Built artifacts (frontend and backend)
 
-## Конфигурация
+## Configuration
 
-### 1. Настройка inventory
+### 1. Inventory setup
 
-Отредактируйте `inventory.ini`:
+Edit `inventory.ini`:
 
 ```ini
 [web]
 target ansible_host=your-server-ip ansible_user=root
 ```
 
-### 2. Настройка переменных
+### 2. Variable configuration
 
-Отредактируйте `group_vars/all.yml`:
+Edit `group_vars/all.yml`:
 
 ```yaml
-# Замените на ваш домен
+# Replace with your domain
 domain: side-by-side.your-domain.com
 
-# Режим аутентификации (anonymous или magic-links)
+# Authentication mode (anonymous or magic-links)
 auth_mode: anonymous
 
-# Остальные настройки можно оставить по умолчанию
+# Other settings can be left as default
 ```
 
-### 3. Настройка окружения
+### 3. Environment setup
 
-Создайте файл `server/.env.production` с продакшен настройками:
+Create `server/.env.production` file with production settings:
 
 ```env
-# Конфигурация приложения
+# Application configuration
 DATA_DIR=/opt/side-by-side/current/data
 LOG_DIR=/opt/side-by-side/current/logs
 DB_PATH=/opt/side-by-side/current/app.db
@@ -60,38 +60,38 @@ PORT=3000
 BASE_URL=https://side-by-side.your-domain.com
 NODE_ENV=production
 
-# Настройки базы данных
-# Провайдер: "sqlite" или "postgres"
+# Database settings
+# Provider: "sqlite" or "postgres"
 DB_PROVIDER=sqlite
-# Путь для SQLite (используется, если DB_PROVIDER="sqlite")
+# Path for SQLite (used if DB_PROVIDER="sqlite")
 DB_PATH=/opt/side-by-side/current/app.db
-# URL для PostgreSQL (используется, если DB_PROVIDER="postgres")
+# URL for PostgreSQL (used if DB_PROVIDER="postgres")
 # DATABASE_URL=postgresql://user:password@host:port/dbname
 
-# URL для ссылок на голосования (клиентская часть)
+# URL for voting links (client side)
 VOTING_BASE_URL=https://side-by-side.your-domain.com
 
-# URL клиентской части (для magic links)
+# Client URL (for magic links)
 CLIENT_URL=https://side-by-side.your-domain.com
 
-# Режим работы сервера
+# Server mode
 SERVER_MODE=production
 
-# Уведомления в чаты
-NOTIFICATIONS_LOCALE=ru
+# Chat notifications
+NOTIFICATIONS_LOCALE=en
 
-# Mattermost интеграция
+# Mattermost integration
 MATTERMOST_ENABLED=false
 # MATTERMOST_WEBHOOK_URL=https://your-mattermost-server.com/hooks/your-webhook-id
 
-# Telegram интеграция (для будущего)
+# Telegram integration (for future)
 TELEGRAM_ENABLED=false
 # TELEGRAM_BOT_TOKEN=your-bot-token
 # TELEGRAM_CHAT_ID=your-chat-id
 
-# Web Push уведомления
+# Web Push notifications
 WEB_PUSH_ENABLED=false
-# Сгенерируйте ключи командой: npx web-push generate-vapid-keys
+# Generate keys with: npx web-push generate-vapid-keys
 # VAPID_PUBLIC_KEY=your_vapid_public_key_here
 # VAPID_PRIVATE_KEY=your_vapid_private_key_here
 # VAPID_EMAIL=mailto:admin@your-domain.com
@@ -102,13 +102,13 @@ RATE_LIMIT_VOTING_PER_HOUR=60
 RATE_LIMIT_AUTH_MAGIC_LINK_PER_MINUTE=5
 RATE_LIMIT_AUTH_VERIFY_TOKEN_PER_MINUTE=5
 
-# Режим аутентификации
+# Authentication mode
 AUTH_MODE=anonymous
 
-# Автоапрув сессий в dev режиме (без отправки письма). Не используйте в продакшене!
+# Auto-approve sessions in dev mode (without sending email). Don't use in production!
 AUTO_APPROVE_SESSIONS=false
 
-# SMTP настройки для отправки magic link'ов
+# SMTP settings for sending magic links
 # SMTP_HOST=your-smtp-server.com
 # SMTP_PORT=587
 # SMTP_USER=your-smtp-username
@@ -116,120 +116,120 @@ AUTO_APPROVE_SESSIONS=false
 # SMTP_FROM_EMAIL=noreply@your-domain.com
 ```
 
-## Первоначальная установка
+## Initial Installation
 
-### 1. Сборка проекта
+### 1. Build project
 
 ```bash
-# В корне проекта
+# In project root
 bun run build
 ```
 
-**⚠️ ВАЖНО:** Убедитесь, что в директории `server/` нет локальных файлов базы данных (`app.db`, `*.db`, `*.sqlite`), так как они могут перезаписать продакшен данные при деплое.
+**⚠️ IMPORTANT:** Make sure there are no local database files (`app.db`, `*.db`, `*.sqlite`) in the `server/` directory, as they may overwrite production data during deployment.
 
-### 2. Bootstrap сервера
+### 2. Server bootstrap
 
 ```bash
 ansible-playbook -i ansible/inventory.ini ansible/bootstrap.yml
 ```
 
-Это установит:
+This will install:
 - Bun 1.0+
-- Системные зависимости для оптимизации изображений (ImageMagick, jpegoptim, pngquant, webp)
-- Nginx конфигурацию
-- Systemd сервис
-- Базовую структуру каталогов
-- Placeholder env файл
+- System dependencies for image optimization (ImageMagick, jpegoptim, pngquant, webp)
+- Nginx configuration
+- Systemd service
+- Basic directory structure
+- Placeholder env file
 
-### 3. Настройка окружения
+### 3. Environment configuration
 
-После bootstrap обновите `/etc/side-by-side/server.env` на сервере с реальными настройками.
+After bootstrap, update `/etc/side-by-side/server.env` on the server with real settings.
 
-### 4. Первый деплой
+### 4. First deployment
 
 ```bash
 ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e restart_service=true
 ```
 
-## Обновление приложения
+## Application Updates
 
-### 1. Сборка новой версии
+### 1. Build new version
 
 ```bash
-# В корне проекта
+# In project root
 bun run build
 ```
 
-### 2. Деплой
+### 2. Deploy
 
 ```bash
-# Обычный деплой (без перезапуска сервиса)
+# Regular deployment (without service restart)
 ansible-playbook -i ansible/inventory.ini ansible/deploy.yml
 
-# Деплой с перезапуском сервиса
+# Deployment with service restart
 ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e restart_service=true
 
-# Деплой с обновлением env файла
+# Deployment with env file update
 ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e update_env=true -e restart_service=true
 ```
 
-## Структура на сервере
+## Server Structure
 
 ```
 /opt/side-by-side/
-├── releases/                    # Релизы с timestamp
-│   └── 20241201_143022/        # Пример релиза
-│       ├── frontend/           # Собранный React фронтенд
-│       ├── server/             # Собранный Bun бэкенд
-│       ├── data/               # Загруженные изображения
-│       ├── logs/               # Логи приложения
-│       └── manifest.json       # Информация о релизе
-├── current -> releases/20241201_143022/  # Симлинк на текущий релиз
-└── data/                       # Данные (симлинк на current/data)
+├── releases/                    # Releases with timestamp
+│   └── 20241201_143022/        # Example release
+│       ├── frontend/           # Built React frontend
+│       ├── server/             # Built Bun backend
+│       ├── data/               # Uploaded images
+│       ├── logs/               # Application logs
+│       └── manifest.json       # Release information
+├── current -> releases/20241201_143022/  # Symlink to current release
+└── data/                       # Data (symlink to current/data)
 
 /etc/side-by-side/
-└── server.env                  # Конфигурация приложения
+└── server.env                  # Application configuration
 
 /usr/share/nginx/side-by-side -> /opt/side-by-side/current/frontend/  # Nginx web root
 ```
 
-## Nginx конфигурация
+## Nginx Configuration
 
-Nginx настроен для:
-- Обслуживания статических файлов фронтенда
-- Проксирования API запросов на Bun сервер (включая `/api/images/`)
-- Кеширования статических ресурсов (1 год для hashed файлов, исключая `/api/` пути)
-- SPA fallback для React Router
-- HTTP/2 поддержки для улучшенной производительности
+Nginx is configured for:
+- Serving frontend static files
+- Proxying API requests to Bun server (including `/api/images/`)
+- Caching static resources (1 year for hashed files, excluding `/api/` paths)
+- SPA fallback for React Router
+- HTTP/2 support for improved performance
 
-**Важно:** Статические файлы фронтенда кешируются, но файлы из `/api/images/` проксируются к Bun серверу для обработки.
+**Important:** Frontend static files are cached, but files from `/api/images/` are proxied to Bun server for processing.
 
-**HTTP/2:** После настройки SSL сертификата nginx автоматически включает HTTP/2 поддержку.
+**HTTP/2:** After SSL certificate setup, nginx automatically enables HTTP/2 support.
 
-## Systemd сервис
+## Systemd Service
 
-Сервис `side-by-side`:
-- Автоматически запускается при загрузке системы
-- Перезапускается при сбоях
-- Работает от пользователя `www-data`
-- Читает конфигурацию из `/etc/side-by-side/server.env`
+The `side-by-side` service:
+- Automatically starts on system boot
+- Restarts on failures
+- Runs as `www-data` user
+- Reads configuration from `/etc/side-by-side/server.env`
 
-## Управление релизами
+## Release Management
 
-- Хранится последние 10 релизов (настраивается в `releases_to_keep`)
-- Старые релизы автоматически удаляются при деплое
-- **База данных (`app.db`) автоматически копируется** из текущего релиза в новый при деплое, если используется `DB_PROVIDER=sqlite`. При использовании PostgreSQL база данных является внешней и не затрагивается при деплое.
-- **Данные (`data/`) и логи (`logs/`) также сохраняются** между деплоями.
-- Откат: переключить симлинк `current` на предыдущий релиз и перезапустить сервис.
+- Keeps last 10 releases (configurable in `releases_to_keep`)
+- Old releases are automatically removed on deployment
+- **Database (`app.db`) is automatically copied** from current release to new one on deployment if using `DB_PROVIDER=sqlite`. When using PostgreSQL, the database is external and not affected by deployment.
+- **Data (`data/`) and logs (`logs/`) are also preserved** between deployments.
+- Rollback: switch `current` symlink to previous release and restart service.
 
-## Мониторинг
+## Monitoring
 
-### Логи сервиса
+### Service logs
 ```bash
 journalctl -u side-by-side -f
 ```
 
-### Логи приложения
+### Application logs
 ```bash
 tail -f /opt/side-by-side/current/logs/server.log
 ```
@@ -239,148 +239,148 @@ tail -f /opt/side-by-side/current/logs/server.log
 curl https://side-by-side.your-domain.com/health
 ```
 
-## SSL сертификаты
+## SSL Certificates
 
-Для продакшена рекомендуется настроить SSL через Let's Encrypt:
+For production, it's recommended to configure SSL via Let's Encrypt:
 
 ```bash
-# Установка certbot
+# Install certbot
 apt install certbot python3-certbot-nginx
 
-# Получение сертификата
+# Get certificate
 certbot --nginx -d side-by-side.your-domain.com
 
-# Автоматическое обновление
+# Automatic renewal
 crontab -e
-# Добавить: 0 12 * * * /usr/bin/certbot renew --quiet
+# Add: 0 12 * * * /usr/bin/certbot renew --quiet
 ```
 
-### Включение HTTP/2
+### Enabling HTTP/2
 
-После настройки SSL автоматически включается HTTP/2. Если нужно включить вручную:
+After SSL setup, HTTP/2 is automatically enabled. If you need to enable manually:
 
 ```bash
-# Добавить http2 к listen директиве
+# Add http2 to listen directive
 sed -i 's/listen 443 ssl;/listen 443 ssl http2;/' /etc/nginx/sites-available/side-by-side.your-domain.com
 
-# Проверить и перезагрузить
+# Test and reload
 nginx -t && systemctl reload nginx
 ```
 
-## Режимы аутентификации
+## Authentication Modes
 
-Приложение поддерживает два режима аутентификации:
+The application supports two authentication modes:
 
 ### AUTH_MODE=anonymous
-- Анонимный доступ - пользователи могут создавать и голосовать без регистрации
-- Кнопка "Войти" скрыта в интерфейсе
-- Голоса сохраняются с `user_id = NULL`
-- Защита от повторного голосования через localStorage
+- Anonymous access - users can create and vote without registration
+- "Login" button is hidden in interface
+- Votes are saved with `user_id = NULL`
+- Protection against duplicate voting via localStorage
 
 ### AUTH_MODE=magic-links  
-- Авторизация через magic links
-- Пользователи должны входить через email
-- Кнопка "Войти" отображается в интерфейсе
-- Голоса привязываются к пользователю
-- **Требует настройки SMTP** для отправки magic links
+- Authorization via magic links
+- Users must login via email
+- "Login" button is displayed in interface
+- Votes are tied to user
+- **Requires SMTP configuration** for sending magic links
 
-**Важно:** Режим аутентификации настраивается в `/etc/side-by-side/server.env` и применяется после перезапуска сервиса.
+**Important:** Authentication mode is configured in `/etc/side-by-side/server.env` and applied after service restart.
 
-### Быстрое переключение режимов
+### Quick mode switching
 
 ```bash
-# Переключить на анонимный режим
+# Switch to anonymous mode
 ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e auth_mode=anonymous -e restart_service=true
 
-# Переключить на режим magic-links
+# Switch to magic-links mode
 ansible-playbook -i ansible/inventory.ini ansible/deploy.yml -e auth_mode=magic-links -e restart_service=true
 ```
 
-### Настройка SMTP для magic-links режима
+### SMTP configuration for magic-links mode
 
-Для работы в режиме `magic-links` необходимо настроить SMTP сервер:
+To work in `magic-links` mode, you need to configure SMTP server:
 
 ```bash
-# Отредактировать env файл на сервере
+# Edit env file on server
 ssh root@your-server "nano /etc/side-by-side/server.env"
 
-# Добавить SMTP настройки:
+# Add SMTP settings:
 SMTP_HOST=your-smtp-server.com
 SMTP_PORT=587
 SMTP_USER=your-smtp-username
 SMTP_PASS=your-smtp-password
 SMTP_FROM_EMAIL=noreply@your-domain.com
 
-# Перезапустить сервис
+# Restart service
 ssh root@your-server "systemctl restart side-by-side"
 ```
 
-**Популярные SMTP провайдеры:**
-- **Gmail**: `smtp.gmail.com:587` (требует App Password)
+**Popular SMTP providers:**
+- **Gmail**: `smtp.gmail.com:587` (requires App Password)
 - **Yandex**: `smtp.yandex.ru:587`
 - **Mail.ru**: `smtp.mail.ru:587`
 - **SendGrid**: `smtp.sendgrid.net:587`
 
-## Безопасность деплоя
+## Deployment Security
 
-### Защита от перезаписи продакшен данных
+### Protection against production data overwrite
 
-**Проблема:** Локальные файлы базы данных могут случайно попасть на продакшен при деплое.
+**Problem:** Local database files may accidentally get to production during deployment.
 
-**Решение:** Ansible автоматически исключает следующие файлы при синхронизации:
-- `app.db`, `*.db`, `*.sqlite`, `*.sqlite3` - файлы базы данных
-- `data/` - директория с данными
-- `logs/` - директория с логами  
-- `.env*` - файлы окружения
+**Solution:** Ansible automatically excludes the following files during sync:
+- `app.db`, `*.db`, `*.sqlite`, `*.sqlite3` - database files
+- `data/` - data directory
+- `logs/` - logs directory  
+- `.env*` - environment files
 
-**Проверка перед деплоем:**
+**Pre-deployment check:**
 ```bash
-# Убедитесь, что в server/ нет локальных файлов БД
+# Make sure there are no local DB files in server/
 ls -la server/*.db server/*.sqlite server/*.sqlite3 2>/dev/null || echo "OK: No local database files"
 
-# Удалите локальные файлы БД если они есть
+# Remove local DB files if they exist
 rm -f server/*.db server/*.sqlite server/*.sqlite3
 ```
 
 ## Troubleshooting
 
-### Проблемы с правами доступа
+### Permission issues
 ```bash
-# Исправить права на данные
+# Fix data permissions
 chown -R www-data:www-data /opt/side-by-side/current/data
 chown -R www-data:www-data /opt/side-by-side/current/logs
 ```
 
-### Проблемы с Nginx
+### Nginx issues
 ```bash
-# Проверить конфигурацию
+# Test configuration
 nginx -t
 
-# Перезагрузить
+# Reload
 systemctl reload nginx
 ```
 
-### Проблемы с сервисом
+### Service issues
 ```bash
-# Статус сервиса
+# Service status
 systemctl status side-by-side
 
-# Перезапуск
+# Restart
 systemctl restart side-by-side
 
-# Логи
+# Logs
 journalctl -u side-by-side --since "1 hour ago"
 ```
 
-### Проблемы с установкой Bun
-Если Bun не установился через Ansible:
+### Bun installation issues
+If Bun didn't install via Ansible:
 
 ```bash
-# Ручная установка Bun на сервере
+# Manual Bun installation on server
 scp ansible/install-bun-manual.sh root@your-server:/tmp/
 ssh root@your-server "chmod +x /tmp/install-bun-manual.sh && /tmp/install-bun-manual.sh"
 
-# Или установка вручную
+# Or install manually
 ssh root@your-server
 curl -fsSL https://bun.sh/install | bash
 ln -sf /root/.bun/bin/bun /usr/local/bin/bun
@@ -388,73 +388,73 @@ chmod +x /usr/local/bin/bun
 bun --version
 ```
 
-### Проблемы с изображениями (404 ошибки)
-Если изображения возвращают 404 ошибку, проверьте nginx конфигурацию:
+### Image issues (404 errors)
+If images return 404 error, check nginx configuration:
 
 ```bash
-# Проверить, что правило для статических файлов исключает /api/ пути
+# Check that static file rule excludes /api/ paths
 grep -A 3 "location ~\*" /etc/nginx/sites-available/side-by-side.mikeozornin.ru
 
-# Должно быть:
+# Should be:
 # location ~* ^(?!\/api\/).*\.(js|css|png|jpg|jpeg|gif|svg|ico|webp|woff2?)$ {
 
-# Если неправильно, перезапустить bootstrap:
+# If incorrect, restart bootstrap:
 ansible-playbook -i ansible/inventory.ini ansible/bootstrap.yml
 ```
 
-### Проблемы с нативными модулями (bcrypt и др.)
-Если сервис не запускается с ошибкой "No native build was found", это означает, что нативные модули были скомпилированы на другой платформе (macOS/Windows) и не работают на Linux.
+### Native module issues (bcrypt etc.)
+If service fails to start with "No native build was found" error, this means native modules were compiled on a different platform (macOS/Windows) and don't work on Linux.
 
-**Решение:**
-1. Убедитесь, что установлены системные зависимости для компиляции:
+**Solution:**
+1. Make sure system dependencies for compilation are installed:
    ```bash
    apt install -y build-essential python3-dev libc6-dev
    ```
 
-2. Пересоберите зависимости на сервере:
+2. Rebuild dependencies on server:
    ```bash
    cd /opt/side-by-side/current/server
    bun install --production
    ```
 
-3. Или используйте bcryptjs вместо bcrypt (рекомендуется):
+3. Or use bcryptjs instead of bcrypt (recommended):
    ```bash
-   # Локально
+   # Locally
    bun remove bcrypt && bun add bcryptjs
-   # Обновить импорт в коде: import bcrypt from 'bcryptjs'
-   # Пересобрать и задеплоить
+   # Update import in code: import bcrypt from 'bcryptjs'
+   # Rebuild and deploy
    ```
 
-### Проблемы с правами доступа к bun
-Если сервис не может запустить bun из-за прав доступа:
+### Bun access permission issues
+If service can't start bun due to access permissions:
 
 ```bash
-# Проверить права
+# Check permissions
 ls -la /usr/local/bin/bun
 
-# Если это симлинк на /root/.bun/bin/bun, скопировать файл:
+# If it's a symlink to /root/.bun/bin/bun, copy the file:
 rm /usr/local/bin/bun
 cp /root/.bun/bin/bun /usr/local/bin/bun
 chmod +x /usr/local/bin/bun
 chown root:root /usr/local/bin/bun
 ```
 
-### Восстановление базы данных
-Если данные пропали после деплоя, их можно восстановить из предыдущего релиза:
+### Database recovery
+If data was lost after deployment, it can be recovered from previous release:
 
 ```bash
-# Найти предыдущий релиз с данными
+# Find previous release with data
 ls -la /opt/side-by-side/releases/
 
-# Проверить, есть ли данные в предыдущем релизе
+# Check if data exists in previous release
 cd /opt/side-by-side/releases/YYYYMMDD_HHMMSS/server
 bun -e "import Database from 'bun:sqlite'; const db = new Database('app.db'); console.log('Votings:', db.prepare('SELECT COUNT(*) FROM votings').get());"
 
-# Восстановить базу данных
+# Restore database
 cp /opt/side-by-side/releases/YYYYMMDD_HHMMSS/app.db /opt/side-by-side/current/app.db
 chown www-data:www-data /opt/side-by-side/current/app.db
 chmod 644 /opt/side-by-side/current/app.db
 
-# Перезапустить сервис
+# Restart service
 systemctl restart side-by-side
 ```
