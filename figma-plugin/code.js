@@ -281,7 +281,40 @@ async function handleCreateVoting(data) {
     if (!response.ok) {
       var errorData = {};
       try { errorData = await response.json(); } catch (e) {}
-      throw new Error(errorData.error || ('HTTP error: ' + response.status));
+      
+      // Provide specific error messages based on status code
+      var errorMessage = errorData.error;
+      if (!errorMessage) {
+        switch (response.status) {
+          case 400:
+            errorMessage = 'Invalid request. Please check your data and try again.';
+            break;
+          case 401:
+            errorMessage = 'Authentication required. Please log in again.';
+            break;
+          case 403:
+            errorMessage = 'Access denied. You do not have permission to perform this action.';
+            break;
+          case 404:
+            errorMessage = 'Resource not found. Please check your request.';
+            break;
+          case 429:
+            errorMessage = 'Too many requests. Please wait a moment and try again.';
+            break;
+          case 500:
+            errorMessage = 'Server error occurred. Please try again later.';
+            break;
+          case 502:
+          case 503:
+          case 504:
+            errorMessage = 'Server is temporarily unavailable. Please try again later.';
+            break;
+          default:
+            errorMessage = 'Request failed with status ' + response.status + '. Please try again.';
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
 
     var result = await response.json();
@@ -389,7 +422,23 @@ async function handleLogin(data) {
     });
     
     if (!modeResponse.ok) {
-      throw new Error('Failed to check authentication mode');
+      var errorMessage = 'Failed to connect to server';
+      switch (modeResponse.status) {
+        case 404:
+          errorMessage = 'Server not found. Please check your server URL.';
+          break;
+        case 500:
+          errorMessage = 'Server error occurred. Please try again later.';
+          break;
+        case 502:
+        case 503:
+        case 504:
+          errorMessage = 'Server is temporarily unavailable. Please try again later.';
+          break;
+        default:
+          errorMessage = 'Failed to connect to server (status ' + modeResponse.status + ')';
+      }
+      throw new Error(errorMessage);
     }
     
     var modeData = await modeResponse.json();
@@ -430,17 +479,45 @@ async function handleLogin(data) {
         body: JSON.stringify(requestBody)
       });
       
-      console.log('Response status:', response.status);
-      
       if (!response.ok) {
         var errorData = {};
         try { 
           errorData = await response.json(); 
-          console.log('Error response data:', errorData);
         } catch (e) {
-          console.log('Failed to parse error response:', e);
+          // Failed to parse error response
         }
-        throw new Error(errorData.error || ('HTTP error: ' + response.status));
+        
+        // Provide specific error messages based on status code
+        var errorMessage = errorData.error;
+        
+        if (!errorMessage) {
+          switch (response.status) {
+            case 400:
+              errorMessage = 'Invalid authentication code. Please check your code and try again.';
+              break;
+            case 401:
+              errorMessage = 'Authentication failed. Please check your code and try again.';
+              break;
+            case 403:
+              errorMessage = 'Access denied. Please check your permissions.';
+              break;
+            case 404:
+              errorMessage = 'Server not found. Please check your server URL.';
+              break;
+            case 500:
+              errorMessage = 'Server error occurred. Please try again later or contact support.';
+              break;
+            case 502:
+            case 503:
+            case 504:
+              errorMessage = 'Server is temporarily unavailable. Please try again later.';
+              break;
+            default:
+              errorMessage = 'Request failed with status ' + response.status + '. Please try again.';
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
       
       result = await response.json();

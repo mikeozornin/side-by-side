@@ -30,10 +30,14 @@
     }
 
     .status-container {
-      min-height: 32px; /* Fixed height to prevent jumping - enough for status + 2 elements */
+      min-height: 0; /* No fixed height when hidden */
       display: flex;
       flex-direction: column;
       gap: 8px;
+    }
+
+    .status-container.hidden {
+      display: none;
     }
 
     .status {
@@ -313,11 +317,17 @@
 
 <body>
   <div class="container">
+    <!-- Global Status (shown at top of all forms) -->
+    <div id="global-status-container" class="status-container hidden">
+      <div id="global-status" class="status info hidden">Checking selected elements...</div>
+    </div>
+
     <!-- Login Form (shown when not authenticated) -->
     <div id="login-form" class="login-form">
+
       <div class="form-group">
         <label class="label" for="login-server-url">Server URL</label>
-        <input type="url" id="login-server-url" class="input" placeholder="localhost:3000" />
+        <input type="url" id="login-server-url" class="input" placeholder="localhost" />
       </div>
 
       <div class="form-group" id="auth-code-group" style="display: none;">
@@ -347,7 +357,7 @@
         </button>
       </div>
 
-      <div class="status-container">
+      <div id="main-status-container" class="status-container">
         <div id="status" class="status info hidden">Checking selected elements...</div>
         <div id="selected-elements" class="selected-elements hidden"></div>
       </div>
@@ -404,6 +414,9 @@
     ];
 
     var statusEl = document.getElementById('status');
+    var globalStatusEl = document.getElementById('global-status');
+    var globalStatusContainerEl = document.getElementById('global-status-container');
+    var mainStatusContainerEl = document.getElementById('main-status-container');
     var selectedElementsEl = document.getElementById('selected-elements');
     var titleInput = document.getElementById('title');
     var durationOptionsEl = document.getElementById('duration-options');
@@ -428,6 +441,7 @@
     var isAuthenticated = false;
     var isAnonymous = null;
     var currentServerUrl = '';
+    var lastSelectionStatus = null;
 
     // Storage keys
     var STORAGE_KEYS = {
@@ -460,12 +474,17 @@
     function showLoginForm() {
       if (loginFormEl) loginFormEl.classList.remove('hidden');
       if (mainInterfaceEl) mainInterfaceEl.classList.add('hidden');
+      // Hide status containers when showing login form
+      if (globalStatusContainerEl) globalStatusContainerEl.classList.add('hidden');
+      if (mainStatusContainerEl) mainStatusContainerEl.classList.add('hidden');
     }
 
     // Show main interface
     function showMainInterface() {
       if (loginFormEl) loginFormEl.classList.add('hidden');
       if (mainInterfaceEl) mainInterfaceEl.classList.remove('hidden');
+      // Show main status container when showing main interface
+      if (mainStatusContainerEl) mainStatusContainerEl.classList.remove('hidden');
     }
 
     // Update auth code field visibility based on auth mode
@@ -621,7 +640,6 @@
           } else {
             // Magic-links mode - show code field and wait for user input
             console.log('Showing code field for magic-links mode');
-            showStatus('info', 'Enter authentication code');
             
             // Restore login button
             if (loginButton) {
@@ -675,6 +693,11 @@
       if (serverUrlDisplayInput) serverUrlDisplayInput.value = '';
       if (loginServerUrlInput) loginServerUrlInput.value = '';
       if (loginAuthCodeInput) loginAuthCodeInput.value = '';
+      
+      // Clear status messages
+      if (statusEl) { statusEl.classList.add('hidden'); }
+      if (globalStatusEl) { globalStatusEl.classList.add('hidden'); }
+      if (selectedElementsEl) { selectedElementsEl.classList.add('hidden'); }
       
       updateAuthCodeFieldVisibility();
       showLoginForm();
@@ -955,10 +978,24 @@
     }
 
     function showStatus(type, message) {
-      if (statusEl) {
-        statusEl.className = 'status ' + type;
-        statusEl.innerHTML = message;
-        statusEl.classList.remove('hidden');
+      // Use appropriate status element based on authentication state
+      var targetStatusEl, targetContainerEl;
+      
+      if (isAuthenticated) {
+        // When authenticated, use main interface status
+        targetStatusEl = statusEl;
+        targetContainerEl = mainStatusContainerEl;
+      } else {
+        // When not authenticated, use global status
+        targetStatusEl = globalStatusEl;
+        targetContainerEl = globalStatusContainerEl;
+      }
+      
+      if (targetStatusEl && targetContainerEl) {
+        targetStatusEl.className = 'status ' + type;
+        targetStatusEl.innerHTML = message;
+        targetStatusEl.classList.remove('hidden');
+        targetContainerEl.classList.remove('hidden');
       }
       if (progressEl) { progressEl.classList.add('hidden'); }
     }
@@ -966,30 +1003,54 @@
     function showProgress(message) {
       if (progressMessageEl) { progressMessageEl.textContent = message; }
       if (progressEl) { progressEl.classList.remove('hidden'); }
-      if (statusEl) { statusEl.classList.add('hidden'); }
+      
+      // Hide appropriate status when showing progress
+      if (isAuthenticated) {
+        if (statusEl) { statusEl.classList.add('hidden'); }
+      } else {
+        if (globalStatusEl) { globalStatusEl.classList.add('hidden'); }
+      }
     }
 
     function hideProgress() {
       if (progressEl) { progressEl.classList.add('hidden'); }
     }
 
-    function updateSelectedElements(elements) {
+    function updateSelectionDisplay(elements, status, message) {
       selectedElements = elements || [];
-      if (selectedElements.length === 0) {
-        if (selectedElementsEl) { selectedElementsEl.classList.add('hidden'); }
-        return;
-      }
-      if (selectedElementsEl) {
-        selectedElementsEl.classList.remove('hidden');
-        var html = '';
-        for (var i = 0; i < selectedElements.length; i++) {
-          var element = selectedElements[i];
-          html += '<div class="element-item">' +
-            '<div class="element-name">' + element.name + '</div>' +
-            '<div class="element-type">' + element.type + '</div>' +
-            '</div>';
+
+      // Always hide both status and elements before deciding what to show
+      if (statusEl) statusEl.classList.add('hidden');
+      if (selectedElementsEl) selectedElementsEl.classList.add('hidden');
+
+      if (status === 'too-many') {
+        // Show error message when too many elements are selected
+        if (statusEl) {
+          statusEl.className = 'status error';
+          statusEl.innerHTML = message;
+          statusEl.classList.remove('hidden');
         }
-        selectedElementsEl.innerHTML = html;
+      } else if (selectedElements.length === 0) {
+        // Show info message when no elements are selected
+        if (statusEl) {
+          statusEl.className = 'status info';
+          statusEl.innerHTML = 'Select at least 2 elements to upload';
+          statusEl.classList.remove('hidden');
+        }
+      } else {
+        // Show the list of selected elements if 1 or more are selected
+        if (selectedElementsEl) {
+          var html = '';
+          for (var i = 0; i < selectedElements.length; i++) {
+            var element = selectedElements[i];
+            html += '<div class="element-item">' +
+              '<div class="element-name">' + element.name + '</div>' +
+              '<div class="element-type">' + element.type + '</div>' +
+              '</div>';
+          }
+          selectedElementsEl.innerHTML = html;
+          selectedElementsEl.classList.remove('hidden');
+        }
       }
       updateCreateButtonState();
     }
@@ -1030,21 +1091,18 @@
       var message = data.message;
       var elements = data.elements;
       currentStatus = status; // Update current status
-      if (status === 'none') {
-        showStatus('info', message);
-        updateSelectedElements([]);
-      } else if (status === 'partial') {
-        showStatus('warning', message);
-        updateSelectedElements([]);
-      } else if (status === 'too-many') {
-        showStatus('error', message);
-        updateSelectedElements([]);
-      } else if (status === 'ready') {
-        // Hide status - just show form and update elements
-        if (statusEl) { statusEl.classList.add('hidden'); }
-        updateSelectedElements(elements);
+
+      // Store the latest selection status so it can be applied after login
+      lastSelectionStatus = { elements: elements, status: status, message: message };
+
+      // Only show selection status when authenticated
+      if (!isAuthenticated) {
+        return;
       }
-      updateCreateButtonState(); // Update button state based on new status
+      
+      // Use the single function to update the display
+      updateSelectionDisplay(elements, status, message);
+      
       hideProgress();
     }
 
@@ -1079,6 +1137,12 @@
         message = 'Voting creation limit exceeded for the hour. Please try again later.';
       } else if (message === 'RATE_LIMIT_EXCEEDED') {
         message = 'Request limit exceeded. Please try again later.';
+      } else if (message.includes('Server error occurred')) {
+        message += ' If the problem persists, please check if the server is running and try again.';
+      } else if (message.includes('Server not found')) {
+        message += ' Make sure the server URL is correct and the server is running.';
+      } else if (message.includes('temporarily unavailable')) {
+        message += ' The server might be restarting or under maintenance.';
       }
       
       // Restore create button
@@ -1160,8 +1224,6 @@
       isAnonymous = data.isAnonymous || false;
       updateAuthCodeFieldVisibility();
       hideProgress();
-      showStatus('success', 'Login successful!');
-      
       
       // Restore login button
       if (loginButton) {
@@ -1177,6 +1239,11 @@
       // Show main interface
       showMainInterface();
       
+      // Apply the last known selection status
+      if (lastSelectionStatus) {
+        updateSelectionDisplay(lastSelectionStatus.elements, lastSelectionStatus.status, lastSelectionStatus.message);
+      }
+
       // Load settings for main interface
       loadSettings();
     }
@@ -1185,6 +1252,16 @@
       isAuthenticated = false;
       hideProgress();
       var message = data.message || 'Login failed';
+      
+      // Show more detailed error information
+      if (message.includes('Server error occurred')) {
+        message += ' If the problem persists, please check if the server is running and try again.';
+      } else if (message.includes('Server not found')) {
+        message += ' Make sure the server URL is correct and the server is running.';
+      } else if (message.includes('temporarily unavailable')) {
+        message += ' The server might be restarting or under maintenance.';
+      }
+      
       showStatus('error', message);
       
       // Restore login button
@@ -1209,9 +1286,13 @@
           serverUrlDisplayInput.value = serverUrl;
         }
         
-        
         showMainInterface();
         loadSettings();
+
+        // Apply the last known selection status if the user was already logged in
+        if (lastSelectionStatus) {
+          updateSelectionDisplay(lastSelectionStatus.elements, lastSelectionStatus.status, lastSelectionStatus.message);
+        }
       } else {
         isAuthenticated = false;
         showLoginForm();
