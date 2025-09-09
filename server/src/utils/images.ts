@@ -12,12 +12,14 @@ const execAsync = promisify(exec);
 const DATA_DIR = process.env.DATA_DIR || './data';
 
 // Разрешенные форматы медиафайлов
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.mp4', '.webm', '.mov', '.avi'];
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.heic', '.heif', '.mp4', '.webm', '.mov', '.avi'];
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png', 
   'image/webp',
   'image/avif',
+  'image/heic',
+  'image/heif',
   'video/mp4',
   'video/webm',
   'video/quicktime',
@@ -77,22 +79,42 @@ async function uploadImagesSync(votingId: string, files: File[]): Promise<Upload
     // Проверяем реальный MIME тип файла по содержимому
     const detectedFileType = await fileTypeFromBuffer(buffer);
     if (!detectedFileType) {
-      throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Файл поврежден или имеет неизвестный формат. Разрешены только: JPG, PNG, WebP, AVIF, MP4, WebM, MOV, AVI.`);
+      throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Файл поврежден или имеет неизвестный формат. Разрешены только: JPG, PNG, WebP, AVIF, HEIC, HEIF, MP4, WebM, MOV, AVI.`);
     }
     if (!ALLOWED_MIME_TYPES.includes(detectedFileType.mime)) {
-      throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Обнаружен тип: ${detectedFileType.mime}. Разрешены только: JPG, PNG, WebP, AVIF, MP4, WebM, MOV, AVI.`);
+      throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Обнаружен тип: ${detectedFileType.mime}. Разрешены только: JPG, PNG, WebP, AVIF, HEIC, HEIF, MP4, WebM, MOV, AVI.`);
     }
 
-    // Определяем тип медиафайла на основе реального MIME типа
-    const mediaType = detectedFileType.mime.startsWith('video/') ? 'video' : 'image';
+    // Определяем тип медиафайла на основе финального MIME типа (после конвертации)
+    const mediaType = finalMimeType.startsWith('video/') ? 'video' : 'image';
 
     // Создаем хэш для имени файла
     const hash = createHash('sha256').update(buffer).digest('hex');
-    const fileName = `${hash}${extension}`;
+    
+    // Если это HEIC/HEIF, конвертируем в JPG
+    let finalExtension = extension;
+    let finalBuffer = buffer;
+    let finalMimeType = detectedFileType.mime;
+    
+    if (detectedFileType.mime === 'image/heic' || detectedFileType.mime === 'image/heif') {
+      try {
+        logger.info(`Converting HEIC/HEIF file ${file.name} to JPG`);
+        const sharpInstance = sharp(buffer);
+        finalBuffer = await sharpInstance.jpeg({ quality: 90 }).toBuffer();
+        finalExtension = '.jpg';
+        finalMimeType = 'image/jpeg';
+        logger.info(`Successfully converted ${file.name} to JPG`);
+      } catch (error) {
+        logger.error(`Failed to convert HEIC/HEIF file ${file.name}:`, error);
+        throw new Error(`Не удалось конвертировать HEIC файл "${file.name}" в JPG. Возможно, файл поврежден.`);
+      }
+    }
+    
+    const fileName = `${hash}${finalExtension}`;
     const filePath = join(votingDir, fileName);
 
-    // Сохраняем файл
-    await writeFile(filePath, buffer);
+    // Сохраняем файл (конвертированный или оригинальный)
+    await writeFile(filePath, finalBuffer);
 
     // Получаем метаданные
     let width = 0;
