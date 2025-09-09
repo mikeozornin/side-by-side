@@ -131,11 +131,13 @@ authRoutes.post('/verify-token', verifyTokenLimiter, async (c) => {
       return c.json({ error: 'Token is required' }, 400);
     }
 
-    const { user, success } = await verifyAndUseMagicToken(token);
+    const result = await verifyAndUseMagicToken(token);
 
-    if (!success || !user) {
+    if (!result || !result.success || !result.user) {
       return c.json({ error: 'Invalid or expired token' }, 400);
     }
+
+    const { user, success } = result;
 
     // Создаем сессию
     const sessionId = generateId();
@@ -378,11 +380,13 @@ authRoutes.post('/figma-verify', figmaPluginMiddleware, async (c) => {
       return c.json({ error: 'Code is required' }, 400);
     }
 
-    const { user, success } = await verifyAndUseFigmaCode(code);
+    const result = await verifyAndUseFigmaCode(code);
 
-    if (!success || !user) {
+    if (!result || !result.success || !result.user) {
       return c.json({ error: 'Invalid or expired code' }, 400);
     }
+
+    const { user, success } = result!;
 
     // Создаем сессию для Figma
     const sessionId = generateId();
