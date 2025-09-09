@@ -102,7 +102,9 @@ export function CreateVoting() {
         continue
       }
       
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      // Проверяем тип файла, включая HEIC файлы которые могут иметь пустой MIME тип
+      const isHeicFile = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/') && !isHeicFile) {
         setError(t('createVoting.fileTypeError'))
         continue
       }
