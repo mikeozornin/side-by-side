@@ -30,6 +30,13 @@ export function isVideo(file: File): boolean {
  */
 export function getImageDimensions(file: File): Promise<{width: number, height: number}> {
   return new Promise((resolve, reject) => {
+    // Для HEIC файлов в Safari показываем превью, в других браузерах - только название
+    if (isHeicFile(file) && !isSafari()) {
+      // В не-Safari браузерах не можем получить размеры HEIC, возвращаем 0
+      resolve({ width: 0, height: 0 })
+      return
+    }
+    
     const img = new Image()
     img.onload = () => {
       resolve({ width: img.naturalWidth, height: img.naturalHeight })
@@ -84,4 +91,20 @@ export function parsePixelRatioFromName(fileName: string): number {
   }
   console.log(`[MediaUtils] No pixelRatio found in ${fileName}, using 1`)
   return 1
+}
+
+/**
+ * Проверяет, является ли браузер Safari
+ */
+export function isSafari(): boolean {
+  return /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+}
+
+/**
+ * Проверяет, является ли файл HEIC/HEIF
+ */
+export function isHeicFile(file: File): boolean {
+  return file.type === 'image/heic' || file.type === 'image/heif' || 
+         file.name.toLowerCase().endsWith('.heic') || 
+         file.name.toLowerCase().endsWith('.heif')
 }

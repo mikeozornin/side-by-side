@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, X, Check, Medal, Clock, Share, Trash2, Clock12 } from 'lucide-react'
+import { ArrowLeft, X, Check, Medal, Clock, Share, Trash2, Clock12, Image } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -10,6 +10,12 @@ import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
 import { useAuth } from '@/contexts/AuthContext'
 import { AuthModal } from '@/components/AuthModal'
+import { isSafari } from '@/lib/mediaUtils'
+
+// Функция для проверки, является ли файл HEIC по расширению
+function isHeicFile(filePath: string): boolean {
+  return filePath.toLowerCase().endsWith('.heic') || filePath.toLowerCase().endsWith('.heif')
+}
 
 interface VotingOption {
   id: number;
@@ -582,15 +588,30 @@ export function VotingPage() {
                           <div className="relative h-full">
                             <div className="w-full h-full flex items-center justify-center p-0.5">
                               {option.media_type === 'image' ? (
-                                <HiDPIImage
-                                  src={getImageUrl(option.file_path)}
-                                  width={option.width}
-                                  height={option.height}
-                                  pixelRatio={option.pixel_ratio}
-                                  fit="contain"
-                                  alt={`Вариант ${option.id}`}
-                                  className="max-w-full max-h-full object-contain shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]"
-                                />
+                                isHeicFile(option.file_path) && !isSafari() ? (
+                                  // Для HEIC файлов в не-Safari браузерах показываем только название
+                                  <div className="max-w-full max-h-full bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center p-8 shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]">
+                                    <div className="text-center">
+                                      <Image className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" strokeWidth={1} />
+                                      <div className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        HEIC
+                                      </div>
+                                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                                        {option.file_path.split('/').pop()}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <HiDPIImage
+                                    src={getImageUrl(option.file_path)}
+                                    width={option.width}
+                                    height={option.height}
+                                    pixelRatio={option.pixel_ratio}
+                                    fit="contain"
+                                    alt={`Вариант ${option.id}`}
+                                    className="max-w-full max-h-full object-contain shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]"
+                                  />
+                                )
                               ) : (
                                 <VideoPlayer
                                   src={getImageUrl(option.file_path)}

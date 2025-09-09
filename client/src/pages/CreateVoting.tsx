@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, EyeOff } from 'lucide-react'
+import { X, EyeOff, Image } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Toggle } from '@/components/ui/toggle'
 import { Dropzone, DropzoneEmptyState } from '@/components/ui/dropzone'
 import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
-import { getMediaType, getMediaDimensions, parsePixelRatioFromName } from '@/lib/mediaUtils'
+import { getMediaType, getMediaDimensions, parsePixelRatioFromName, isHeicFile, isSafari } from '@/lib/mediaUtils'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
 import { configManager } from '@/lib/config'
@@ -326,7 +326,7 @@ export function CreateVoting() {
             <div className="flex-1 relative">
               <Dropzone
                 accept={{
-                  'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
+                  'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif'],
                   'video/*': ['.mp4', '.webm', '.mov', '.avi']
                 }}
                 maxFiles={10}
@@ -345,15 +345,27 @@ export function CreateVoting() {
                   {mediaFiles.map((media, index) => (
                     <div key={index} className="relative group flex-shrink-0 max-h-60">
                       {getMediaType(media.file) === 'image' ? (
-                        <HiDPIImage
-                          src={URL.createObjectURL(media.file)}
-                          width={media.dimensions?.width || 0}
-                          height={media.dimensions?.height || 0}
-                          pixelRatio={parsePixelRatioFromName(media.file.name)}
-                          fit="contain"
-                          alt={`${t('createVoting.option')} ${index + 1}`}
-                          className="max-h-60 w-auto object-contain rounded"
-                        />
+                        isHeicFile(media.file) && !isSafari() ? (
+                          // Для HEIC файлов в не-Safari браузерах показываем только название
+                          <div className="max-h-60 h-full w-40 bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center p-8">
+                            <div className="text-center">
+                              <Image className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-2" strokeWidth={1} />
+                              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              {media.file.name}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <HiDPIImage
+                            src={URL.createObjectURL(media.file)}
+                            width={media.dimensions?.width || 0}
+                            height={media.dimensions?.height || 0}
+                            pixelRatio={parsePixelRatioFromName(media.file.name)}
+                            fit="contain"
+                            alt={`${t('createVoting.option')} ${index + 1}`}
+                            className="max-h-60 w-auto object-contain rounded"
+                          />
+                        )
                       ) : (
                         <VideoPlayer
                           src={URL.createObjectURL(media.file)}
