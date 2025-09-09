@@ -40,10 +40,10 @@
     "endEarlyConfirmButton": "Да, завершить",
     "endEarlyError": "Не удалось завершить голосование",
     "timeRemaining": {
-      "days": "{{days}} д {{hours}} ч {{minutes}} м",
-      "hours": "{{hours}} ч {{minutes}} м {{seconds}} с",
-      "minutes": "{{minutes}} м {{seconds}} с",
-      "seconds": "{{seconds}} с"
+      "days": "{{days}}д {{hours}}ч {{minutes}}м",
+      "hours": "{{hours}}ч {{minutes}}м {{seconds}}с",
+      "minutes": "{{minutes}}м {{seconds}}с",
+      "seconds": "{{seconds}}с"
     }
   },
   "dropzone": {
