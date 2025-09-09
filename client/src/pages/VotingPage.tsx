@@ -116,13 +116,13 @@ export function VotingPage() {
     const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
     
     if (days > 0) {
-      return `${days}д ${hours}ч ${minutes}м`
+      return t('voting.timeRemaining.days', { days, hours, minutes })
     } else if (hours > 0) {
-      return `${hours}ч ${minutes}м ${seconds}с`
+      return t('voting.timeRemaining.hours', { hours, minutes, seconds })
     } else if (minutes > 0) {
-      return `${minutes}м ${seconds}с`
+      return t('voting.timeRemaining.minutes', { minutes, seconds })
     } else {
-      return `${seconds}с`
+      return t('voting.timeRemaining.seconds', { seconds })
     }
   }
 
