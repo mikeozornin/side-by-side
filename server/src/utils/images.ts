@@ -62,8 +62,9 @@ async function uploadImagesSync(votingId: string, files: File[]): Promise<Upload
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
 
-    // Проверка MIME типа
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    // Проверка MIME типа (более гибкая для HEIC файлов)
+    const isHeicFile = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')
+    if (!ALLOWED_MIME_TYPES.includes(file.type) && !isHeicFile) {
       throw new Error(`Неподдерживаемый формат файла: ${file.type}`);
     }
 
@@ -78,15 +79,12 @@ async function uploadImagesSync(votingId: string, files: File[]): Promise<Upload
 
     // Проверяем реальный MIME тип файла по содержимому
     const detectedFileType = await fileTypeFromBuffer(buffer);
-    if (!detectedFileType) {
+    if (!detectedFileType && !isHeicFile) {
       throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Файл поврежден или имеет неизвестный формат. Разрешены только: JPG, PNG, WebP, AVIF, HEIC, HEIF, MP4, WebM, MOV, AVI.`);
     }
-    if (!ALLOWED_MIME_TYPES.includes(detectedFileType.mime)) {
+    if (detectedFileType && !ALLOWED_MIME_TYPES.includes(detectedFileType.mime) && !isHeicFile) {
       throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Обнаружен тип: ${detectedFileType.mime}. Разрешены только: JPG, PNG, WebP, AVIF, HEIC, HEIF, MP4, WebM, MOV, AVI.`);
     }
-
-    // Определяем тип медиафайла на основе финального MIME типа (после конвертации)
-    const mediaType = finalMimeType.startsWith('video/') ? 'video' : 'image';
 
     // Создаем хэш для имени файла
     const hash = createHash('sha256').update(buffer).digest('hex');
@@ -94,9 +92,12 @@ async function uploadImagesSync(votingId: string, files: File[]): Promise<Upload
     // Если это HEIC/HEIF, конвертируем в JPG
     let finalExtension = extension;
     let finalBuffer = buffer;
-    let finalMimeType = detectedFileType.mime;
+    let finalMimeType = detectedFileType?.mime || 'image/heic'; // Fallback для HEIC файлов
     
-    if (detectedFileType.mime === 'image/heic' || detectedFileType.mime === 'image/heif') {
+    // Определяем тип медиафайла на основе финального MIME типа (после конвертации)
+    const mediaType = finalMimeType.startsWith('video/') ? 'video' : 'image';
+    
+    if (isHeicFile || detectedFileType?.mime === 'image/heic' || detectedFileType?.mime === 'image/heif') {
       try {
         logger.info(`Converting HEIC/HEIF file ${file.name} to JPG`);
         const sharpInstance = sharp(buffer);
