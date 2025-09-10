@@ -133,6 +133,28 @@
         name: "{{ image_optimization_packages }}"
         state: present
 
+    - name: Install Sharp dependencies for HEIC/HEIF conversion
+      apt:
+        name:
+          - libvips-dev          # Core Sharp library
+          - libvips42            # VIPS runtime library
+          - libglib2.0-dev       # GLib development files
+          - libgobject-2.0-dev   # GObject development files
+          - libcairo2-dev        # Cairo graphics library
+          - libpango1.0-dev      # Pango text rendering
+          - libjpeg-dev          # JPEG support
+          - libpng-dev           # PNG support
+          - libwebp-dev          # WebP support
+          - libtiff-dev          # TIFF support
+          - libgif-dev           # GIF support
+          - libheif-dev          # HEIC/HEIF support (critical for Sharp)
+          - libexif-dev          # EXIF metadata support
+          - liblcms2-dev         # Color management
+          - liborc-dev           # ORC optimization
+          - libfftw3-dev         # FFTW3 for image processing
+          - libmagickwand-dev    # ImageMagick development files
+        state: present
+
     - name: Install certbot for Let's Encrypt
       apt:
         name: 

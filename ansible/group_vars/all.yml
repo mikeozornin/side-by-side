@@ -55,3 +55,4 @@ image_optimization_packages:
   - jpegoptim
   - pngquant
   - webp
+  - avif-tools
