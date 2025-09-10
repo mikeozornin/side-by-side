@@ -80,6 +80,43 @@ export function useWebPush() {
     };
   }, []);
 
+  // Проверяем актуальность подписки
+  const checkSubscriptionValidity = useCallback(async () => {
+    if (!state.isSupported || state.permission !== 'granted') {
+      return false;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      
+      if (!subscription) {
+        console.log('No existing subscription found');
+        return false;
+      }
+
+      // Получаем текущий VAPID ключ с сервера
+      const response = await fetch(`${configManager.getApiUrl()}/web-push/vapid-public-key`);
+      const { publicKey } = await response.json();
+      
+      // Проверяем, соответствует ли подписка текущему ключу
+      const currentKey = urlBase64ToArrayBuffer(publicKey);
+      const subscriptionKey = subscription.getKey('p256dh');
+      
+      // Если ключи не совпадают, подписка устарела
+      if (!subscriptionKey || !arraysEqual(currentKey, subscriptionKey)) {
+        console.log('Subscription key mismatch, need to resubscribe');
+        return false;
+      }
+
+      console.log('Subscription is valid');
+      return true;
+    } catch (error) {
+      console.error('Error checking subscription validity:', error);
+      return false;
+    }
+  }, [state.isSupported, state.permission]);
+
   // Загружаем настройки уведомлений
   const loadSettings = useCallback(async () => {
     if (!state.isSupported || !user || authLoading) {
@@ -95,6 +132,9 @@ export function useWebPush() {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
+      // Сначала проверяем валидность подписки
+      const isSubscriptionValid = await checkSubscriptionValidity();
+      
       const headers: Record<string, string> = {};
       
       // Добавляем токен авторизации если пользователь авторизован
@@ -113,7 +153,7 @@ export function useWebPush() {
         setState(prev => ({
           ...prev,
           settings: data.settings || prev.settings,
-          isSubscribed: data.isSubscribed || false,
+          isSubscribed: data.isSubscribed && isSubscriptionValid,
         }));
       } else if (response.status === 401) {
         // Пользователь не авторизован - не загружаем настройки
@@ -140,7 +180,7 @@ export function useWebPush() {
     } finally {
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, [state.isSupported, user, authLoading, accessToken]);
+  }, [state.isSupported, user, authLoading, accessToken, checkSubscriptionValidity]);
 
   // Подписываемся на веб-пуши
   const subscribeToWebPush = useCallback(async (permission?: string) => {
@@ -165,6 +205,20 @@ export function useWebPush() {
       console.log('VAPID response status:', response.status);
       const { publicKey } = await response.json();
       console.log('VAPID public key received:', publicKey);
+
+      // Проверяем существующую подписку и отписываемся если нужно
+      console.log('Checking existing subscription...');
+      const existingSubscription = await registration.pushManager.getSubscription();
+      if (existingSubscription) {
+        console.log('Found existing subscription, unsubscribing...');
+        try {
+          await existingSubscription.unsubscribe();
+          console.log('Successfully unsubscribed from old subscription');
+        } catch (unsubError) {
+          console.warn('Error unsubscribing from old subscription:', unsubError);
+          // Продолжаем даже если отписка не удалась
+        }
+      }
 
       // Подписываемся на push-уведомления
       console.log('Subscribing to push manager...');
@@ -225,20 +279,30 @@ export function useWebPush() {
   }, [state.permission, user, authLoading, state.isSupported]);
 
   // Автоподписка: если разрешение уже выдано, поддержка есть, пользователь авторизован,
-  // а подписки ещё нет — пробуем подписаться автоматически
+  // а подписки ещё нет или она невалидна — пробуем подписаться автоматически
   useEffect(() => {
-    if (
-      state.isSupported &&
-      state.permission === 'granted' &&
-      user &&
-      !authLoading &&
-      accessToken &&
-      !state.isSubscribed
-    ) {
-      console.log('Auto-subscribe trigger: permission granted, has token, not subscribed');
-      subscribeToWebPush(state.permission);
-    }
-  }, [state.isSupported, state.permission, state.isSubscribed, user, authLoading, accessToken, subscribeToWebPush]);
+    const autoSubscribe = async () => {
+      if (
+        state.isSupported &&
+        state.permission === 'granted' &&
+        user &&
+        !authLoading &&
+        accessToken &&
+        !state.isSubscribed
+      ) {
+        console.log('Auto-subscribe trigger: permission granted, has token, not subscribed');
+        
+        // Проверяем валидность существующей подписки
+        const isValid = await checkSubscriptionValidity();
+        if (!isValid) {
+          console.log('Existing subscription is invalid, resubscribing...');
+          await subscribeToWebPush(state.permission);
+        }
+      }
+    };
+
+    autoSubscribe();
+  }, [state.isSupported, state.permission, state.isSubscribed, user, authLoading, accessToken, subscribeToWebPush, checkSubscriptionValidity]);
 
   // Запрашиваем разрешение на уведомления
   const requestPermission = useCallback(async () => {
@@ -411,4 +475,18 @@ function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray.buffer;
+}
+
+// Утилита для сравнения ArrayBuffer
+function arraysEqual(a: ArrayBuffer, b: ArrayBuffer): boolean {
+  if (a.byteLength !== b.byteLength) return false;
+  
+  const viewA = new Uint8Array(a);
+  const viewB = new Uint8Array(b);
+  
+  for (let i = 0; i < viewA.length; i++) {
+    if (viewA[i] !== viewB[i]) return false;
+  }
+  
+  return true;
 }

@@ -7,7 +7,8 @@ import {
   getAllWebPushSubscriptions,
   getUsersSubscribedToNewVotings,
   getUsersSubscribedToMyVotingsComplete,
-  getUserSubscriptionsForVotingComplete
+  getUserSubscriptionsForVotingComplete,
+  deleteWebPushSubscriptionByEndpointOnly
 } from '../../db/web-push-queries.js';
 
 export interface WebPushConfig extends Record<string, any> {
@@ -163,30 +164,7 @@ export class WebPushProvider extends NotificationProvider {
 
     try {
       const subscriptions = await getAllWebPushSubscriptions();
-      let success = 0;
-      let failed = 0;
-
-      for (const subscription of subscriptions) {
-        try {
-          const pushSubscription = {
-            endpoint: subscription.endpoint,
-            keys: {
-              p256dh: subscription.p256dh,
-              auth: subscription.auth,
-            },
-          };
-
-          const payload = JSON.stringify(notification);
-          await webpush.sendNotification(pushSubscription, payload);
-          success++;
-        } catch (error) {
-          logger.error(`Failed to send to subscription ${subscription.id}:`, error);
-          failed++;
-        }
-      }
-
-      logger.info(`Web Push notification sent to all subscribers: ${success} success, ${failed} failed`);
-      return { success, failed };
+      return await this.sendToSubscriptions(subscriptions, notification);
     } catch (error) {
       logger.error('Error sending Web Push to all:', error);
       return { success: 0, failed: 0 };
@@ -255,12 +233,47 @@ export class WebPushProvider extends NotificationProvider {
         await webpush.sendNotification(pushSubscription, payload);
         success++;
       } catch (error) {
-        logger.error(`Failed to send to subscription ${subscription.id}:`, error);
+        const shouldRemoveSubscription = this.handleWebPushError(error, subscription);
+        if (shouldRemoveSubscription) {
+          try {
+            await deleteWebPushSubscriptionByEndpointOnly(subscription.endpoint);
+            logger.info(`Removed invalid subscription ${subscription.id} from database`);
+          } catch (deleteError) {
+            logger.error(`Failed to remove invalid subscription ${subscription.id}:`, deleteError);
+          }
+        }
         failed++;
       }
     }
 
     return { success, failed };
+  }
+
+  // Обработка ошибок web-push и определение, нужно ли удалить подписку
+  private handleWebPushError(error: any, subscription: any): boolean {
+    // Проверяем, является ли это ошибкой web-push
+    if (error.name === 'WebPushError') {
+      const statusCode = error.statusCode;
+      
+      // 400 - VapidPkHashMismatch или другие проблемы с VAPID
+      // 410 - подписка истекла или была отписана
+      // 404 - подписка не найдена
+      if (statusCode === 400 || statusCode === 410 || statusCode === 404) {
+        logger.warn(`Web Push error ${statusCode} for subscription ${subscription.id}: ${error.message}`);
+        return true; // Удаляем подписку
+      }
+      
+      // 413 - payload слишком большой
+      // 429 - слишком много запросов
+      if (statusCode === 413 || statusCode === 429) {
+        logger.warn(`Web Push error ${statusCode} for subscription ${subscription.id}: ${error.message}`);
+        return false; // Не удаляем подписку, это временная проблема
+      }
+    }
+    
+    // Для других ошибок логируем и не удаляем подписку
+    logger.error(`Web Push error for subscription ${subscription.id}:`, error);
+    return false;
   }
 
   // Получить публичный VAPID ключ для клиента

@@ -224,3 +224,20 @@ export async function getUserSubscriptionsForVotingComplete(userId: string): Pro
     throw error;
   }
 }
+
+// Удалить подписку по endpoint (для очистки невалидных подписок)
+export async function deleteWebPushSubscriptionByEndpointOnly(endpoint: string): Promise<void> {
+  const db = getDatabase();
+
+  try {
+    const sql = prepareQuery('DELETE FROM web_push_subscriptions WHERE endpoint = ?');
+    const result = await db.run(sql, [endpoint]);
+
+    if (result.changes && result.changes > 0) {
+      logger.info(`Web Push subscription deleted by endpoint: ${endpoint.substring(0, 50)}...`);
+    }
+  } catch (error) {
+    logger.error('Error deleting Web Push subscription by endpoint only:', error);
+    throw error;
+  }
+}

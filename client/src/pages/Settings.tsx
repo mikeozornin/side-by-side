@@ -15,7 +15,7 @@ import { useTheme } from '@/components/ThemeProvider';
 
 export function Settings() {
   const { t, i18n } = useTranslation();
-  const { user, accessToken, logout, isLoading: authLoading } = useAuth();
+  const { user, accessToken, logout, isLoading: authLoading, isAnonymous } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [figmaCode, setFigmaCode] = useState<string | null>(null);
@@ -101,6 +101,7 @@ export function Settings() {
     await updateSettings({ [key]: value });
   };
 
+
   const handleLanguageChange = async (language: string) => {
     setCurrentLanguage(language);
     await i18n.changeLanguage(language);
@@ -170,20 +171,20 @@ export function Settings() {
 
   // Проверяем авторизацию при изменении пользователя
   useEffect(() => {
-    // Если загрузка завершена и пользователя нет - редиректим
-    if (!authLoading && !user) {
+    // Если загрузка завершена и пользователя нет (и не анонимный режим) - редиректим
+    if (!authLoading && !user && !isAnonymous) {
       // Используем принудительный редирект
       window.location.href = '/';
       return;
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, isAnonymous]);
 
-  // Генерируем код при загрузке страницы
+  // Генерируем код при загрузке страницы (только для авторизованных пользователей)
   useEffect(() => {
-    if (accessToken && !figmaCode && user) {
+    if (accessToken && !figmaCode && user && !isAnonymous) {
       generateFigmaCode();
     }
-  }, [accessToken, figmaCode, user]);
+  }, [accessToken, figmaCode, user, isAnonymous]);
 
   // Синхронизируем состояние языка с i18n
   useEffect(() => {
@@ -205,7 +206,7 @@ export function Settings() {
     );
   }
 
-  if (!user) {
+  if (!user && !isAnonymous) {
     return (
       <div className="container mx-auto p-6">
         <Card>
@@ -223,7 +224,9 @@ export function Settings() {
     <div className="container mx-auto p-6 max-w-2xl">
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
-          <h1 className="text-xl md:text-3xl font-bold">{user.email}</h1>
+          <h1 className="text-xl md:text-3xl font-bold">
+            {isAnonymous ? t('settings.profile') : user?.email}
+          </h1>
           <Button
             variant="ghost"
             size="icon"
@@ -235,7 +238,8 @@ export function Settings() {
       </div>
 
       <div className="space-y-6">
-        {/* Интеграция с Figma */}
+        {/* Интеграция с Figma - только для авторизованных пользователей */}
+        {!isAnonymous && (
         <div>
           <div className="space-y-4">
             <div>
@@ -306,8 +310,10 @@ export function Settings() {
             )}
           </div>
         </div>
+        )}
 
-        {/* Уведомления */}
+        {/* Уведомления - только для авторизованных пользователей */}
+        {!isAnonymous && (
         <div>
           <div className="space-y-4">
             <h4 className="font-medium">{t('settings.notifications.title')}</h4>
@@ -349,6 +355,7 @@ export function Settings() {
 
             {/* Switch'и для настроек */}
             <div className="space-y-4">
+              {/* Уведомления об окончании своих голосований - только для авторизованных пользователей */}
               <div className="flex items-center gap-3">
                 <Switch
                   id="myVotingsComplete"
@@ -406,6 +413,7 @@ export function Settings() {
             )}
           </div>
         </div>
+        )}
 
         {/* Настройки языка */}
         <div>
@@ -476,17 +484,19 @@ export function Settings() {
         
       </div>
 
-      {/* Кнопка выхода внизу страницы */}
-      <div className="mt-12">
-        <Button
-          variant="outline"
-          onClick={handleLogout}
-          className="flex items-center gap-2"
-        >
-          <LogOut className="h-4 w-4" />
-          <span className="ml-2">{t('settings.logout')}</span>
-        </Button>
-      </div>
+      {/* Кнопка выхода внизу страницы - только для авторизованных пользователей */}
+      {!isAnonymous && (
+        <div className="mt-12">
+          <Button
+            variant="outline"
+            onClick={handleLogout}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="ml-2">{t('settings.logout')}</span>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
