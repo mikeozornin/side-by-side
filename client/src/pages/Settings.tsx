@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -12,13 +13,14 @@ import { useWebPush } from '@/hooks/useWebPush';
 
 
 export function Settings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, accessToken, logout, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [figmaCode, setFigmaCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+  const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
   
   // Web Push уведомления
   const {
@@ -97,6 +99,13 @@ export function Settings() {
     await updateSettings({ [key]: value });
   };
 
+  const handleLanguageChange = async (language: string) => {
+    setCurrentLanguage(language);
+    await i18n.changeLanguage(language);
+    // Сохраняем в localStorage
+    localStorage.setItem('i18nextLng', language);
+  };
+
   const getNotificationStatus = () => {
     if (!isSupported) {
       return {
@@ -170,6 +179,11 @@ export function Settings() {
     }
   }, [accessToken, figmaCode, user]);
 
+  // Синхронизируем состояние языка с i18n
+  useEffect(() => {
+    setCurrentLanguage(i18n.language);
+  }, [i18n.language]);
+
   // Показываем загрузку пока проверяется авторизация
   if (authLoading) {
     return (
@@ -205,12 +219,11 @@ export function Settings() {
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-xl md:text-3xl font-bold">{user.email}</h1>
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon"
             onClick={handleGoBack}
-            className="h-8 w-8 p-0"
           >
-            <X className="h-4 w-4" />
+            <X className="h-6 w-6" />
           </Button>
         </div>
       </div>
@@ -385,6 +398,32 @@ export function Settings() {
                 <p className="text-sm text-red-700">{notificationsError}</p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Настройки языка */}
+        <div>
+          <div className="space-y-4">
+            <h4 className="font-medium">{t('settings.preferences.title')}</h4>
+            
+            <div className="space-y-2">
+              <Label htmlFor="language-select" className="text-sm font-medium">
+                {t('settings.preferences.language.label')}
+              </Label>
+              <Select value={currentLanguage} onValueChange={handleLanguageChange}>
+                <SelectTrigger id="language-select" className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">
+                    {t('settings.preferences.language.options.en')}
+                  </SelectItem>
+                  <SelectItem value="ru">
+                    {t('settings.preferences.language.options.ru')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
