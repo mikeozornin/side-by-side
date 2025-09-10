@@ -461,8 +461,7 @@
     var STORAGE_KEYS = {
       SERVER_URL: 'figma-plugin-server-url',
       DURATION: 'figma-plugin-duration',
-      PRIVACY: 'figma-plugin-privacy',
-      COMMENT: 'figma-plugin-comment'
+      PRIVACY: 'figma-plugin-privacy'
     };
 
     // Load settings by requesting from main script
@@ -774,7 +773,6 @@
       
       settings.duration = selectedDuration;
       settings.privacy = selectedPrivacy;
-      settings.comment = selectedComment;
 
       parent.postMessage({
         pluginMessage: {
@@ -904,7 +902,6 @@
       if (commentInput) {
         commentInput.addEventListener('input', function() {
           selectedComment = commentInput.value;
-          saveSettings();
         });
       }
       
@@ -1217,14 +1214,6 @@
         console.log('Set privacy to:', selectedPrivacy);
       }
 
-      // Load comment
-      if (settings.comment !== undefined) {
-        selectedComment = settings.comment || '';
-        if (commentInput) {
-          commentInput.value = selectedComment;
-        }
-        console.log('Set comment to:', selectedComment);
-      }
       
       updateCreateButtonState();
     }
