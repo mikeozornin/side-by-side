@@ -179,17 +179,21 @@ router.get('/api/images/:filename', async (c) => {
     const fileBuffer = await readFile(foundPath);
     const ext = extname(decodedFilename).toLowerCase();
 
-    // 7. Проверяем расширение файла - только изображения
-    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.avif'];
+    // 7. Проверяем расширение файла - изображения и видео
+    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.avif', '.mp4', '.webm', '.mov', '.avi'];
     if (!allowedExtensions.includes(ext)) {
-      console.warn(`[SECURITY] Non-image file access attempt: ${decodedFilename}`);
-      return c.text('Only image files are allowed', 403);
+      console.warn(`[SECURITY] Non-media file access attempt: ${decodedFilename}`);
+      return c.text('Only image and video files are allowed', 403);
     }
 
     let contentType = 'image/jpeg';
     if (ext === '.png') contentType = 'image/png';
     else if (ext === '.webp') contentType = 'image/webp';
     else if (ext === '.avif') contentType = 'image/avif';
+    else if (ext === '.mp4') contentType = 'video/mp4';
+    else if (ext === '.webm') contentType = 'video/webm';
+    else if (ext === '.mov') contentType = 'video/quicktime';
+    else if (ext === '.avi') contentType = 'video/x-msvideo';
     
     return new Response(new Uint8Array(fileBuffer), {
       headers: {
