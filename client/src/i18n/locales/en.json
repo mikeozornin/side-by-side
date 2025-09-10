@@ -96,6 +96,8 @@
   "settings": {
     "loginRequired": "Login required",
     "logout": "Logout",
+    "profile": "Profile",
+    "account": "Account",
     "figmaIntegration": {
       "howToConnect": "Login in the Figma plugin:",
       "refresh": "Refresh",
@@ -115,6 +117,7 @@
       "notSupported": "Your browser doesn't support notifications",
       "allow": "Allow",
       "configure": "Configure",
+      "resubscribe": "Resubscribe",
       "newVotings": {
         "label": "Notify about new votings",
         "description": "Receive notifications when new votings are created"

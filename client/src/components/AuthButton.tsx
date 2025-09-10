@@ -28,9 +28,19 @@ export function AuthButton({ returnTo, className }: AuthButtonProps) {
     );
   }
 
-  // В анонимном режиме не показываем кнопку авторизации
+  // В анонимном режиме показываем кнопку профиля
   if (isAnonymous) {
-    return null;
+    return (
+      <Link to="/settings">
+        <Button
+          variant="outline"
+          size="sm"
+          className={className}
+        >
+          <User className="h-4 w-4" />
+        </Button>
+      </Link>
+    );
   }
 
   if (user) {

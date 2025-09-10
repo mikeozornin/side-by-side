@@ -95,6 +95,8 @@
   "settings": {
     "loginRequired": "Войдите",
     "logout": "Выйти",
+    "profile": "Профиль",
+    "account": "Аккаунт",
     "figmaIntegration": {
       "howToConnect": "Войти в плагине Фигмы:",
       "refresh": "Обновить",
@@ -114,6 +116,7 @@
       "notSupported": "Ваш браузер не поддерживает уведомления",
       "allow": "Разрешить",
       "configure": "Настроить",
+      "resubscribe": "Переподписаться",
       "newVotings": {
         "label": "Уведомлять о новых голосованиях",
         "description": "Получать уведомления когда создаются новые голосования"
