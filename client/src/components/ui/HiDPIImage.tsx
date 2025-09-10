@@ -25,10 +25,6 @@ export function HiDPIImage({ src, width, height, pixelRatio, fit = 'contain', st
       height={displayHeight}
       style={{
         objectFit,
-        width: `${displayWidth}px`,
-        height: `${displayHeight}px`,
-        maxWidth: '100%',
-        maxHeight: '100%',
         ...style,
       }}
       {...imgProps}
