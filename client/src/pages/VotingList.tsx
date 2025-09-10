@@ -215,7 +215,7 @@ export function VotingList() {
                               <CheckCircle className="h-5 w-5 text-green-500" />
                             )}
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              {t('votes', { count: voting.vote_count })} · <Clock className="h-4 w-4" /> {getTimeRemaining(voting.end_at)}
+                              {t('votes', { count: voting.vote_count })} · <Clock className="h-4 w-4" /> <span className="font-mono">{getTimeRemaining(voting.end_at)}</span>
                               {voting.user_email && ` · ${voting.user_email}`}
                             </div>
                           </div>
@@ -257,7 +257,7 @@ export function VotingList() {
                               <CheckCircle className="h-5 w-5 text-green-500" />
                             )}
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              {t('votes', { count: voting.vote_count })} · <Clock className="h-4 w-4" /> {getTimeRemaining(voting.end_at)}
+                              {t('votes', { count: voting.vote_count })} · <Clock className="h-4 w-4" /> <span className="font-mono">{getTimeRemaining(voting.end_at)}</span>
                               {voting.user_email && ` · ${voting.user_email}`}
                             </div>
                           </div>

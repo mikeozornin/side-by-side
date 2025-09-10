@@ -17,6 +17,12 @@ module.exports = {
   		}
   	},
   	extend: {
+  		fontFamily: {
+  			'sans': ['var(--font-sans)', 'ui-sans-serif', 'system-ui'],
+  			'sans-medium': ['var(--font-sans-medium)', 'ui-sans-serif', 'system-ui'],
+  			'display': ['var(--font-display)', 'ui-sans-serif', 'system-ui'],
+  			'mono': ['var(--font-mono)', 'ui-monospace', 'monospace'],
+  		},
   		fontSize: {
   			xs: '12px',
   			sm: '14px',
@@ -24,7 +30,10 @@ module.exports = {
   			lg: '18px',
   			xl: '24px',
   			'2xl': '28px',
-  			'3xl': '32px'
+  			'3xl': '32px',
+  			'4xl': '36px',
+  			'5xl': '48px',
+  			'6xl': '60px'
   		},
   		colors: {
   			border: 'hsl(var(--border))',
