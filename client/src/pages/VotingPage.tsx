@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, X, Check, Medal, Clock, Share, Trash2, Clock12, Image } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -80,6 +80,10 @@ export function VotingPage() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [infoModalOpen, setInfoModalOpen] = useState(false)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [showLeftShadow, setShowLeftShadow] = useState(false)
+  const [showRightShadow, setShowRightShadow] = useState(false)
 
 
   const shuffledOptions = useMemo(() => {
@@ -184,6 +188,34 @@ export function VotingPage() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [finished, hasVoted, selectedChoice])
+
+  const checkScroll = () => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
+      const tolerance = 1
+      setShowLeftShadow(scrollLeft > tolerance)
+      setShowRightShadow(scrollLeft < scrollWidth - clientWidth - tolerance)
+    }
+  }
+
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (container) {
+      // Use a timeout to ensure layout is stable after options render
+      const timer = setTimeout(() => {
+        checkScroll()
+      }, 100)
+
+      container.addEventListener('scroll', checkScroll)
+      window.addEventListener('resize', checkScroll)
+
+      return () => {
+        clearTimeout(timer)
+        container.removeEventListener('scroll', checkScroll)
+        window.removeEventListener('resize', checkScroll)
+      }
+    }
+  }, [shuffledOptions])
 
 
   // Синхронизация статуса голосования между вкладками
@@ -560,17 +592,19 @@ export function VotingPage() {
         <div className="flex flex-col">
           {finished ? (
             // Для завершенных голосований используем новую верстку
-            <div className="w-full overflow-x-auto overflow-y-hidden mb-6">
-              <div className="flex gap-4">
-                {shuffledOptions.map((option) => {
-                  const result = results?.results.find(r => r.option_id === option.id)
-                  
-                  return (
-                    <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[720px] max-w-[600px] overflow-hidden">
-                      <div className="flex justify-center items-center w-full h-[600px]">
-                        <div className={`relative w-full h-full flex items-center justify-center ${
-                          results && (results.winner === 'tie' || (typeof results.winner === 'number' && results.winner !== option.id)) ? 'opacity-50 grayscale' : ''
-                        }`}>
+            <div className="relative mb-6">
+              <div className={`absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-10 transition-opacity duration-300 ${showLeftShadow ? 'opacity-100' : 'opacity-0'}`} />
+              <div ref={scrollContainerRef} className="w-full overflow-x-auto overflow-y-hidden">
+                <div className="flex gap-4">
+                  {shuffledOptions.map((option) => {
+                    const result = results?.results.find(r => r.option_id === option.id)
+                    
+                    return (
+                      <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[720px] max-w-[600px] overflow-hidden">
+                        <div className="flex justify-center items-center w-full h-[600px]">
+                          <div className={`relative w-full h-full flex items-center justify-center ${
+                            results && (results.winner === 'tie' || (typeof results.winner === 'number' && results.winner !== option.id)) ? 'opacity-50 grayscale' : ''
+                          }`}>
                           {option.media_type === 'image' ? (
                             isHeicFile(option.file_path) && !isSafari() ? (
                               // Для HEIC файлов в не-Safari браузерах показываем только название
@@ -628,24 +662,28 @@ export function VotingPage() {
                         </div>
                       </div>
                     </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
+              <div className={`absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-10 transition-opacity duration-300 ${showRightShadow ? 'opacity-100' : 'opacity-0'}`} />
             </div>
           ) : (
             // Для активных голосований используем новую верстку
-            <div className="w-full overflow-x-auto overflow-y-hidden mb-6">
-              <div className="flex gap-4">
-                {shuffledOptions.map((option) => {
-                  
-                  return (
-                    <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[620px] max-w-[600px] overflow-hidden">
-                      <div className="flex justify-center items-center w-full h-[600px]">
-                        <div className={`relative w-full h-full flex items-center justify-center p-0.5 ${
-                          selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
-                        }`}
-                        onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
-                        style={{ cursor: !finished ? 'pointer' : 'default' }}>
+            <div className="relative mb-6">
+              <div className={`absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-10 transition-opacity duration-300 ${showLeftShadow ? 'opacity-100' : 'opacity-0'}`} />
+              <div ref={scrollContainerRef} className="w-full overflow-x-auto overflow-y-hidden">
+                <div className="flex gap-4">
+                  {shuffledOptions.map((option) => {
+                    
+                    return (
+                      <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[620px] max-w-[600px] overflow-hidden">
+                        <div className="flex justify-center items-center w-full h-[600px]">
+                          <div className={`relative w-full h-full flex items-center justify-center p-0.5 ${
+                            selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
+                          }`}
+                          onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
+                          style={{ cursor: !finished ? 'pointer' : 'default' }}>
                           {option.media_type === 'image' ? (
                             isHeicFile(option.file_path) && !isSafari() ? (
                               // Для HEIC файлов в не-Safari браузерах показываем только название
@@ -693,9 +731,11 @@ export function VotingPage() {
                         </div>
                       </div>
                     </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
+              <div className={`absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-10 transition-opacity duration-300 ${showRightShadow ? 'opacity-100' : 'opacity-0'}`} />
             </div>
           )}
 
