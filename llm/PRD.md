@@ -90,30 +90,67 @@
 - GET `/api/votings/:id/results` — итоги
 
 ## Файлы и оптимизация
-- Принимаемые форматы: JPEG/PNG/WebP/AVIF. Проверяем расширение и заголовок `Content-Type` (без глубокой проверки сигнатуры). Не‑картинки отклоняем.
-- Путь к данным задаётся через ENV `DATA_DIR`. Структура: `data/{voting_id}/` с двумя файлами вариантов.
-- Именование файлов: `sha256` исходного содержимого + исходное расширение (напр. `a1b2...c9.jpg`).
-- Храним одну версию: если оптимизация успешна — оптимизированную; если оптимизация упала — исходный файл (оригинал не сохраняем отдельно).
-- Утилиты оптимизации (Ubuntu): ImageMagick, jpegoptim (JPEG), pngquant (PNG), cwebp (WebP), avifenc (AVIF). EXIF/метаданные не срезаем. Ресайз/нормализация формата не выполняются.
-- Загрузка: два отдельных поля для файлов; если контрол поддерживает вставку из буфера — допускается копипаст.
+- **Поддерживаемые форматы изображений**: JPEG/PNG/WebP/AVIF/HEIC/HEIF
+- **Поддерживаемые форматы видео**: MP4/WebM/MOV/AVI
+- **Проверка файлов**: Проверяем расширение и заголовок `Content-Type`, а также реальный MIME тип по содержимому файла
+- **HEIC/HEIF конвертация**: Автоматическая конвертация в JPG с качеством 90% для совместимости с браузерами
+- **Путь к данным**: Задаётся через ENV `DATA_DIR`. Структура: `data/{voting_id}/` с файлами вариантов
+- **Именование файлов**: `sha256` исходного содержимого + финальное расширение (напр. `a1b2...c9.jpg`)
+- **Хранение**: Одна версия файла - оптимизированная (если успешно) или исходная (если оптимизация не удалась)
+- **Утилиты оптимизации (Ubuntu)**: 
+  - JPEG: jpegoptim (качество 85%)
+  - PNG: pngquant (качество 65-80%)
+  - WebP: cwebp (качество 80%)
+  - AVIF: avifenc (качество 0-63, скорость 4)
+  - HEIC/HEIF: Sharp (конвертация в JPG)
+- **Метаданные**: EXIF/метаданные не срезаем, ресайз/нормализация формата не выполняются
+- **Загрузка**: Два отдельных поля для файлов; поддержка вставки из буфера обмена
 
 ## База данных и индексы
-- Схема:
-  - `votings(id, title, created_at, end_at)`
-  - `voting_images(id, voting_id, file_path, sort_order)`
-  - `votes(id, voting_id, choice, created_at)` (без IP/браузера/пользователя)
-- Необходимые индексы по `created_at`, `end_at`, а также внешние ключи для связности.
+- **Поддерживаемые СУБД**: SQLite (по умолчанию) и PostgreSQL
+- **Выбор СУБД**: Через переменную окружения `DB_PROVIDER` ("sqlite" или "postgres")
+- **Схема**:
+  - `users(id, email, created_at)` — пользователи
+  - `votings(id, title, created_at, end_at, duration_hours, is_public, user_id)` — голосования
+  - `voting_options(id, voting_id, file_path, sort_order, pixel_ratio, width, height, media_type)` — варианты голосований
+  - `votes(id, voting_id, option_id, user_id, created_at)` — голоса
+  - `magic_tokens(token_hash, user_email, expires_at, used_at)` — токены magic link
+  - `sessions(id, user_id, refresh_token_hash, expires_at, created_at)` — сессии
+  - `figma_auth_codes(code_hash, user_id, expires_at, used_at)` — коды для Figma
+- **Индексы**: По `created_at`, `end_at`, `user_id`, внешние ключи для связности
+- **Миграции**: Автоматическое применение при запуске сервера
 
 ## Конфигурация и логи
-- ENV: `DATA_DIR`, `LOG_DIR`, `DB_PATH`, `PORT`, `BASE_URL`, `NODE_ENV`, `BUN_ENV`.
-- Дополнительные ENV для выбора БД: `DB_PROVIDER` ("sqlite" или "postgres"), `DATABASE_URL` (для PostgreSQL).
-- Значения по умолчанию: `DATA_DIR=/var/app/side-by-side/data`, `LOG_DIR=/var/app/side-by-side/logs`, `PORT=3000`, `DB_PATH=/var/app/side-by-side/app.db`.
-- Логи: текстовый файл `LOG_DIR/server.log`, ротация через внешние средства (logrotate).
+- **Основные ENV**: `DATA_DIR`, `LOG_DIR`, `DB_PATH`, `PORT`, `BASE_URL`, `NODE_ENV`, `BUN_ENV`
+- **Выбор СУБД**: `DB_PROVIDER` ("sqlite" или "postgres"), `DATABASE_URL` (для PostgreSQL)
+- **Значения по умолчанию**: 
+  - `DATA_DIR=/var/app/side-by-side/data`
+  - `LOG_DIR=/var/app/side-by-side/logs` 
+  - `PORT=3000`
+  - `DB_PATH=/var/app/side-by-side/app.db` (SQLite)
+- **PostgreSQL**: Требует `DATABASE_URL` в формате `postgresql://user:password@host:port/database`
+- **Логи**: Текстовый файл `LOG_DIR/server.log`, ротация через внешние средства (logrotate)
 
 ## Деплой и раздача
 - Целевая среда: Ubuntu LTS + Nginx. CORS не нужен (same-origin).
 - Nginx раздаёт фронтенд-статику и папку `data/` напрямую, проксирует `/api/*` на bun.
 - Кэширование/ETag для изображений и фронтенд-бандла настраивается на стороне Nginx (Vite выдаёт хэшированные имена файлов).
+
+## Тестирование
+- **Серверные тесты**: Bun Test с покрытием 53 тестами
+  - Тестирование API эндпоинтов (auth, votings)
+  - Тестирование утилит аутентификации
+  - Тестирование запросов к базе данных
+  - In-memory SQLite для изоляции тестов
+- **Клиентские тесты**: Vitest + React Testing Library
+  - Тестирование React компонентов
+  - Тестирование контекстов и хуков
+  - Тестирование утилит медиафайлов
+  - jsdom для симуляции DOM
+- **Покрытие**: >80% для критических путей сервера, >70% для компонентов клиента
+- **Запуск тестов**: 
+  - Сервер: `cd server && bun test`
+  - Клиент: `cd client && npm test`
 
 ## Прочее
 - Локализуемость заложить; стартовая локаль — русская.
