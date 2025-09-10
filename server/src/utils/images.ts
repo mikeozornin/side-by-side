@@ -12,10 +12,11 @@ const execAsync = promisify(exec);
 const DATA_DIR = process.env.DATA_DIR || './data';
 
 // Разрешенные форматы медиафайлов
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.heic', '.heif', '.mp4', '.webm', '.mov', '.avi'];
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.heic', '.heif', '.mp4', '.webm', '.mov', '.avi'];
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
-  'image/png', 
+  'image/png',
+  'image/gif',
   'image/webp',
   'image/avif',
   'image/heic',
@@ -80,10 +81,10 @@ async function uploadImagesSync(votingId: string, files: File[]): Promise<Upload
     // Проверяем реальный MIME тип файла по содержимому
     const detectedFileType = await fileTypeFromBuffer(buffer);
     if (!detectedFileType && !isHeicFile) {
-      throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Файл поврежден или имеет неизвестный формат. Разрешены только: JPG, PNG, WebP, AVIF, HEIC, HEIF, MP4, WebM, MOV, AVI.`);
+      throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Файл поврежден или имеет неизвестный формат. Разрешены только: JPG, PNG, GIF, WebP, AVIF, HEIC, HEIF, MP4, WebM, MOV, AVI.`);
     }
     if (detectedFileType && !ALLOWED_MIME_TYPES.includes(detectedFileType.mime) && !isHeicFile) {
-      throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Обнаружен тип: ${detectedFileType.mime}. Разрешены только: JPG, PNG, WebP, AVIF, HEIC, HEIF, MP4, WebM, MOV, AVI.`);
+      throw new Error(`Файл "${file.name}" не является допустимым изображением или видео. Обнаружен тип: ${detectedFileType.mime}. Разрешены только: JPG, PNG, GIF, WebP, AVIF, HEIC, HEIF, MP4, WebM, MOV, AVI.`);
     }
 
     // Создаем хэш для имени файла
@@ -191,6 +192,10 @@ async function optimizeImage(filePath: string, extension: string): Promise<void>
       case '.png':
         // pngquant с явным указанием выходного файла для сохранения формата
         await execAsync(`pngquant --force --output "${filePath}" --quality=65-80 "${filePath}"`);
+        break;
+      case '.gif':
+        // gifsicle для оптимизации GIF
+        await execAsync(`gifsicle --optimize=3 --colors=256 "${filePath}" -o "${filePath}"`);
         break;
       case '.webp':
         // cwebp с явным указанием выходного файла
