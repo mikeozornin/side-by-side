@@ -2,12 +2,25 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
-// Определяем режим и загружаем соответствующий .env файл
-const nodeEnv = process.env.NODE_ENV || 'development';
-const envFile = nodeEnv === 'production' ? '.env' : '.env.development';
+// Сохраняем исходное значение NODE_ENV
+const originalNodeEnv = process.env.NODE_ENV;
 
-// Загружаем .env файл из корня проекта
-config({ path: resolve(process.cwd(), '..', envFile) });
+// Сначала загружаем .env файл для development режима
+// override: true позволяет перезаписать переменные, уже установленные в process.env
+config({ path: resolve(process.cwd(), '..', '.env.development'), override: true });
+
+// Определяем режим после загрузки .env файла
+const nodeEnv = process.env.NODE_ENV || 'development';
+
+// Если режим production, загружаем .env файл для production
+if (nodeEnv === 'production') {
+  config({ path: resolve(process.cwd(), '..', '.env'), override: true });
+}
+
+// Восстанавливаем исходное значение NODE_ENV, если оно было установлено извне
+if (originalNodeEnv && originalNodeEnv !== process.env.NODE_ENV) {
+  process.env.NODE_ENV = originalNodeEnv;
+}
 
 export const env = {
   PORT: process.env.PORT || '3000',
