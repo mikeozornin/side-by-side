@@ -602,7 +602,7 @@ export function VotingPage() {
                     
                     return (
                       <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[720px] max-w-[600px] overflow-hidden">
-                        <div className={`relative flex justify-center items-center min-h-[240px] min-w-[240px] max-h-[600px] h-full ${
+                        <div className={`relative flex justify-center items-center min-h-[240px] min-w-[240px] max-h-[600px] h-full p-1 ${
                           results && (results.winner === 'tie' || (typeof results.winner === 'number' && results.winner !== option.id)) ? 'opacity-50 grayscale' : ''
                         }`}>
                           {option.media_type === 'image' ? (
@@ -644,7 +644,7 @@ export function VotingPage() {
                             />
                           )}
                           {results && results.winner === option.id && (
-                            <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="absolute inset-0 flex items-center justify-center ring-2 ring-inset ring-primary">
                               <div className="bg-green-500 rounded-full p-8">
                                 <Medal 
                                   className="text-white stroke-[0.5]" 
@@ -682,9 +682,7 @@ export function VotingPage() {
                     
                     return (
                       <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[620px] max-w-[600px] overflow-hidden">
-                        <div className={`relative flex justify-center items-center h-full min-h-[240px] min-w-[240px] max-h-[600px] p-0.5 ${
-                          selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
-                        }`}
+                        <div className="relative flex justify-center items-center h-full min-h-[240px] min-w-[240px] max-h-[600px] m-2"
                           onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
                           style={{ cursor: !finished ? 'pointer' : 'default' }}>
                           {option.media_type === 'image' ? (
@@ -726,7 +724,7 @@ export function VotingPage() {
                             />
                           )}
                           {selectedChoice === option.id && !finished && (
-                            <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="absolute inset-0 flex items-center justify-center ring-2 ring-inset ring-primary">
                               <Check 
                                 className="text-primary stroke-[0.3]" 
                                 style={{ 
