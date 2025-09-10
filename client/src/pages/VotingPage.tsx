@@ -96,9 +96,19 @@ export function VotingPage() {
       })
     }
     
-    // Если результатов нет, перемешиваем массив опций
+    // Если результатов нет, но пользователь уже проголосовал, показываем выбранный вариант первым
+    if (hasVoted && selectedChoice !== null) {
+      const selectedOption = voting.options.find(option => option.id === selectedChoice)
+      const otherOptions = voting.options.filter(option => option.id !== selectedChoice)
+      
+      if (selectedOption) {
+        return [selectedOption, ...otherOptions.sort(() => Math.random() - 0.5)]
+      }
+    }
+    
+    // Если результатов нет и пользователь не голосовал, перемешиваем массив опций
     return [...voting.options].sort(() => Math.random() - 0.5)
-  }, [voting, results])
+  }, [voting, results, hasVoted])
 
   // Проверяем, является ли пользователь владельцем голосования
   const isOwner = user && voting && voting.user_id === user.id
@@ -629,7 +639,7 @@ export function VotingPage() {
                 {shuffledOptions.map((option) => {
                   
                   return (
-                    <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[720px] max-w-[600px] overflow-hidden">
+                    <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[620px] max-w-[600px] overflow-hidden">
                       <div className="flex justify-center items-center w-full h-[600px]">
                         <div className={`relative w-full h-full flex items-center justify-center p-0.5 ${
                           selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
@@ -705,7 +715,7 @@ export function VotingPage() {
             )}
 
             {hasVoted && !finished && (
-              <div className="w-full h-20 sm:h-40 flex items-center justify-center">
+              <div className="w-full h-10 sm:h-10 flex items-center justify-center">
                 <p className="text-foreground text-center">{t('voting.voteCounted')}</p>
               </div>
             )}
