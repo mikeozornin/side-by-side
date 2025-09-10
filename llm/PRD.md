@@ -26,6 +26,7 @@
 
 2. Голосование:
 Название
+Комментарий (если есть) — отображается под названием
 Картинка1 и картинка2 показываются слева-справа, клик по картинке — выбор. Выбранная картинка показывается с большой иконкой галочка, а невыбранная становится бледной и черно-белой.
 Внизу появляется кнопка подтверждения.
 После голосования открывается главная страница.
@@ -33,6 +34,7 @@
 3. Создание
 Название — сюда дизайнер пишет вопрос
 Два поля file upload для двух картинок
+Комментарий (опционально) — дополнительное описание голосования
 После создания редирект на созданное голосование
 
 # Прочие особенности
@@ -83,9 +85,9 @@
 - Сервер запрещает голосование после наступления `end_at` (включая ручные запросы).
 
 ## API (подтверждено)
-- POST `/api/votings` — создать голосование
+- POST `/api/votings` — создать голосование (принимает `comment` в теле запроса)
 - GET `/api/votings` — список голосований
-- GET `/api/votings/:id` — детали (включая `end_at`)
+- GET `/api/votings/:id` — детали (включая `end_at` и `comment`)
 - POST `/api/votings/:id/vote` — голос
 - GET `/api/votings/:id/results` — итоги
 
@@ -111,7 +113,7 @@
 - **Выбор СУБД**: Через переменную окружения `DB_PROVIDER` ("sqlite" или "postgres")
 - **Схема**:
   - `users(id, email, created_at)` — пользователи
-  - `votings(id, title, created_at, end_at, duration_hours, is_public, user_id)` — голосования
+  - `votings(id, title, created_at, end_at, duration_hours, is_public, user_id, comment)` — голосования
   - `voting_options(id, voting_id, file_path, sort_order, pixel_ratio, width, height, media_type)` — варианты голосований
   - `votes(id, voting_id, option_id, user_id, created_at)` — голоса
   - `magic_tokens(token_hash, user_email, expires_at, used_at)` — токены magic link

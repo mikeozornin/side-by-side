@@ -180,5 +180,23 @@ export const migrations: Migration[] = [
         await db.exec(`ALTER TABLE votings ALTER COLUMN duration_hours SET NOT NULL`);
       }
     }
+  },
+  {
+    version: 9,
+    name: 'add_comment_to_votings',
+    up: async (db: DbClient) => {
+      // Добавляем поле comment в таблицу votings
+      const existsRow = await db.get<{ exists: boolean }>(`
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_name = 'votings' AND column_name = 'comment'
+        ) as exists
+      `);
+      
+      if (!existsRow?.exists) {
+        await db.exec(`ALTER TABLE votings ADD COLUMN comment TEXT`);
+      }
+    }
   }
 ];

@@ -280,6 +280,7 @@ authRoutes.post('/refresh', async (c) => {
 
     return c.json({
       accessToken,
+      refreshToken: newRefreshToken,
       user: {
         id: user.id,
         email: user.email,
@@ -404,6 +405,7 @@ authRoutes.post('/figma-verify', figmaPluginMiddleware, async (c) => {
 
     return c.json({
       accessToken,
+      refreshToken,
       user: {
         id: user.id,
         email: user.email,

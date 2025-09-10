@@ -35,6 +35,7 @@ interface Voting {
   isPublic: boolean
   user_id: string | null
   user_email?: string | null
+  comment?: string | null
   options: VotingOption[]
 }
 
@@ -84,6 +85,7 @@ export function VotingPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [showLeftShadow, setShowLeftShadow] = useState(false)
   const [showRightShadow, setShowRightShadow] = useState(false)
+  const [maxImageHeight, setMaxImageHeight] = useState<number>(0)
 
   const shuffledOptions = useMemo(() => {
     if (!voting) return []
@@ -158,6 +160,34 @@ export function VotingPage() {
 
     return () => clearInterval(timer)
   }, [])
+
+  // Вычисляем максимальную высоту картинок с учетом ретиновости
+  useEffect(() => {
+    if (!voting?.options) return
+
+    const calculateMaxHeight = () => {
+      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
+      const maxViewportHeight = viewportHeight * 0.8 // 80% от viewport
+      
+      let maxHeight = 0
+      
+      voting.options.forEach(option => {
+        // Учитываем ретиновость (pixel_ratio) - берем реальный размер в пикселях
+        const realHeight = option.height / option.pixel_ratio
+        maxHeight = Math.max(maxHeight, realHeight)
+      })
+      
+      // Ограничиваем максимальной высотой viewport, но не растягиваем маленькие картинки
+      const finalHeight = Math.min(maxHeight, maxViewportHeight)
+      setMaxImageHeight(finalHeight)
+    }
+
+    calculateMaxHeight()
+    
+    // Пересчитываем при изменении размера окна
+    window.addEventListener('resize', calculateMaxHeight)
+    return () => window.removeEventListener('resize', calculateMaxHeight)
+  }, [voting?.options])
 
   // Вычисляем finished здесь, чтобы использовать в useEffect
   const finished = voting ? isFinished(voting.end_at) : false
@@ -466,11 +496,16 @@ export function VotingPage() {
 
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col">
       <div className="max-w-none mx-auto pt-6 px-6 w-full flex-shrink-0">
         <div className="flex justify-between items-start">
           <div className="flex-1 pr-4">
             <h1 className="text-3xl font-bold" title={voting.title}>{voting.title}</h1>
+            {voting.comment && voting.comment.trim() && (
+              <div className="mt-3 mb-3">
+                <p className="text-sm text-muted-foreground max-w-[65ch] whitespace-pre-wrap">{voting.comment}</p>
+              </div>
+            )}
             {!finished && (
               <div className="flex items-center gap-2 mt-2 mb-3 text-muted-foreground">
                 <Clock className="h-4 w-4" />
@@ -566,31 +601,31 @@ export function VotingPage() {
         </div>
       </div>
 
-      <div className="flex-1 max-w-none mx-auto px-6 w-full overflow-hidden">
-        <div className="h-full flex flex-col">
-          <div className="flex-1 relative mb-6">
+      <div className="flex-1 max-w-none mx-auto px-6 w-full">
+        <div className="flex flex-col">
+          <div className="relative mb-6">
             {showLeftShadow && <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-10" />}
-            <div ref={scrollContainerRef} className="h-full flex items-center gap-6 overflow-x-auto pb-4 scrollbar-adaptive">
-              {shuffledOptions.map((option) => {
+            <div ref={scrollContainerRef} className="flex items-center overflow-x-auto overflow-y-hidden scrollbar-adaptive" style={{ height: `${Math.min(maxImageHeight, typeof window !== 'undefined' ? window.innerHeight * 0.8 : 600)}px` }}>
+              {shuffledOptions.map((option, index) => {
                 const result = results?.results.find(r => r.option_id === option.id)
                 
                 return (
-                  <div key={option.id} className="flex flex-col h-full flex-shrink-0 w-full md:w-1/2 lg:w-1/3">
+                  <div key={option.id} className="flex flex-col h-full flex-shrink-0 w-full md:w-1/2 lg:w-1/3" style={{ marginRight: index < shuffledOptions.length - 1 ? '24px' : '0' }}>
                     <div className="flex-1">
                       <Card 
                         className={`h-full transition-all duration-300 ${
                           !finished ? 'cursor-pointer' : ''
-                        } ${selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
+                        } ${selectedChoice === option.id ? 'ring-2 ring-inset ring-primary relative z-10' : ''
                         } ${finished && results && (results.winner === 'tie' || (typeof results.winner === 'number' && results.winner !== option.id)) ? 'opacity-50 grayscale' : ''}`}
                         onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
                       >
                         <CardContent className="p-0 h-full">
                           <div className="relative h-full">
-                            <div className="w-full h-full flex items-center justify-center p-0.5">
+                            <div className="w-full flex items-center justify-center p-1" style={{ height: `${maxImageHeight}px`, maxHeight: `${maxImageHeight}px` }}>
                               {option.media_type === 'image' ? (
                                 isHeicFile(option.file_path) && !isSafari() ? (
                                   // Для HEIC файлов в не-Safari браузерах показываем только название
-                                  <div className="max-w-full max-h-full bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center p-8 shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]">
+                                  <div className="w-full h-full bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center p-8">
                                     <div className="text-center">
                                       <Image className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" strokeWidth={1} />
                                       <div className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -609,7 +644,7 @@ export function VotingPage() {
                                     pixelRatio={option.pixel_ratio}
                                     fit="contain"
                                     alt={`Вариант ${option.id}`}
-                                    className="max-w-full max-h-full object-contain shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]"
+                                    style={{ maxWidth: '100%', maxHeight: '100%' }}
                                   />
                                 )
                               ) : (
@@ -621,13 +656,19 @@ export function VotingPage() {
                                   autoPlay={true}
                                   loop={true}
                                   muted={true}
-                                  className="max-w-full max-h-full shadow-[0_0_0_1px_rgba(0,0,0,0.1)] max-h-[60vh]"
+                                  className="w-full h-full"
                                 />
                               )}
                             </div>
                             {selectedChoice === option.id && !finished && (
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <Check className="h-60 w-60 text-primary stroke-[0.5]" />
+                                <Check 
+                                  className="text-primary stroke-[0.5]" 
+                                  style={{ 
+                                    width: `${Math.min(maxImageHeight * 0.8, 240)}px`, 
+                                    height: `${Math.min(maxImageHeight * 0.8, 240)}px` 
+                                  }} 
+                                />
                               </div>
                             )}
                             {selectedChoice === option.id && finished && (
@@ -638,7 +679,13 @@ export function VotingPage() {
                             {results && results.winner === option.id && (
                               <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="bg-green-500 rounded-full p-8">
-                                  <Medal className="h-40 w-40 text-white stroke-[0.5]" />
+                                  <Medal 
+                                    className="text-white stroke-[0.5]" 
+                                    style={{ 
+                                      width: `${Math.min(maxImageHeight * 0.6, 160)}px`, 
+                                      height: `${Math.min(maxImageHeight * 0.6, 160)}px` 
+                                    }} 
+                                  />
                                 </div>
                               </div>
                             )}

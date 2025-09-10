@@ -1,11 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 
 // Мокаем fetch
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
-import { configManager } from '../../lib/config';
 
 // Мокаем configManager
 vi.mock('../../lib/config', () => ({
@@ -28,10 +26,6 @@ function TestComponent() {
     </div>
   );
 }
-
-// Мокаем fetch
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 describe('AuthContext', () => {
   beforeEach(() => {

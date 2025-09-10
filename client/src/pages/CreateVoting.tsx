@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, EyeOff, Image } from 'lucide-react'
+import { X, EyeOff, Image, NotebookPen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Toggle } from '@/components/ui/toggle'
+import { Textarea } from '@/components/ui/textarea'
 import { Dropzone, DropzoneEmptyState } from '@/components/ui/dropzone'
 import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
@@ -28,11 +29,14 @@ export function CreateVoting() {
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
   const [duration, setDuration] = useState<number>(24) // По умолчанию 1 сутки (24 часа)
   const [isPublic, setIsPublic] = useState<boolean>(true) // По умолчанию публичное
+  const [comment, setComment] = useState<string>('')
+  const [showComment, setShowComment] = useState<boolean>(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const navigate = useNavigate()
   const titleInputRef = useRef<HTMLInputElement>(null)
+  const commentTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Периоды голосования в часах
   const durationOptions = [
@@ -174,6 +178,14 @@ export function CreateVoting() {
     setSuccess(false)
   }
 
+  const handleAddComment = () => {
+    setShowComment(true)
+    // Фокусируемся на textarea после рендера
+    setTimeout(() => {
+      commentTextareaRef.current?.focus()
+    }, 0)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -195,6 +207,9 @@ export function CreateVoting() {
       formData.append('title', title)
       formData.append('duration', duration.toString())
       formData.append('isPublic', isPublic.toString())
+      if (comment.trim()) {
+        formData.append('comment', comment.trim())
+      }
       mediaFiles.forEach(mediaFile => {
         formData.append('images', mediaFile.file)
       })
@@ -241,6 +256,8 @@ export function CreateVoting() {
         // Очищаем форму после успешного создания
         setTitle('')
         setMediaFiles([])
+        setComment('')
+        setShowComment(false)
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Ошибка создания голосования')
@@ -279,46 +296,80 @@ export function CreateVoting() {
           </Button>
         </div>
         
-        <div className="space-y-2">
-          <div className="flex flex-wrap">
-            {durationOptions.map((option, index) => (
-              <Toggle
-                key={option.value}
-                pressed={duration === option.value}
-                onPressedChange={() => {
-                  setDuration(option.value)
-                  setSuccess(false)
-                }}
-                variant="outline"
-                className={`px-4 py-2 ${index === 0 ? 'rounded-l-md rounded-r-none' : ''} ${index === durationOptions.length - 1 ? 'rounded-r-md rounded-l-none' : ''} ${index > 0 && index < durationOptions.length - 1 ? 'rounded-none' : ''} ${index > 0 ? '-ml-px' : ''}`}
-              >
-                {option.label}
-              </Toggle>
-            ))}
-            
-            <div className="w-6"></div>
-            
-            {privacyOptions.map((option, index) => {
-              const IconComponent = option.icon
-              return (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap">
+              {durationOptions.map((option, index) => (
                 <Toggle
-                  key={option.value.toString()}
-                  pressed={isPublic === option.value}
+                  key={option.value}
+                  pressed={duration === option.value}
                   onPressedChange={() => {
-                    setIsPublic(option.value)
+                    setDuration(option.value)
                     setSuccess(false)
                   }}
                   variant="outline"
-                  className={`px-4 py-2 ${index === 0 ? 'rounded-l-md rounded-r-none' : ''} ${index === privacyOptions.length - 1 ? 'rounded-r-md rounded-l-none' : ''} ${index > 0 && index < privacyOptions.length - 1 ? 'rounded-none' : ''} ${index > 0 ? '-ml-px' : ''}`}
+                  className={`px-4 py-2 ${index === 0 ? 'rounded-l-md rounded-r-none' : ''} ${index === durationOptions.length - 1 ? 'rounded-r-md rounded-l-none' : ''} ${index > 0 && index < durationOptions.length - 1 ? 'rounded-none' : ''} ${index > 0 ? '-ml-px' : ''}`}
                 >
-                  <div className="flex items-center gap-2">
-                    {IconComponent && <IconComponent className="h-4 w-4" />}
-                    {option.label}
-                  </div>
+                  {option.label}
                 </Toggle>
-              )
-            })}
+              ))}
+            </div>
+            
+            <div className="w-6"></div>
+            
+            <div className="flex flex-wrap">
+              {privacyOptions.map((option, index) => {
+                const IconComponent = option.icon
+                return (
+                  <Toggle
+                    key={option.value.toString()}
+                    pressed={isPublic === option.value}
+                    onPressedChange={() => {
+                      setIsPublic(option.value)
+                      setSuccess(false)
+                    }}
+                    variant="outline"
+                    className={`px-4 py-2 ${index === 0 ? 'rounded-l-md rounded-r-none' : ''} ${index === privacyOptions.length - 1 ? 'rounded-r-md rounded-l-none' : ''} ${index > 0 && index < privacyOptions.length - 1 ? 'rounded-none' : ''} ${index > 0 ? '-ml-px' : ''}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {IconComponent && <IconComponent className="h-4 w-4" />}
+                      {option.label}
+                    </div>
+                  </Toggle>
+                )
+              })}
+            </div>
+
+            <div className="w-6"></div>
+
+            {!showComment && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAddComment}
+                className="gap-2 px-4 py-2 h-10"
+              >
+                <NotebookPen className="h-4 w-4" />
+                {t('createVoting.addComment')}
+              </Button>
+            )}
           </div>
+
+          {showComment && (
+            <div>
+              <Textarea
+                ref={commentTextareaRef}
+                placeholder={t('createVoting.commentPlaceholder')}
+                value={comment}
+                onChange={(e) => {
+                  setComment(e.target.value)
+                  setSuccess(false)
+                }}
+                className="min-h-[80px] resize-none"
+                maxLength={500}
+              />
+            </div>
+          )}
         </div>
       </div>
 

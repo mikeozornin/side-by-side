@@ -159,6 +159,7 @@ votingRoutes.post('/votings',
     let durationHours: number;
     let pixelRatios: number[] = [];
     let isPublic: boolean = true; // Default to public
+    let comment: string | null = null;
 
     if (contentType.includes('application/json')) {
       const jsonData = await c.req.json();
@@ -167,6 +168,7 @@ votingRoutes.post('/votings',
       durationHours = parseFloat(jsonData.duration) || 24;
       pixelRatios = jsonData.pixelRatios || []; // Expect an array of pixel ratios
       isPublic = jsonData.isPublic !== false; // Default to true if not specified
+      comment = jsonData.comment || null;
     } else {
       const formData = await c.req.formData();
       title = formData.get('title') as string;
@@ -174,6 +176,8 @@ votingRoutes.post('/votings',
       durationHours = parseFloat(formData.get('duration') as string) || 24;
       const isPublicStr = formData.get('isPublic') as string;
       isPublic = isPublicStr !== 'false'; // Default to true if not specified
+      const commentStr = formData.get('comment') as string;
+      comment = commentStr || null;
     }
 
     // Keep fractional for end_at; store integer for Postgres until migration is applied
@@ -198,7 +202,8 @@ votingRoutes.post('/votings',
       end_at: endAt,
       duration_hours: durationHoursForDB,
       is_public: isPublic,
-      user_id: c.user?.id || null // В анонимном режиме user_id будет null
+      user_id: c.user?.id || null, // В анонимном режиме user_id будет null
+      comment: comment?.trim() || null // Сохраняем только непустые комментарии
     });
 
     let uploaded: any[] = [];

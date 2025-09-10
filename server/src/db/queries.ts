@@ -13,6 +13,7 @@ export interface Voting {
   user_id: string | null;
   user_email?: string | null;
   complete_notified?: number;
+  comment?: string | null;
 }
 
 export interface VotingOption {
@@ -38,8 +39,8 @@ export interface Vote {
 export async function createVoting(voting: Omit<Voting, 'id' | 'created_at' | 'end_at'> & { created_at: Date, end_at: Date }): Promise<string> {
   const id = uuidv4();
   const db = getDatabase();
-  const sql = prepareQuery('INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)');
-  await db.run(sql, [id, voting.title, voting.created_at.toISOString(), voting.end_at.toISOString(), voting.duration_hours, voting.is_public, voting.user_id]);
+  const sql = prepareQuery('INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public, user_id, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  await db.run(sql, [id, voting.title, voting.created_at.toISOString(), voting.end_at.toISOString(), voting.duration_hours, voting.is_public, voting.user_id, voting.comment || null]);
   return id;
 }
 

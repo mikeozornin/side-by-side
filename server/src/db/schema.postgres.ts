@@ -19,7 +19,8 @@ export async function createTables(db: DbClient): Promise<void> {
       end_at TIMESTAMPTZ NOT NULL,
       duration_hours REAL NOT NULL DEFAULT 24,
       is_public BOOLEAN NOT NULL DEFAULT TRUE,
-      user_id TEXT REFERENCES users(id)
+      user_id TEXT REFERENCES users(id),
+      comment TEXT
     )
   `);
 

@@ -162,7 +162,21 @@ async function refreshAccessToken(serverUrl) {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to refresh token');
+      var errorData = {};
+      try { 
+        errorData = await response.json(); 
+      } catch (e) {
+        // Failed to parse error response
+      }
+      
+      var errorMessage = errorData.error || 'Failed to refresh token';
+      
+      // If refresh token is invalid or expired, we need to re-authenticate
+      if (response.status === 401) {
+        throw new Error('REFRESH_TOKEN_EXPIRED');
+      }
+      
+      throw new Error(errorMessage);
     }
 
     var result = await response.json();
@@ -208,21 +222,37 @@ async function makeAuthenticatedRequest(url, options, serverUrl) {
       // Update authorization header with new token
       options.headers['Authorization'] = 'Bearer ' + newAccessToken;
       
+      // Notify UI that token was refreshed successfully
+      figma.ui.postMessage({
+        type: 'token-refreshed',
+        message: 'Access token refreshed successfully'
+      });
+      
       // Retry the request
       response = await fetch(url, options);
     } catch (refreshError) {
       console.error('Token refresh failed:', refreshError);
-      // If refresh fails, user needs to re-authenticate
-      // Clear stored tokens
-      await figma.clientStorage.deleteAsync('figma-plugin-access-token');
-      await figma.clientStorage.deleteAsync('figma-plugin-refresh-token');
-      await figma.clientStorage.deleteAsync('figma-plugin-user');
       
-      figma.ui.postMessage({
-        type: 'auth-error',
-        message: 'Session expired. Please log in again.'
-      });
-      throw new Error('Session expired. Please log in again.');
+      // Check if refresh token expired
+      if (refreshError.message === 'REFRESH_TOKEN_EXPIRED') {
+        // Clear stored tokens
+        await figma.clientStorage.deleteAsync('figma-plugin-access-token');
+        await figma.clientStorage.deleteAsync('figma-plugin-refresh-token');
+        await figma.clientStorage.deleteAsync('figma-plugin-user');
+        
+        figma.ui.postMessage({
+          type: 'auth-error',
+          message: 'Session expired. Please log in again.'
+        });
+        throw new Error('Session expired. Please log in again.');
+      } else {
+        // Other refresh errors - show error but don't logout
+        figma.ui.postMessage({
+          type: 'error',
+          message: 'Failed to refresh token: ' + refreshError.message
+        });
+        throw refreshError;
+      }
     }
   }
 
@@ -271,6 +301,7 @@ async function handleCreateVoting(data) {
         title: data.title,
         duration: data.duration,
         isPublic: data.privacy !== false, // Default to true if not specified
+        comment: data.comment || null, // Send comment or null if empty
         images: imageDataUrls,
         pixelRatios: imageDataUrls.map(function() { return 2; })
       })
@@ -354,15 +385,17 @@ async function handleLoadSettings() {
     var serverUrl = await figma.clientStorage.getAsync('figma-plugin-server-url');
     var duration = await figma.clientStorage.getAsync('figma-plugin-duration');
     var privacy = await figma.clientStorage.getAsync('figma-plugin-privacy');
+    var comment = await figma.clientStorage.getAsync('figma-plugin-comment');
     
-    console.log('Loaded settings:', { serverUrl: serverUrl, duration: duration, privacy: privacy });
+    console.log('Loaded settings:', { serverUrl: serverUrl, duration: duration, privacy: privacy, comment: comment });
     
     figma.ui.postMessage({
       type: 'settings-loaded',
       settings: {
         serverUrl: serverUrl || 'localhost:3000',
         duration: duration || 24,
-        privacy: privacy !== false // Default to true if not set
+        privacy: privacy !== false, // Default to true if not set
+        comment: comment || ''
       }
     });
   } catch (error) {
@@ -372,7 +405,8 @@ async function handleLoadSettings() {
       settings: {
         serverUrl: 'localhost:3000',
         duration: 24,
-        privacy: true
+        privacy: true,
+        comment: ''
       }
     });
   }
@@ -395,6 +429,11 @@ async function handleSaveSettings(settings) {
     if (settings.privacy !== undefined) {
       await figma.clientStorage.setAsync('figma-plugin-privacy', settings.privacy);
       console.log('Privacy saved:', settings.privacy);
+    }
+    
+    if (settings.comment !== undefined) {
+      await figma.clientStorage.setAsync('figma-plugin-comment', settings.comment);
+      console.log('Comment saved:', settings.comment);
     }
     
     console.log('Settings saved successfully');
@@ -522,9 +561,18 @@ async function handleLogin(data) {
       
       result = await response.json();
     }
+    
+    console.log('Login response from server:', result);
     var accessToken = result.accessToken;
     var refreshToken = result.refreshToken;
     var user = result.user;
+    
+    console.log('Parsed tokens:', { 
+      accessToken: !!accessToken, 
+      refreshToken: !!refreshToken, 
+      user: !!user,
+      refreshTokenValue: refreshToken 
+    });
     
     if (!accessToken) {
       throw new Error('Invalid response from server');

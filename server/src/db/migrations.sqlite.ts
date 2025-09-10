@@ -190,5 +190,17 @@ export const migrations: Migration[] = [
         // Nothing to do; keep semantics as REAL
       }
     }
+  },
+  {
+    version: 9,
+    name: 'add_comment_to_votings',
+    up: async (db: DbClient) => {
+      // Добавляем поле comment в таблицу votings
+      const cols = await db.query<{ name: string }>(`PRAGMA table_info(votings)`);
+      const hasComment = cols.some(c => c.name === 'comment');
+      if (!hasComment) {
+        await db.exec(`ALTER TABLE votings ADD COLUMN comment TEXT`);
+      }
+    }
   }
 ];

@@ -225,3 +225,4 @@ server/logs/
 server/data/
 .env.development
 ssl
+.playwright-mcp

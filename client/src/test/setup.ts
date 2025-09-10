@@ -3,6 +3,15 @@ import { beforeAll, afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import React from 'react';
 
+// Добавляем типы для глобальных переменных
+declare global {
+  var process: {
+    env: {
+      NODE_ENV: string;
+    };
+  };
+}
+
 // Мокаем i18next для тестов
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -37,14 +46,20 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Мокаем ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+Object.defineProperty(window, 'ResizeObserver', {
+  value: vi.fn().mockImplementation(() => ({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+  })),
+  writable: true
+});
 
 // Мокаем fetch для тестов
-global.fetch = vi.fn();
+Object.defineProperty(window, 'fetch', {
+  value: vi.fn(),
+  writable: true
+});
 
 beforeAll(() => {
   // Настройка глобальных переменных окружения для тестов
