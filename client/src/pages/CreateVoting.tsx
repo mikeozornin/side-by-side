@@ -284,13 +284,14 @@ export function CreateVoting() {
                 handleSubmit(e as any)
               }
             }}
-            className="text-3xl h-16 flex-1 mr-4"
+            className="text-3xl h-16 flex-1 mr-1"
             required
           />
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/')}
+            className="h-16 w-16"
           >
             <X className="h-6 w-6" />
           </Button>

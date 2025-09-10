@@ -19,8 +19,8 @@ export default function VideoPlayer({
   fit = 'contain',
   alt,
   className,
-  controls = true,
-  autoPlay = false,
+  controls = false,
+  autoPlay = true,
   loop = false,
   muted = true,
 }: VideoPlayerProps) {

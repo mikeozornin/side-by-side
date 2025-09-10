@@ -720,10 +720,10 @@ export function VotingPage() {
                           {selectedChoice === option.id && !finished && (
                             <div className="absolute inset-0 flex items-center justify-center">
                               <Check 
-                                className="text-primary stroke-[0.5]" 
+                                className="text-primary stroke-[0.125]" 
                                 style={{ 
-                                  width: '120px', 
-                                  height: '120px' 
+                                  width: '480px', 
+                                  height: '480px' 
                                 }} 
                               />
                             </div>
