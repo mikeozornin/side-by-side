@@ -27,7 +27,8 @@ i18n
     },
     
     detection: {
-      order: ['navigator', 'htmlTag']
+      order: ['localStorage', 'navigator', 'htmlTag'],
+      caches: ['localStorage']
     },
     
     // Поддерживаемые языки
