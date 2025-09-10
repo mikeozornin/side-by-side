@@ -252,6 +252,7 @@ export function VotingPage() {
     return () => window.removeEventListener('storage', onStorage)
   }, [id])
 
+
   const fetchVoting = async () => {
     try {
       const headers: Record<string, string> = {
@@ -608,12 +609,12 @@ export function VotingPage() {
         <div className="flex flex-col">
           <div className="relative mb-6">
             {showLeftShadow && <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-10" />}
-            <div ref={scrollContainerRef} className="flex items-center overflow-x-auto overflow-y-hidden scrollbar-adaptive" style={{ height: `${Math.min(maxImageHeight, typeof window !== 'undefined' ? window.innerHeight * 0.8 : 600)}px` }}>
+            <div ref={scrollContainerRef} className="flex items-start overflow-x-auto overflow-y-visible scrollbar-adaptive" style={{ height: `${Math.min(maxImageHeight + 100, typeof window !== 'undefined' ? window.innerHeight * 0.8 : 600)}px` }}>
               {shuffledOptions.map((option, index) => {
                 const result = results?.results.find(r => r.option_id === option.id)
                 
                 return (
-                  <div key={option.id} className="flex flex-col h-full flex-shrink-0 w-full md:w-1/2 lg:w-1/3" style={{ marginRight: index < shuffledOptions.length - 1 ? '24px' : '0' }}>
+                  <div key={option.id} className="flex flex-col flex-shrink-0 w-full md:w-1/2 lg:w-1/3" style={{ marginRight: index < shuffledOptions.length - 1 ? '24px' : '0' }}>
                     <div className="flex-1">
                       <Card 
                         className={`h-full transition-all duration-300 ${
@@ -701,6 +702,14 @@ export function VotingPage() {
                         <div className="text-2xl font-bold">{result.percentage}%</div>
                         <div className="text-sm text-muted-foreground">
                           {t('votes', { count: result.count })}
+                        </div>
+                      </div>
+                    )}
+                    {results && !result && finished && (
+                      <div className="mt-4 text-center">
+                        <div className="text-2xl font-bold">0%</div>
+                        <div className="text-sm text-muted-foreground">
+                          {t('votes', { count: 0 })}
                         </div>
                       </div>
                     )}
