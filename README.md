@@ -11,8 +11,9 @@ Public plugin for download: https://www.figma.com/community/plugin/1545946464465
 ## Tech Stack
 
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS + shadcn/ui
-- **Backend**: Bun + TypeScript + Hono + SQLite (bun:sqlite)
-- **Image optimization**: ImageMagick, jpegoptim, pngquant, cwebp, avifenc
+- **Backend**: Bun + TypeScript + Hono + SQLite/PostgreSQL
+- **Image optimization**: ImageMagick, jpegoptim, pngquant, cwebp, avifenc, Sharp
+- **Testing**: Bun Test (server), Vitest + React Testing Library (client)
 - **Figma plugin**: Vanilla JavaScript for integration with Figma Desktop App
 
 ## Installation and Setup
@@ -26,7 +27,14 @@ There's a ready Ansible script, try it. If not, read below.
   ```bash
   sudo apt update
   sudo apt install imagemagick jpegoptim pngquant webp avif-tools
+  
+  # For HEIC/HEIF support (Sharp library dependencies)
+  sudo apt install libvips-dev libvips42 libheif-dev libglib2.0-dev \
+    libgobject-2.0-dev libcairo2-dev libpango1.0-dev libjpeg-dev \
+    libpng-dev libwebp-dev libtiff-dev libgif-dev libexif-dev \
+    liblcms2-dev liborc-dev libfftw3-dev libmagickwand-dev
   ```
+- **Optional**: PostgreSQL (if using `DB_PROVIDER=postgres`)
 
 ### Installing Bun
 
@@ -60,6 +68,10 @@ DB_PATH=./app.db
 PORT=3000
 BASE_URL=http://localhost:3000
 NODE_ENV=development
+
+# Database configuration (optional)
+DB_PROVIDER=sqlite  # or 'postgres'
+DATABASE_URL=postgresql://user:password@host:port/database  # for PostgreSQL
 ```
 
 ### Development Mode
@@ -130,7 +142,11 @@ side-by-side/
 ## Features
 
 - **Anti-fraud**: Uses IndexedDB to prevent duplicate voting in the same browser
-- **Image optimization**: Automatic optimization of uploaded images
+- **Image optimization**: Automatic optimization of uploaded images (JPEG, PNG, WebP, AVIF)
+- **HEIC/HEIF support**: Automatic conversion to JPG for browser compatibility
+- **Video support**: MP4, WebM, MOV, AVI formats
+- **Database flexibility**: SQLite (default) or PostgreSQL support
+- **Testing**: Comprehensive test suite with 53+ server tests and client component tests
 - **Dark mode**: Support for light and dark modes
 - **Responsive**: Adaptive design for desktop
 - **Hash routing**: SPA with hash-based routing
@@ -177,12 +193,39 @@ Detailed plugin documentation is available in [figma-plugin/README.md](figma-plu
 
 ## Development
 
+### Testing
+
+```bash
+# Run server tests
+cd server && bun test
+
+# Run client tests  
+cd client && npm test
+
+# Run with coverage
+cd server && bun test --coverage
+cd client && npm test -- --coverage
+```
+
 ### Database Structure
 
-- `votings` - votings
-- `voting_images` - voting images
+- `users` - user accounts
+- `votings` - voting sessions
+- `voting_options` - voting variants (images/videos)
 - `votes` - user votes
+- `magic_tokens` - email authentication tokens
+- `sessions` - user sessions
+- `figma_auth_codes` - Figma plugin authentication
 
 ### Logging
 
 Logs are saved to `LOG_DIR/server.log` with rotation via logrotate.
+
+### Recent Updates
+
+- **HEIC/HEIF Support**: Added automatic conversion to JPG for Apple device compatibility
+- **Video Support**: Added support for MP4, WebM, MOV, AVI formats
+- **PostgreSQL Support**: Added optional PostgreSQL database support alongside SQLite
+- **Comprehensive Testing**: Added 53+ server tests and client component tests
+- **Database Migrations**: Implemented automatic migration system for schema updates
+- **Enhanced Media Utils**: Improved media file handling and pixel ratio detection
