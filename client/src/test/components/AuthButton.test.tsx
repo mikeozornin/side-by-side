@@ -2,8 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AuthButton } from '../../components/AuthButton';
 
-// Мокаем fetch
-global.fetch = vi.fn();
 import { AuthProvider } from '../../contexts/AuthContext';
 
 // Мокаем react-router-dom
@@ -24,7 +22,6 @@ vi.mock('../../lib/config', () => ({
 
 // Мокаем fetch
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 describe('AuthButton', () => {
   beforeEach(() => {
@@ -32,7 +29,7 @@ describe('AuthButton', () => {
     localStorage.clear();
   });
 
-  const renderWithAuth = (user: any = null, isAnonymous = false) => {
+  const renderWithAuth = (isAnonymous = false) => {
     // Мокаем успешный ответ для проверки режима аутентификации
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -55,7 +52,7 @@ describe('AuthButton', () => {
   });
 
   it('should not render in anonymous mode', async () => {
-    renderWithAuth(null, true);
+    renderWithAuth(true);
     
     await waitFor(() => {
       expect(screen.queryByText('auth.loading')).not.toBeInTheDocument();

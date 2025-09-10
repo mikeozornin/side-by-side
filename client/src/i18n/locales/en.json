@@ -84,6 +84,9 @@
       "private": "Private"
     },
     "privacyLabel": "Visibility",
+    "addComment": "Add comment",
+    "commentPlaceholder": "Comment",
+    "commentOptional": "Optional",
     "rateLimitMinuteExceeded": "Too many voting creation requests. Please try again in a minute.",
     "rateLimitHourExceeded": "Voting creation limit exceeded for the hour. Please try again later.",
     "rateLimitExceeded": "Request limit exceeded. Please try again later.",

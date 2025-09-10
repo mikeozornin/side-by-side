@@ -107,6 +107,13 @@
       cursor: not-allowed;
     }
 
+    textarea.input {
+      resize: vertical;
+      min-height: 60px;
+      font-family: inherit;
+      line-height: 1.4;
+    }
+
     .duration-options {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -389,6 +396,11 @@
         </div>
       </div>
 
+      <div class="form-group">
+        <label class="label" for="comment">Comment (optional)</label>
+        <textarea id="comment" class="input" rows="3" maxlength="500"></textarea>
+      </div>
+
       <div id="progress" class="progress">
         <div class="spinner"></div>
         <span id="progress-message">Creating voting...</span>
@@ -420,6 +432,7 @@
     var selectedElementsEl = document.getElementById('selected-elements');
     var titleInput = document.getElementById('title');
     var durationOptionsEl = document.getElementById('duration-options');
+    var commentInput = document.getElementById('comment');
     var createButton = document.getElementById('create-button');
     var progressEl = document.getElementById('progress');
     var progressMessageEl = document.getElementById('progress-message');
@@ -435,6 +448,7 @@
 
     var selectedDuration = 24;
     var selectedPrivacy = true; // true = public, false = private
+    var selectedComment = ''; // Comment text
     var selectedElements = [];
     var currentStatus = 'ready'; // Track current selection status
     var authCode = '';
@@ -447,7 +461,8 @@
     var STORAGE_KEYS = {
       SERVER_URL: 'figma-plugin-server-url',
       DURATION: 'figma-plugin-duration',
-      PRIVACY: 'figma-plugin-privacy'
+      PRIVACY: 'figma-plugin-privacy',
+      COMMENT: 'figma-plugin-comment'
     };
 
     // Load settings by requesting from main script
@@ -759,6 +774,7 @@
       
       settings.duration = selectedDuration;
       settings.privacy = selectedPrivacy;
+      settings.comment = selectedComment;
 
       parent.postMessage({
         pluginMessage: {
@@ -885,6 +901,13 @@
         });
       }
       
+      if (commentInput) {
+        commentInput.addEventListener('input', function() {
+          selectedComment = commentInput.value;
+          saveSettings();
+        });
+      }
+      
       setupTitleSuggestions();
       setupDurationOptions();
       setupPrivacyOptions();
@@ -968,6 +991,9 @@
         return;
       }
       
+      // Get comment value
+      var comment = commentInput && commentInput.value ? commentInput.value.trim() : '';
+      
       // Disable create button to prevent multiple requests
       if (createButton) {
         createButton.disabled = true;
@@ -978,7 +1004,7 @@
       parent.postMessage({
         pluginMessage: {
           type: 'create-voting',
-          data: { title: title, duration: selectedDuration, privacy: selectedPrivacy, serverUrl: currentServerUrl }
+          data: { title: title, duration: selectedDuration, privacy: selectedPrivacy, comment: comment, serverUrl: currentServerUrl }
         }
       }, '*');
     }
@@ -1089,6 +1115,8 @@
         handleLoginError(pm);
       } else if (type === 'auth-status') {
         handleAuthStatus(pm);
+      } else if (type === 'token-refreshed') {
+        handleTokenRefreshed(pm);
       }
     });
 
@@ -1187,6 +1215,15 @@
         selectedPrivacy = settings.privacy === true || settings.privacy === 'true';
         updatePrivacySelection(selectedPrivacy);
         console.log('Set privacy to:', selectedPrivacy);
+      }
+
+      // Load comment
+      if (settings.comment !== undefined) {
+        selectedComment = settings.comment || '';
+        if (commentInput) {
+          commentInput.value = selectedComment;
+        }
+        console.log('Set comment to:', selectedComment);
       }
       
       updateCreateButtonState();
@@ -1303,6 +1340,13 @@
         isAuthenticated = false;
         showLoginForm();
       }
+    }
+
+    function handleTokenRefreshed(data) {
+      // Token was refreshed successfully, no need to show any message to user
+      // Just ensure the UI state is correct
+      console.log('Token refreshed successfully');
+      updateCreateButtonState();
     }
 
     // Initialize

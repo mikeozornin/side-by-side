@@ -38,7 +38,6 @@ const mockNotification = {
 
 // Мокаем fetch
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
 
 // Мокаем navigator
 Object.defineProperty(navigator, 'serviceWorker', {
@@ -120,7 +119,7 @@ describe('useWebPush', () => {
     const { result } = renderHook(() => useWebPush());
 
     await act(async () => {
-      await result.current.subscribe();
+      await result.current.requestPermission();
     });
 
     expect(mockNotification.requestPermission).toHaveBeenCalled();
@@ -134,7 +133,7 @@ describe('useWebPush', () => {
     const { result } = renderHook(() => useWebPush());
 
     await act(async () => {
-      await result.current.subscribe();
+      await result.current.requestPermission();
     });
 
     expect(result.current.isSubscribed).toBe(false);
@@ -148,7 +147,7 @@ describe('useWebPush', () => {
     const { result } = renderHook(() => useWebPush());
 
     await act(async () => {
-      await result.current.subscribe();
+      await result.current.requestPermission();
     });
 
     expect(result.current.isSubscribed).toBe(false);
@@ -214,7 +213,7 @@ describe('useWebPush', () => {
     const { result } = renderHook(() => useWebPush());
 
     await act(async () => {
-      await result.current.subscribe();
+      await result.current.requestPermission();
     });
 
     expect(result.current.error).toBe('API error');
@@ -230,7 +229,7 @@ describe('useWebPush', () => {
     const { result } = renderHook(() => useWebPush());
 
     act(() => {
-      result.current.subscribe();
+      result.current.requestPermission();
     });
 
     expect(result.current.isLoading).toBe(true);
@@ -255,7 +254,7 @@ describe('useWebPush', () => {
 
     // Начинаем новую операцию
     act(() => {
-      result.current.subscribe();
+      result.current.requestPermission();
     });
 
     expect(result.current.error).toBeNull();
