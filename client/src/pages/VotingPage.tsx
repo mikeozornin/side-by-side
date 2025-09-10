@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, X, Check, Medal, Clock, Share, Trash2, Clock12, Image } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
 import { useAuth } from '@/contexts/AuthContext'
 import { AuthModal } from '@/components/AuthModal'
@@ -82,10 +81,6 @@ export function VotingPage() {
   const [infoModalOpen, setInfoModalOpen] = useState(false)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [showLeftShadow, setShowLeftShadow] = useState(false)
-  const [showRightShadow, setShowRightShadow] = useState(false)
-  const [maxImageHeight, setMaxImageHeight] = useState<number>(0)
 
   const shuffledOptions = useMemo(() => {
     if (!voting) return []
@@ -161,33 +156,6 @@ export function VotingPage() {
     return () => clearInterval(timer)
   }, [])
 
-  // Вычисляем максимальную высоту картинок с учетом ретиновости
-  useEffect(() => {
-    if (!voting?.options) return
-
-    const calculateMaxHeight = () => {
-      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
-      const maxViewportHeight = viewportHeight * 0.8 // 80% от viewport
-      
-      let maxHeight = 0
-      
-      voting.options.forEach(option => {
-        // Учитываем ретиновость (pixel_ratio) - берем реальный размер в пикселях
-        const realHeight = option.height / option.pixel_ratio
-        maxHeight = Math.max(maxHeight, realHeight)
-      })
-      
-      // Ограничиваем максимальной высотой viewport, но не растягиваем маленькие картинки
-      const finalHeight = Math.min(maxHeight, maxViewportHeight)
-      setMaxImageHeight(finalHeight)
-    }
-
-    calculateMaxHeight()
-    
-    // Пересчитываем при изменении размера окна
-    window.addEventListener('resize', calculateMaxHeight)
-    return () => window.removeEventListener('resize', calculateMaxHeight)
-  }, [voting?.options])
 
   // Вычисляем finished здесь, чтобы использовать в useEffect
   const finished = voting ? isFinished(voting.end_at) : false
@@ -207,33 +175,6 @@ export function VotingPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [finished, hasVoted, selectedChoice])
 
-  const checkScroll = () => {
-    if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
-      const tolerance = 1
-      setShowLeftShadow(scrollLeft > tolerance)
-      setShowRightShadow(scrollLeft < scrollWidth - clientWidth - tolerance)
-    }
-  }
-
-  useEffect(() => {
-    const container = scrollContainerRef.current
-    if (container) {
-      // Use a timeout to ensure layout is stable after options render
-      const timer = setTimeout(() => {
-        checkScroll()
-      }, 100)
-
-      container.addEventListener('scroll', checkScroll)
-      window.addEventListener('resize', checkScroll)
-
-      return () => {
-        clearTimeout(timer)
-        container.removeEventListener('scroll', checkScroll)
-        window.removeEventListener('resize', checkScroll)
-      }
-    }
-  }, [shuffledOptions])
 
   // Синхронизация статуса голосования между вкладками
   useEffect(() => {
@@ -607,118 +548,146 @@ export function VotingPage() {
 
       <div className="flex-1 max-w-none mx-auto px-6 w-full">
         <div className="flex flex-col">
-          <div className="relative mb-6">
-            {showLeftShadow && <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-10" />}
-            <div ref={scrollContainerRef} className="flex items-start overflow-x-auto overflow-y-visible scrollbar-adaptive" style={{ height: `${Math.min(maxImageHeight + 100, typeof window !== 'undefined' ? window.innerHeight * 0.8 : 600)}px` }}>
-              {shuffledOptions.map((option, index) => {
-                const result = results?.results.find(r => r.option_id === option.id)
-                
-                return (
-                  <div key={option.id} className="flex flex-col flex-shrink-0 w-full md:w-1/2 lg:w-1/3" style={{ marginRight: index < shuffledOptions.length - 1 ? '24px' : '0' }}>
-                    <div className="flex-1">
-                      <Card 
-                        className={`h-full transition-all duration-300 ${
-                          !finished ? 'cursor-pointer' : ''
-                        } ${selectedChoice === option.id ? 'ring-2 ring-inset ring-primary relative z-10' : ''
-                        } ${finished && results && (results.winner === 'tie' || (typeof results.winner === 'number' && results.winner !== option.id)) ? 'opacity-50 grayscale' : ''}`}
-                        onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
-                      >
-                        <CardContent className="p-0 h-full">
-                          <div className="relative h-full">
-                            <div className="w-full flex items-center justify-center p-1" style={{ height: `${maxImageHeight}px`, maxHeight: `${maxImageHeight}px` }}>
-                              {option.media_type === 'image' ? (
-                                isHeicFile(option.file_path) && !isSafari() ? (
-                                  // Для HEIC файлов в не-Safari браузерах показываем только название
-                                  <div className="w-full h-full bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center p-8">
-                                    <div className="text-center">
-                                      <Image className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" strokeWidth={1} />
-                                      <div className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        HEIC
-                                      </div>
-                                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                                        {option.file_path.split('/').pop()}
-                                      </div>
-                                    </div>
+          {finished ? (
+            // Для завершенных голосований используем новую верстку
+            <div className="w-full overflow-x-auto overflow-y-hidden mb-6">
+              <div className="flex gap-4">
+                {shuffledOptions.map((option) => {
+                  const result = results?.results.find(r => r.option_id === option.id)
+                  
+                  return (
+                    <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[720px] max-w-[600px] overflow-hidden">
+                      <div className="flex justify-center items-center w-full h-[600px]">
+                        <div className={`relative w-full h-full flex items-center justify-center ${
+                          results && (results.winner === 'tie' || (typeof results.winner === 'number' && results.winner !== option.id)) ? 'opacity-50 grayscale' : ''
+                        }`}>
+                          {option.media_type === 'image' ? (
+                            isHeicFile(option.file_path) && !isSafari() ? (
+                              // Для HEIC файлов в не-Safari браузерах показываем только название
+                              <div className="flex items-center justify-center p-8" style={{ minWidth: '200px', minHeight: '200px' }}>
+                                <div className="text-center">
+                                  <Image className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" strokeWidth={1} />
+                                  <div className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    HEIC
                                   </div>
-                                ) : (
-                                  <HiDPIImage
-                                    src={getImageUrl(option.file_path)}
-                                    width={option.width}
-                                    height={option.height}
-                                    pixelRatio={option.pixel_ratio}
-                                    fit="contain"
-                                    alt={`Вариант ${option.id}`}
-                                    style={{ maxWidth: '100%', maxHeight: '100%' }}
-                                  />
-                                )
-                              ) : (
-                                <VideoPlayer
-                                  src={getImageUrl(option.file_path)}
-                                  width={option.width}
-                                  height={option.height}
-                                  fit="contain"
-                                  autoPlay={true}
-                                  loop={true}
-                                  muted={true}
-                                  className="w-full h-full"
-                                />
-                              )}
-                            </div>
-                            {selectedChoice === option.id && !finished && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Check 
-                                  className="text-primary stroke-[0.5]" 
+                                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                                    {option.file_path.split('/').pop()}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <img
+                                src={getImageUrl(option.file_path)}
+                                alt={`Вариант ${option.id}`}
+                                className="max-h-full max-w-full object-contain"
+                              />
+                            )
+                          ) : (
+                            <VideoPlayer
+                              src={getImageUrl(option.file_path)}
+                              width={option.width}
+                              height={option.height}
+                              fit="contain"
+                              autoPlay={true}
+                              loop={true}
+                              muted={true}
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          )}
+                          {results && results.winner === option.id && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="bg-green-500 rounded-full p-8">
+                                <Medal 
+                                  className="text-white stroke-[0.5]" 
                                   style={{ 
-                                    width: `${Math.min(maxImageHeight * 0.8, 240)}px`, 
-                                    height: `${Math.min(maxImageHeight * 0.8, 240)}px` 
+                                    width: '120px', 
+                                    height: '120px' 
                                   }} 
                                 />
                               </div>
-                            )}
-                            {selectedChoice === option.id && finished && (
-                              <div className="absolute top-4 left-4">
-                                <Check className="h-6 w-6 text-primary" />
-                              </div>
-                            )}
-                            {results && results.winner === option.id && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="bg-green-500 rounded-full p-8">
-                                  <Medal 
-                                    className="text-white stroke-[0.5]" 
-                                    style={{ 
-                                      width: `${Math.min(maxImageHeight * 0.6, 160)}px`, 
-                                      height: `${Math.min(maxImageHeight * 0.6, 160)}px` 
-                                    }} 
-                                  />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-4 text-center">
+                        <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                          {result ? `${result.percentage}%` : '0%'}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {result ? t('votes', { count: result.count }) : t('votes', { count: 0 })}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            // Для активных голосований используем новую верстку
+            <div className="w-full overflow-x-auto overflow-y-hidden mb-6">
+              <div className="flex gap-4">
+                {shuffledOptions.map((option) => {
+                  
+                  return (
+                    <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[720px] max-w-[600px] overflow-hidden">
+                      <div className="flex justify-center items-center w-full h-[600px]">
+                        <div className={`relative w-full h-full flex items-center justify-center p-0.5 ${
+                          selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
+                        }`}
+                        onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
+                        style={{ cursor: !finished ? 'pointer' : 'default' }}>
+                          {option.media_type === 'image' ? (
+                            isHeicFile(option.file_path) && !isSafari() ? (
+                              // Для HEIC файлов в не-Safari браузерах показываем только название
+                              <div className="flex items-center justify-center p-8" style={{ minWidth: '200px', minHeight: '200px' }}>
+                                <div className="text-center">
+                                  <Image className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" strokeWidth={1} />
+                                  <div className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    HEIC
+                                  </div>
+                                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                                    {option.file_path.split('/').pop()}
+                                  </div>
                                 </div>
                               </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
+                            ) : (
+                              <img
+                                src={getImageUrl(option.file_path)}
+                                alt={`Вариант ${option.id}`}
+                                className="max-h-full max-w-full object-contain"
+                              />
+                            )
+                          ) : (
+                            <VideoPlayer
+                              src={getImageUrl(option.file_path)}
+                              width={option.width}
+                              height={option.height}
+                              fit="contain"
+                              autoPlay={true}
+                              loop={true}
+                              muted={true}
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          )}
+                          {selectedChoice === option.id && !finished && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Check 
+                                className="text-primary stroke-[0.5]" 
+                                style={{ 
+                                  width: '120px', 
+                                  height: '120px' 
+                                }} 
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    {results && result && (
-                      <div className="mt-4 text-center">
-                        <div className="text-2xl font-bold">{result.percentage}%</div>
-                        <div className="text-sm text-muted-foreground">
-                          {t('votes', { count: result.count })}
-                        </div>
-                      </div>
-                    )}
-                    {results && !result && finished && (
-                      <div className="mt-4 text-center">
-                        <div className="text-2xl font-bold">0%</div>
-                        <div className="text-sm text-muted-foreground">
-                          {t('votes', { count: 0 })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
-            {showRightShadow && <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-10" />}
-          </div>
+          )}
 
           {error && (
             <div className="text-destructive text-sm mb-6">{error}</div>
