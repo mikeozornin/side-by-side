@@ -501,20 +501,6 @@ export function VotingPage() {
         <div className="flex justify-between items-start">
           <div className="flex-1 pr-4">
             <h1 className="text-3xl font-bold" title={voting.title}>{voting.title}</h1>
-            {voting.comment && voting.comment.trim() && (
-              <div className="mt-3 mb-3">
-                <p className="text-sm text-muted-foreground max-w-[65ch] whitespace-pre-wrap">{voting.comment}</p>
-              </div>
-            )}
-            {!finished && (
-              <div className="flex items-center gap-2 mt-2 mb-3 text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span className="text-sm">
-                  {getTimeRemaining(voting.end_at)}
-                  {voting.user_email && ` · ${voting.user_email}`}
-                </span>
-              </div>
-            )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {isOwner && !finished && (
@@ -599,6 +585,23 @@ export function VotingPage() {
             </Button>
           </div>
         </div>
+        
+        {/* Выносим комментарий и время из блока с заголовком */}
+        {voting.comment && voting.comment.trim() && (
+          <div className="mt-3 mb-3">
+            <p className="text-sm max-w-none whitespace-pre-wrap">{voting.comment}</p>
+          </div>
+        )}
+        
+        {!finished && (
+          <div className="flex items-center gap-2 mt-2 mb-3 text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span className="text-sm font-mono">
+              {getTimeRemaining(voting.end_at)}
+              {voting.user_email && ` · ${voting.user_email}`}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 max-w-none mx-auto px-6 w-full">
