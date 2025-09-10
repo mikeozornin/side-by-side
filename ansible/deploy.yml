@@ -67,13 +67,13 @@
           - "--exclude=data/"
           - "--exclude=logs/"
           - "--exclude=.env*"
+          - "--exclude=node_modules/"
 
     - name: Remove unnecessary backend files
       file:
         path: "{{ item }}"
         state: absent
       loop:
-        - "{{ release_path }}/server/node_modules"
         - "{{ release_path }}/server/src"
         - "{{ release_path }}/server/.git"
         - "{{ release_path }}/server/.github"
