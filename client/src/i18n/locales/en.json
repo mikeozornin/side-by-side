@@ -139,6 +139,14 @@
           "en": "English",
           "ru": "Русский"
         }
+      },
+      "theme": {
+        "label": "Theme",
+        "options": {
+          "system": "System",
+          "light": "Light",
+          "dark": "Dark"
+        }
       }
     }
   },

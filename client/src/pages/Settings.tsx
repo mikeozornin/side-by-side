@@ -7,14 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, RefreshCw, LogOut, X, AlertCircle } from 'lucide-react';
+import { Copy, Check, RefreshCw, LogOut, X, AlertCircle, Sun, Moon, SunMoon } from 'lucide-react';
 import { configManager } from '@/lib/config';
 import { useWebPush } from '@/hooks/useWebPush';
+import { useTheme } from '@/components/ThemeProvider';
 
 
 export function Settings() {
   const { t, i18n } = useTranslation();
   const { user, accessToken, logout, isLoading: authLoading } = useAuth();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [figmaCode, setFigmaCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -104,6 +106,10 @@ export function Settings() {
     await i18n.changeLanguage(language);
     // Сохраняем в localStorage
     localStorage.setItem('i18nextLng', language);
+  };
+
+  const handleThemeChange = (newTheme: 'system' | 'light' | 'dark') => {
+    setTheme(newTheme);
   };
 
   const getNotificationStatus = () => {
@@ -420,6 +426,46 @@ export function Settings() {
                   </SelectItem>
                   <SelectItem value="ru">
                     {t('settings.preferences.language.options.ru')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="theme-select" className="text-sm font-medium">
+                {t('settings.preferences.theme.label')}
+              </Label>
+              <Select value={theme} onValueChange={handleThemeChange}>
+                <SelectTrigger id="theme-select" className="w-48">
+                  <SelectValue>
+                    <div className="flex items-center gap-2">
+                      {theme === 'system' && <SunMoon className="h-4 w-4" />}
+                      {theme === 'light' && <Sun className="h-4 w-4" />}
+                      {theme === 'dark' && <Moon className="h-4 w-4" />}
+                      {theme === 'system' && t('settings.preferences.theme.options.system')}
+                      {theme === 'light' && t('settings.preferences.theme.options.light')}
+                      {theme === 'dark' && t('settings.preferences.theme.options.dark')}
+                    </div>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="system">
+                    <div className="flex items-center gap-2">
+                      <SunMoon className="h-4 w-4" />
+                      {t('settings.preferences.theme.options.system')}
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="light">
+                    <div className="flex items-center gap-2">
+                      <Sun className="h-4 w-4" />
+                      {t('settings.preferences.theme.options.light')}
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="dark">
+                    <div className="flex items-center gap-2">
+                      <Moon className="h-4 w-4" />
+                      {t('settings.preferences.theme.options.dark')}
+                    </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
