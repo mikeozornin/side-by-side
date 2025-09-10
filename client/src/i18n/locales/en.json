@@ -104,7 +104,8 @@
       "errorGeneratingCode": "Error generating code",
       "connectionError": "Connection error",
       "connectAccount": "Login",
-      "step1": "Open the Side-by-Side plugin in Figma",
+      "step1": "Open the",
+      "step1Link": "Side-by-Side plugin in Figma",
       "step2": "Click the \"Login\" button",
       "step3": "Enter the code:",
       "step4": "Done!"

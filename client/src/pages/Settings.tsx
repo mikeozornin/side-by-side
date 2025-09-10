@@ -245,7 +245,17 @@ export function Settings() {
             <div>
               <h4 className="font-medium mb-3">{t('settings.figmaIntegration.howToConnect')}</h4>
               <ol className="text-sm text-muted-foreground space-y-3 list-decimal list-inside">
-                <li>{t('settings.figmaIntegration.step1')}</li>
+                <li>
+                  {t('settings.figmaIntegration.step1')}{' '}
+                  <a 
+                    href="https://www.figma.com/community/plugin/1545946464465075859/side-by-side-voting"
+                    className="text-blue-600 underline underline-offset-4 decoration-blue-600/40 hover:text-red-600 hover:decoration-red-600/60"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {t('settings.figmaIntegration.step1Link')}
+                  </a>
+                </li>
                 <li>{t('settings.figmaIntegration.step2')}</li>
                 <li>
                   <span>{t('settings.figmaIntegration.step3')} </span>
