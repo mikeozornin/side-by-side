@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import VideoPlayer from '@/components/ui/VideoPlayer'
+import HiDPIImage from '@/components/ui/HiDPIImage'
 import { useAuth } from '@/contexts/AuthContext'
 import { AuthModal } from '@/components/AuthModal'
 import { isSafari } from '@/lib/mediaUtils'
@@ -601,10 +602,9 @@ export function VotingPage() {
                     
                     return (
                       <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[720px] max-w-[600px] overflow-hidden">
-                        <div className="flex justify-center items-center w-full h-[600px]">
-                          <div className={`relative w-full h-full flex items-center justify-center ${
-                            results && (results.winner === 'tie' || (typeof results.winner === 'number' && results.winner !== option.id)) ? 'opacity-50 grayscale' : ''
-                          }`}>
+                        <div className={`relative flex justify-center items-center min-h-[240px] min-w-[240px] max-h-[600px] h-full ${
+                          results && (results.winner === 'tie' || (typeof results.winner === 'number' && results.winner !== option.id)) ? 'opacity-50 grayscale' : ''
+                        }`}>
                           {option.media_type === 'image' ? (
                             isHeicFile(option.file_path) && !isSafari() ? (
                               // Для HEIC файлов в не-Safari браузерах показываем только название
@@ -620,10 +620,15 @@ export function VotingPage() {
                                 </div>
                               </div>
                             ) : (
-                              <img
+                              <HiDPIImage
                                 src={getImageUrl(option.file_path)}
                                 alt={`Вариант ${option.id}`}
-                                className="max-h-full max-w-full object-contain"
+                                width={option.width}
+                                height={option.height}
+                                pixelRatio={option.pixel_ratio}
+                                fit="contain"
+                                className="max-h-full"
+                                style={{ maxWidth: '600px' }}
                               />
                             )
                           ) : (
@@ -652,7 +657,6 @@ export function VotingPage() {
                             </div>
                           )}
                         </div>
-                      </div>
                       <div className="mt-4 text-center">
                         <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                           {result ? `${result.percentage}%` : '0%'}
@@ -678,10 +682,9 @@ export function VotingPage() {
                     
                     return (
                       <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[620px] max-w-[600px] overflow-hidden">
-                        <div className="flex justify-center items-center w-full h-[600px]">
-                          <div className={`relative w-full h-full flex items-center justify-center p-0.5 ${
-                            selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
-                          }`}
+                        <div className={`relative flex justify-center items-center h-full min-h-[240px] min-w-[240px] max-h-[600px] p-0.5 ${
+                          selectedChoice === option.id ? 'ring-2 ring-inset ring-primary' : ''
+                        }`}
                           onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
                           style={{ cursor: !finished ? 'pointer' : 'default' }}>
                           {option.media_type === 'image' ? (
@@ -699,10 +702,15 @@ export function VotingPage() {
                                 </div>
                               </div>
                             ) : (
-                              <img
+                              <HiDPIImage
                                 src={getImageUrl(option.file_path)}
                                 alt={`Вариант ${option.id}`}
-                                className="max-h-full max-w-full object-contain"
+                                width={option.width}
+                                height={option.height}
+                                pixelRatio={option.pixel_ratio}
+                                fit="contain"
+                                className="max-h-full"
+                                style={{ maxWidth: '600px' }}
                               />
                             )
                           ) : (
@@ -720,16 +728,15 @@ export function VotingPage() {
                           {selectedChoice === option.id && !finished && (
                             <div className="absolute inset-0 flex items-center justify-center">
                               <Check 
-                                className="text-primary stroke-[0.125]" 
+                                className="text-primary stroke-[0.3]" 
                                 style={{ 
-                                  width: '480px', 
-                                  height: '480px' 
+                                  width: '240px', 
+                                  height: '240px' 
                                 }} 
                               />
                             </div>
                           )}
                         </div>
-                      </div>
                     </div>
                     )
                   })}
