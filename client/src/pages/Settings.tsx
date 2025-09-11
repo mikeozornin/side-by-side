@@ -113,6 +113,17 @@ export function Settings() {
     setTheme(newTheme);
   };
 
+  // Получаем домен для инструкции
+  const getDomain = () => {
+    const clientUrl = configManager.getClientUrl();
+    try {
+      const url = new URL(clientUrl);
+      return url.host;
+    } catch {
+      return 'localhost:5173';
+    }
+  };
+
   const getNotificationStatus = () => {
     if (!isSupported) {
       return {
@@ -238,8 +249,7 @@ export function Settings() {
       </div>
 
       <div className="space-y-6">
-        {/* Интеграция с Figma - только для авторизованных пользователей */}
-        {!isAnonymous && (
+        {/* Интеграция с Figma - для всех пользователей */}
         <div>
           <div className="space-y-4">
             <div>
@@ -256,32 +266,51 @@ export function Settings() {
                     {t('settings.figmaIntegration.step1Link')}
                   </a>
                 </li>
-                <li>{t('settings.figmaIntegration.step2')}</li>
                 <li>
-                  <span>{t('settings.figmaIntegration.step3')} </span>
-                  {figmaCode ? (
-                    <>
-                      <code className="px-2 py-1 bg-background border rounded font-mono text-sm h-8 w-32 inline-block" style={{verticalAlign: 'middle'}}>{figmaCode}</code>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={copyToClipboard}
-                        disabled={copied}
-                        className="h-8 w-8 p-0 ml-2"
-                        style={{verticalAlign: 'middle'}}
-                      >
-                        {copied ? (
-                          <Check className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
+                  {t('settings.figmaIntegration.step2').replace('{domain}', getDomain())}
+                </li>
+                {!isAnonymous && (
+                  <li>
+                    <span>{t('settings.figmaIntegration.step3')} </span>
+                    {figmaCode ? (
+                      <>
+                        <code className="px-2 py-1 bg-background border rounded font-mono text-sm h-8 w-32 inline-block" style={{verticalAlign: 'middle'}}>{figmaCode}</code>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={copyToClipboard}
+                          disabled={copied}
+                          className="h-8 w-8 p-0 ml-2"
+                          style={{verticalAlign: 'middle'}}
+                        >
+                          {copied ? (
+                            <Check className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={generateFigmaCode}
+                          disabled={isLoading}
+                          className="h-8 w-8 p-0 ml-1"
+                          style={{verticalAlign: 'middle'}}
+                        >
+                          {isLoading ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </>
+                    ) : (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={generateFigmaCode}
                         disabled={isLoading}
-                        className="h-8 w-8 p-0 ml-1"
+                        className="ml-2 h-8"
                         style={{verticalAlign: 'middle'}}
                       >
                         {isLoading ? (
@@ -289,26 +318,11 @@ export function Settings() {
                         ) : (
                           <RefreshCw className="h-4 w-4" />
                         )}
+                        <span className="ml-2">{t('settings.figmaIntegration.refresh')}</span>
                       </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={generateFigmaCode}
-                      disabled={isLoading}
-                      className="ml-2 h-8"
-                      style={{verticalAlign: 'middle'}}
-                    >
-                      {isLoading ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4" />
-                      )}
-                      <span className="ml-2">{t('settings.figmaIntegration.refresh')}</span>
-                    </Button>
-                  )}
-                </li>
+                    )}
+                  </li>
+                )}
                 <li>{t('settings.figmaIntegration.step4')}</li>
               </ol>
             </div>
@@ -320,7 +334,6 @@ export function Settings() {
             )}
           </div>
         </div>
-        )}
 
         {/* Уведомления - только для авторизованных пользователей */}
         {!isAnonymous && (

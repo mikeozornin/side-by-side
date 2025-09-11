@@ -98,14 +98,14 @@
     "profile": "Профиль",
     "account": "Аккаунт",
     "figmaIntegration": {
-      "howToConnect": "Войти в плагине Фигмы:",
+      "howToConnect": "Вход в плагин в Фигме:",
       "refresh": "Обновить",
       "errorGeneratingCode": "Не удалось создать код",
       "connectionError": "Не удалось подключиться к серверу",
       "connectAccount": "Войти",
       "step1": "Откройте плагин",
       "step1Link": "Side-by-Side в Figma",
-      "step2": "Нажмите кнопку «Войти»",
+      "step2": "Введите адрес {domain} и нажмите «Login»",
       "step3": "Введите код:",
       "step4": "Готово!"
     },
