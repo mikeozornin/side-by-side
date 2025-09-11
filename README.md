@@ -220,12 +220,3 @@ cd client && npm test -- --coverage
 ### Logging
 
 Logs are saved to `LOG_DIR/server.log` with rotation via logrotate.
-
-### Recent Updates
-
-- **HEIC/HEIF Support**: Added automatic conversion to JPG for Apple device compatibility
-- **Video Support**: Added support for MP4, WebM, MOV, AVI formats
-- **PostgreSQL Support**: Added optional PostgreSQL database support alongside SQLite
-- **Comprehensive Testing**: Added 53+ server tests and client component tests
-- **Database Migrations**: Implemented automatic migration system for schema updates
-- **Enhanced Media Utils**: Improved media file handling and pixel ratio detection
