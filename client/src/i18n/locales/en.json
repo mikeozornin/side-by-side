@@ -99,14 +99,14 @@
     "profile": "Profile",
     "account": "Account",
     "figmaIntegration": {
-      "howToConnect": "Login in the Figma plugin:",
+      "howToConnect": "Login into the plugin in Figma:",
       "refresh": "Refresh",
       "errorGeneratingCode": "Error generating code",
       "connectionError": "Connection error",
       "connectAccount": "Login",
       "step1": "Open the",
       "step1Link": "Side-by-Side plugin in Figma",
-      "step2": "Click the \"Login\" button",
+      "step2": "Enter the address {domain} and click \"Login\"",
       "step3": "Enter the code:",
       "step4": "Done!"
     },
