@@ -12,7 +12,7 @@ interface HiDPIImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
 
 export function HiDPIImage({ src, width, height, pixelRatio, fit = 'contain', style, ...imgProps }: HiDPIImageProps) {
   const objectFit = fit
-  
+
   // Масштабируем размеры с учетом pixelRatio
   // Если pixelRatio > 1, то физические размеры должны быть меньше
   const displayWidth = width / pixelRatio
@@ -21,12 +21,12 @@ export function HiDPIImage({ src, width, height, pixelRatio, fit = 'contain', st
   return (
     <img
       src={src}
-      height={displayHeight}
       style={{
         objectFit,
         maxWidth: `${displayWidth}px`,
         maxHeight: `${displayHeight}px`,
         height: '100%',
+        width: '100%',
         aspectRatio: `${displayWidth} / ${displayHeight}`,
         ...style,
       }}

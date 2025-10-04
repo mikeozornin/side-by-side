@@ -397,11 +397,11 @@ export function CreateVoting() {
               <div className="overflow-x-auto bg-background/80 backdrop-blur-sm mt-4 scrollbar-adaptive">
                 <div className="flex gap-4 py-2">
                   {mediaFiles.map((media, index) => (
-                    <div key={index} className="relative group flex-shrink-0 max-h-60">
+                    <div key={index} className="relative group flex-shrink-0 w-auto max-h-60 max-w-80 flex items-center justify-center">
                       {getMediaType(media.file) === 'image' ? (
                         isHeicFile(media.file) && !isSafari() ? (
                           // Для HEIC файлов в не-Safari браузерах показываем только название
-                          <div className="max-h-60 h-full w-40 bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center p-8">
+                          <div className="max-h-60 h-full w-full bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center p-8">
                             <div className="text-center">
                               <Image className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-2" strokeWidth={1} />
                               <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
