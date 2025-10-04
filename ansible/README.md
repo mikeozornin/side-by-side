@@ -77,6 +77,16 @@ CLIENT_URL=https://side-by-side.your-domain.com
 # Server mode
 SERVER_MODE=production
 
+# Storage configuration
+STORAGE_DRIVER=local  # or 's3'
+# For S3 storage (MinIO, AWS S3, etc.)
+S3_ENDPOINT=http://your-minio-server:9000
+S3_REGION=us-east-1
+S3_BUCKET=side-by-side
+S3_ACCESS_KEY_ID=your-access-key
+S3_SECRET_ACCESS_KEY=your-secret-key
+S3_FORCE_PATH_STYLE=true
+
 # Chat notifications
 NOTIFICATIONS_LOCALE=en
 
@@ -205,6 +215,22 @@ Nginx is configured for:
 **Important:** Frontend static files are cached, but files from `/api/images/` are proxied to Bun server for processing.
 
 **HTTP/2:** After SSL certificate setup, nginx automatically enables HTTP/2 support.
+
+## S3 Storage Setup
+
+The application supports S3-compatible storage (MinIO, AWS S3, etc.) for file storage. Files are served through the backend proxy mode for security and consistency.
+
+1. Create an S3 bucket in AWS Console or MinIO
+2. Update your `.env.production` file:
+```env
+STORAGE_DRIVER=s3
+S3_ENDPOINT=https://s3.amazonaws.com
+S3_REGION=us-east-1
+S3_BUCKET=your-bucket-name
+S3_ACCESS_KEY_ID=your-access-key
+S3_SECRET_ACCESS_KEY=your-secret-key
+S3_FORCE_PATH_STYLE=false
+```
 
 ## Systemd Service
 

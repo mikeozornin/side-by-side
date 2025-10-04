@@ -10,8 +10,8 @@ export function formatExpirationDate(dateString: string): string {
   }
   
   const months = [
-    'янв', 'фев', 'мар', 'апр', 'май', 'июн',
-    'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
+    'янв', 'фев', 'мар', 'апр', 'мая', 'июня',
+    'июля', 'авг', 'сен', 'окт', 'ноя', 'дек'
   ];
   
   const day = date.getDate();
