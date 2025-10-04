@@ -72,6 +72,16 @@ NODE_ENV=development
 # Database configuration (optional)
 DB_PROVIDER=sqlite  # or 'postgres'
 DATABASE_URL=postgresql://user:password@host:port/database  # for PostgreSQL
+
+# Storage configuration (optional)
+STORAGE_DRIVER=local  # or 's3'
+# For S3 storage (MinIO, AWS S3, etc.)
+S3_ENDPOINT=http://your-minio-server:9000
+S3_REGION=us-east-1
+S3_BUCKET=side-by-side
+S3_ACCESS_KEY_ID=your-access-key
+S3_SECRET_ACCESS_KEY=your-secret-key
+S3_FORCE_PATH_STYLE=true
 ```
 
 ### Development Mode
@@ -146,6 +156,7 @@ side-by-side/
 - **HEIC/HEIF support**: Automatic conversion to JPG for browser compatibility
 - **Video support**: MP4, WebM, MOV, AVI formats
 - **Database flexibility**: SQLite (default) or PostgreSQL support
+- **Storage flexibility**: Local filesystem (default) or S3-compatible storage (MinIO, AWS S3) with proxy serving
 - **Testing**: Comprehensive test suite with 53+ server tests and client component tests
 - **Dark mode**: Support for light and dark modes
 - **Responsive**: Adaptive design for desktop
@@ -169,6 +180,32 @@ DB_PATH=/var/app/side-by-side/app.db
 PORT=3000
 BASE_URL=https://yourdomain.com
 NODE_ENV=production
+
+# Storage configuration
+STORAGE_DRIVER=local  # or 's3'
+# For S3 storage (MinIO, AWS S3, etc.)
+S3_ENDPOINT=http://your-minio-server:9000
+S3_REGION=us-east-1
+S3_BUCKET=side-by-side
+S3_ACCESS_KEY_ID=your-access-key
+S3_SECRET_ACCESS_KEY=your-secret-key
+S3_FORCE_PATH_STYLE=true
+```
+
+### S3 Storage Setup
+
+The application supports S3-compatible storage (MinIO, AWS S3, etc.) for file storage. Files are served through the backend proxy mode for security and consistency.
+
+1. Create an S3 bucket in AWS Console or MinIO
+2. Configure environment variables:
+```env
+STORAGE_DRIVER=s3
+S3_ENDPOINT=https://s3.amazonaws.com
+S3_REGION=us-east-1
+S3_BUCKET=your-bucket-name
+S3_ACCESS_KEY_ID=your-access-key
+S3_SECRET_ACCESS_KEY=your-secret-key
+S3_FORCE_PATH_STYLE=false
 ```
 
 ## Figma Plugin

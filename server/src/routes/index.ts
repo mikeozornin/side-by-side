@@ -63,7 +63,7 @@ router.options('*', async (c) => {
 
 router.use('*', cors({
   origin: (origin, c) => {
-    console.log(`CORS Origin check: origin="${origin}", method="${c?.req?.method}"`);
+    // console.log(`CORS Origin check: origin="${origin}", method="${c?.req?.method}"`);
     
     // Специальная обработка для null/empty origin
     if (origin === 'null' || origin === '') {
@@ -72,14 +72,14 @@ router.use('*', cors({
       const userAgent = c?.req?.header('User-Agent');
       const accessControlRequestHeaders = c?.req?.header('Access-Control-Request-Headers');
       
-      console.log(`Null/empty origin request details:`, {
-        method: c?.req?.method,
-        origin: origin,
-        userAgent: userAgent,
-        figmaPluginHeader: figmaPluginHeader,
-        accessControlRequestHeaders: accessControlRequestHeaders,
-        allHeaders: Object.fromEntries(c?.req?.raw?.headers?.entries() || [])
-      });
+      // console.log(`Null/empty origin request details:`, {
+      //   method: c?.req?.method,
+      //   origin: origin,
+      //   userAgent: userAgent,
+      //   figmaPluginHeader: figmaPluginHeader,
+      //   accessControlRequestHeaders: accessControlRequestHeaders,
+      //   allHeaders: Object.fromEntries(c?.req?.raw?.headers?.entries() || [])
+      // });
       
       // Для preflight запросов проверяем заголовки в Access-Control-Request-Headers
       const isPreflight = c?.req?.method === 'OPTIONS';
@@ -119,7 +119,6 @@ router.route('/api/web-push', webPushRoutes);
 router.get('/api/images/:filename', async (c) => {
   try {
     const filename = c.req.param('filename');
-    const dataDir = process.env.DATA_DIR || './data';
 
     // 🛡️ ЗАЩИТА ОТ PATH TRAVERSAL
     // 1. Декодируем URL
@@ -138,70 +137,53 @@ router.get('/api/images/:filename', async (c) => {
       return c.text('Invalid filename format', 400);
     }
 
-    // 4. Ищем файл в корне data директории и при необходимости внутри её подпапок (по умолчанию загрузки лежат в data/<votingId>/)
-    const resolvedDataDir = resolve(dataDir);
-    let foundPath: string | null = null;
-
-    // Сначала пробуем в корне data
-    const candidateInRoot = resolve(join(resolvedDataDir, decodedFilename));
-    if (candidateInRoot.startsWith(resolvedDataDir)) {
-      try {
-        const stat = statSync(candidateInRoot);
-        if (stat.isFile()) {
-          foundPath = candidateInRoot;
-        }
-      } catch {}
-    }
-
-    // Если не нашли — проверяем только первый уровень подпапок
-    if (!foundPath) {
-      try {
-        const entries = readdirSync(resolvedDataDir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (!entry.isDirectory()) continue;
-          const candidate = resolve(join(resolvedDataDir, entry.name, decodedFilename));
-          if (!candidate.startsWith(resolvedDataDir)) continue;
-          try {
-            const stat = statSync(candidate);
-            if (stat.isFile()) {
-              foundPath = candidate;
-              break;
-            }
-          } catch {}
-        }
-      } catch {}
-    }
-
-    if (!foundPath) {
-      return c.text('File not found', 404);
-    }
-
-    const fileBuffer = await readFile(foundPath);
+    // 4. Проверяем расширение файла - изображения и видео
     const ext = extname(decodedFilename).toLowerCase();
-
-    // 7. Проверяем расширение файла - изображения и видео
     const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.mp4', '.webm', '.mov', '.avi'];
     if (!allowedExtensions.includes(ext)) {
       console.warn(`[SECURITY] Non-media file access attempt: ${decodedFilename}`);
       return c.text('Only image and video files are allowed', 403);
     }
 
-    let contentType = 'image/jpeg';
-    if (ext === '.png') contentType = 'image/png';
-    else if (ext === '.gif') contentType = 'image/gif';
-    else if (ext === '.webp') contentType = 'image/webp';
-    else if (ext === '.avif') contentType = 'image/avif';
-    else if (ext === '.mp4') contentType = 'video/mp4';
-    else if (ext === '.webm') contentType = 'video/webm';
-    else if (ext === '.mov') contentType = 'video/quicktime';
-    else if (ext === '.avi') contentType = 'video/x-msvideo';
-    
-    return new Response(new Uint8Array(fileBuffer), {
-      headers: {
+    // 5. Используем storage driver для получения файла
+    const { createStorageFromEnv } = await import('../storage/index.js');
+    const storage = createStorageFromEnv();
+
+    try {
+      const stream = await storage.getObjectStream(decodedFilename);
+      const headers = await storage.getObjectHeaders(decodedFilename);
+
+      // Определяем Content-Type из метаданных или по расширению
+      let contentType = headers['Content-Type'];
+      if (!contentType) {
+        contentType = 'image/jpeg'; // default
+        if (ext === '.png') contentType = 'image/png';
+        else if (ext === '.gif') contentType = 'image/gif';
+        else if (ext === '.webp') contentType = 'image/webp';
+        else if (ext === '.avif') contentType = 'image/avif';
+        else if (ext === '.mp4') contentType = 'video/mp4';
+        else if (ext === '.webm') contentType = 'video/webm';
+        else if (ext === '.mov') contentType = 'video/quicktime';
+        else if (ext === '.avi') contentType = 'video/x-msvideo';
+      }
+
+      const responseHeaders: Record<string, string> = {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000',
-      },
-    });
+        'Cache-Control': headers['Cache-Control'] || 'public, max-age=31536000',
+      };
+
+      // Добавляем дополнительные заголовки если есть
+      if (headers['Content-Length']) responseHeaders['Content-Length'] = headers['Content-Length'];
+      if (headers['Last-Modified']) responseHeaders['Last-Modified'] = headers['Last-Modified'];
+      if (headers['ETag']) responseHeaders['ETag'] = headers['ETag'];
+
+      return new Response(stream, {
+        headers: responseHeaders,
+      });
+    } catch (storageError) {
+      console.warn(`File not found in storage: ${decodedFilename}`, storageError);
+      return c.text('File not found', 404);
+    }
   } catch (error) {
     console.error('Error serving image:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

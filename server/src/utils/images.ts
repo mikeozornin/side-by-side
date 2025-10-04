@@ -7,6 +7,8 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import sharp from 'sharp';
 import { fileTypeFromBuffer } from 'file-type';
+import { createStorageFromEnv } from '../storage/index.js';
+import type { StorageDriver } from '../storage/types.js';
 
 const execAsync = promisify(exec);
 const DATA_DIR = process.env.DATA_DIR || './data';
@@ -57,6 +59,7 @@ export async function uploadImages(votingId: string, files: File[]): Promise<Upl
 }
 
 async function uploadImagesSync(votingId: string, files: File[]): Promise<UploadedImageMeta[]> {
+  const storage = createStorageFromEnv();
   const votingDir = await ensureVotingDirectory(votingId, DATA_DIR);
   const uploaded: UploadedImageMeta[] = [];
 
@@ -115,8 +118,8 @@ async function uploadImagesSync(votingId: string, files: File[]): Promise<Upload
     const fileName = `${hash}${finalExtension}`;
     const filePath = join(votingDir, fileName);
 
-    // Сохраняем файл (конвертированный или оригинальный)
-    await writeFile(filePath, finalBuffer);
+    // Сохраняем файл через storage driver (конвертированный или оригинальный)
+    await storage.putObject(fileName, finalBuffer, finalMimeType, 'public, max-age=31536000', votingId);
 
     // Получаем метаданные
     let width = 0;
@@ -125,7 +128,8 @@ async function uploadImagesSync(votingId: string, files: File[]): Promise<Upload
 
     if (mediaType === 'image') {
       try {
-        const metadata = await sharp(filePath).metadata();
+        // Для S3 storage, мы используем finalBuffer напрямую
+        const metadata = await sharp(finalBuffer).metadata();
         width = metadata.width || 0;
         height = metadata.height || 0;
         // Приоритет: density/metadata > имя > 1

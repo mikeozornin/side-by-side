@@ -68,9 +68,9 @@ authRoutes.post('/magic-link', magicLinkLimiter, async (c) => {
     const user = await createOrGetUser(email);
 
     // Логируем переменную окружения для отладки
-    console.log('NODE_ENV:', env.NODE_ENV);
-    console.log('BUN_ENV:', env.BUN_ENV);
-    console.log('AUTO_APPROVE_SESSIONS:', env.AUTO_APPROVE_SESSIONS);
+    // console.log('NODE_ENV:', env.NODE_ENV);
+    // console.log('BUN_ENV:', env.BUN_ENV);
+    // console.log('AUTO_APPROVE_SESSIONS:', env.AUTO_APPROVE_SESSIONS);
 
     // Автоматически авторизуем пользователя если включен автоапрув
     if (env.AUTO_APPROVE_SESSIONS) {
