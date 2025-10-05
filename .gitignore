@@ -225,3 +225,7 @@ server/data/
 .env.development
 ssl
 .playwright-mcp
+
+# Ansible sensitive files
+ansible/inventory.ini
+ansible/group_vars/https.yml
