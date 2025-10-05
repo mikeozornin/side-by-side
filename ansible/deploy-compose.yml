@@ -13,11 +13,15 @@
     logs_dir: "{{ app_dir }}/logs"
     state_dir: "{{ app_dir }}/state"
     # User for running containers
-    docker_user: "side-by-side"
+    docker_user: "root"
     # Docker Compose settings
     compose_use_postgres: false
     compose_bind_mounts: true
     compose_pull_images: false
+    # SSL/HTTPS settings
+    enable_https: false
+    ssl_domain: ""
+    ssl_email: ""
     # Application settings
     app_name: "side-by-side"
     app_version: "latest"
@@ -55,6 +59,29 @@
         mode: '0644'
       notify: restart compose
 
+    - name: Copy HTTPS files (if enabled)
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ compose_dir }}/{{ item.dest }}"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - { src: "{{ playbook_dir }}/../deploy/compose/docker-compose.https.yml", dest: "docker-compose.https.yml", mode: "0644" }
+        - { src: "{{ playbook_dir }}/../deploy/compose/nginx-ssl.conf", dest: "nginx-ssl.conf", mode: "0644" }
+        - { src: "{{ playbook_dir }}/../deploy/compose/setup-ssl.sh", dest: "setup-ssl.sh", mode: "0755" }
+      when: enable_https | bool
+
+    - name: Update nginx-ssl.conf with domain
+      replace:
+        path: "{{ compose_dir }}/nginx-ssl.conf"
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      loop:
+        - { regexp: "YOUR_DOMAIN", replace: "{{ ssl_domain }}" }
+        - { regexp: "server_name _;", replace: "server_name {{ ssl_domain }};" }
+      when: enable_https | bool and ssl_domain != ""
+
     - name: Copy environment file template
       template:
         src: "{{ playbook_dir }}/../deploy/compose/env.example"
@@ -63,6 +90,16 @@
         group: "{{ docker_user }}"
         mode: '0600'
       when: compose_env_template is not defined
+
+    - name: Update .env with image settings
+      lineinfile:
+        path: "{{ compose_dir }}/.env"
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - { regexp: '^IMAGE_REGISTRY=', line: 'IMAGE_REGISTRY={{ image_registry | default("docker.io/your-dockerhub-username") }}' }
+        - { regexp: '^IMAGE_TAG=', line: 'IMAGE_TAG={{ image_tag | default("latest") }}' }
+      when: image_registry is defined or image_tag is defined
 
     - name: Copy custom environment file
       copy:
@@ -134,7 +171,7 @@
       become_user: "{{ docker_user }}"
       ignore_errors: yes
 
-    - name: Start containers (SQLite mode)
+    - name: Start containers without HTTPS first
       command: docker compose up -d --remove-orphans
       args:
         chdir: "{{ compose_dir }}"
@@ -142,13 +179,55 @@
       when: not compose_use_postgres | bool
       register: start_result
 
-    - name: Start containers (PostgreSQL mode)
+    - name: Start containers with PostgreSQL
       command: docker compose --profile postgres up -d --remove-orphans
       args:
         chdir: "{{ compose_dir }}"
       become_user: "{{ docker_user }}"
       when: compose_use_postgres | bool
       register: start_result
+
+    - name: Wait for server to start before obtaining SSL
+      pause:
+        seconds: 10
+      when: enable_https | bool
+
+    - name: Check if SSL certificate exists
+      stat:
+        path: "/opt/side-by-side/compose/certbot-conf/live/{{ ssl_domain }}/fullchain.pem"
+      register: ssl_cert
+      when: enable_https | bool and ssl_domain != ""
+
+    - name: Start certbot service for SSL certificate
+      command: docker compose -f docker-compose.yml -f docker-compose.https.yml up -d certbot
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      when: enable_https | bool and ssl_domain != "" and ssl_email != "" and not ssl_cert.stat.exists
+
+    - name: Obtain SSL certificate (first time setup)
+      command: >
+        docker compose -f docker-compose.yml -f docker-compose.https.yml run --rm certbot certonly
+        --webroot
+        --webroot-path=/var/www/certbot
+        --email {{ ssl_email }}
+        --agree-tos
+        --no-eff-email
+        -d {{ ssl_domain }}
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      when: enable_https | bool and ssl_domain != "" and ssl_email != "" and not ssl_cert.stat.exists
+      register: certbot_result
+      failed_when: certbot_result.rc != 0
+
+    - name: Enable HTTPS configuration
+      command: docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --remove-orphans
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      when: enable_https | bool and (ssl_cert.stat.exists or certbot_result is succeeded)
+      register: https_result
 
     - name: Wait for server to be healthy
       uri:

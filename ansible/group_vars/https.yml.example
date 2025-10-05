@@ -1,0 +1,23 @@
+# Example variables for HTTPS deployment
+# Copy this file to https.yml and customize for your domain
+
+# Enable HTTPS
+enable_https: true
+
+# Your domain name
+ssl_domain: "your-domain.com"
+
+# Email for Let's Encrypt notifications
+ssl_email: "your@email.com"
+
+# Application URLs (update to use HTTPS)
+base_url: "https://your-domain.com"
+client_url: "https://your-domain.com"
+
+# Docker Compose settings
+compose_pull_images: true
+compose_bind_mounts: false
+
+# Image settings (if using Docker Hub)
+image_registry: "docker.io/your-dockerhub-username"
+image_tag: "latest"

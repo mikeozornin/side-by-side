@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Default values
-REGISTRY="${IMAGE_REGISTRY:-ghcr.io/mikeozornin}"
+REGISTRY="${IMAGE_REGISTRY:-ghcr.io/your-github-username}"
 TAG="${IMAGE_TAG:-latest}"
 BUILD_SERVER=true
 BUILD_CLIENT=true
@@ -43,7 +43,7 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: $0 [OPTIONS]"
       echo ""
       echo "Options:"
-      echo "  --registry REGISTRY   Docker registry (default: ghcr.io/mikeozornin)"
+      echo "  --registry REGISTRY   Docker registry (default: ghcr.io/your-github-username)"
       echo "  --tag TAG             Image tag (default: latest)"
       echo "  --no-push             Build only, don't push to registry"
       echo "  --server-only         Build only server image"

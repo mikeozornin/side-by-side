@@ -25,18 +25,18 @@ cd deploy/compose
 ./build-and-push.sh --tag latest
 
 # Или явно указать registry
-./build-and-push.sh --registry ghcr.io/mikeozornin --tag latest
+./build-and-push.sh --registry ghcr.io/your-github-username --tag latest
 
 # Для Docker Hub
-./build-and-push.sh --registry mikeozornin --tag latest
+./build-and-push.sh --registry your-dockerhub-username --tag latest
 ```
 
-## На VPS (root@45.131.43.101)
+## На VPS (root@your-server)
 
 ### 1. Установите Docker
 
 ```bash
-ssh root@45.131.43.101
+ssh root@your-server
 
 # Установка Docker и Docker Compose
 curl -fsSL https://get.docker.com -o get-docker.sh
@@ -78,12 +78,12 @@ nano .env
 
 ```env
 # Docker images
-IMAGE_REGISTRY=ghcr.io/mikeozornin
+IMAGE_REGISTRY=ghcr.io/your-github-username
 IMAGE_TAG=latest
 
 # Application
-BASE_URL=http://45.131.43.101
-CLIENT_URL=http://45.131.43.101
+BASE_URL=http://your-server-ip
+CLIENT_URL=http://your-server-ip
 JWT_SECRET=измените-на-длинный-случайный-ключ-минимум-32-символа
 
 # Database (SQLite by default)
@@ -122,13 +122,13 @@ docker compose logs -f
 
 ```bash
 # Health check
-curl http://45.131.43.101/health
+curl http://your-server-ip/health
 
 # Главная страница
-curl http://45.131.43.101/
+curl http://your-server-ip/
 
 # В браузере
-# http://45.131.43.101
+# http://your-server-ip
 ```
 
 ## Troubleshooting

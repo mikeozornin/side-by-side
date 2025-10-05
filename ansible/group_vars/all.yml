@@ -1,8 +1,8 @@
 # Домен для side-by-side
-domain: side-by-side.mikeozornin.ru
+domain: your-domain.com
 
 # Email для Let's Encrypt сертификата
-ssl_email: admin@side-by-side.mikeozornin.ru
+ssl_email: admin@your-domain.com
 
 # Пути для релизов
 release_root: /opt/side-by-side/releases
@@ -18,9 +18,9 @@ bun_path: /usr/local/bin/bun
 
 # Конфигурация
 env_file_path: /etc/side-by-side/server.env
-cors_allowed_origins: side-by-side.mikeozornin.ru
+cors_allowed_origins: your-domain.com
 host_bind: 127.0.0.1
-port: 3000
+server_port: 3000
 
 # API пути
 api_prefix: /api

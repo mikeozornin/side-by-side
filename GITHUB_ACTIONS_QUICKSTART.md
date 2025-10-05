@@ -10,7 +10,7 @@ git push origin master
 
 ## Шаг 2: Включите GitHub Actions
 
-1. Зайдите на https://github.com/mikeozornin/side-by-side
+1. Зайдите на https://github.com/your-github-username/side-by-side
 2. Перейдите в **Settings** → **Actions** → **General**
 3. В разделе "Workflow permissions" выберите:
    - ✅ **Read and write permissions**
@@ -50,7 +50,7 @@ git push origin master
 ## Шаг 7: Используйте образы на VPS
 
 ```bash
-ssh root@45.131.43.101
+ssh root@your-server
 
 # Установите Docker (если еще не установлен)
 curl -fsSL https://get.docker.com | sh
@@ -71,10 +71,10 @@ nano nginx.conf
 # Создайте .env
 nano .env
 # Минимальная конфигурация:
-IMAGE_REGISTRY=ghcr.io/mikeozornin
+IMAGE_REGISTRY=ghcr.io/your-github-username
 IMAGE_TAG=latest
-BASE_URL=http://45.131.43.101
-CLIENT_URL=http://45.131.43.101
+BASE_URL=http://your-server-ip
+CLIENT_URL=http://your-server-ip
 JWT_SECRET=измените-на-длинный-случайный-ключ
 DB_PROVIDER=sqlite
 STORAGE_DRIVER=local
@@ -94,10 +94,10 @@ docker compose logs -f
 
 ```bash
 # Health check
-curl http://45.131.43.101/health
+curl http://your-server-ip/health
 
 # В браузере
-http://45.131.43.101
+http://your-server-ip
 ```
 
 ## Автоматические обновления
@@ -134,5 +134,5 @@ git push origin v1.0.0
 → Измените видимость в Package settings → Change visibility → Public
 
 ### Не могу pull образы на VPS
-→ Залогиньтесь: `docker login ghcr.io -u mikeozornin`
+→ Залогиньтесь: `docker login ghcr.io -u your-github-username`
 → Используйте Personal Access Token с правами `read:packages`

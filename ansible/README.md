@@ -419,7 +419,7 @@ If images return 404 error, check nginx configuration:
 
 ```bash
 # Check that static file rule excludes /api/ paths
-grep -A 3 "location ~\*" /etc/nginx/sites-available/side-by-side.mikeozornin.ru
+grep -A 3 "location ~\*" /etc/nginx/sites-available/your-domain.com
 
 # Should be:
 # location ~* ^(?!\/api\/).*\.(js|css|png|jpg|jpeg|gif|svg|ico|webp|woff2?)$ {

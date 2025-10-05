@@ -18,7 +18,123 @@ Public plugin for download: https://www.figma.com/community/plugin/1545946464465
 
 ## Installation and Setup
 
-There's a ready Ansible script, try it. If not, read below.
+There are two deployment options: **Ansible** (traditional) and **Docker** (containerized).
+
+### Quick Start with Docker (Recommended)
+
+```bash
+# 1. Clone repository
+git clone https://github.com/your-github-username/side-by-side.git
+cd side-by-side
+
+# 2. Configure environment
+cp env.example .env
+# Edit .env with your settings
+
+# 3. Deploy with Docker
+./deploy.sh --docker
+
+# 4. Get SSL certificate (optional)
+ssh root@your-server 'cd /opt/side-by-side/compose && docker compose run --rm certbot certonly --webroot --webroot-path=/var/www/certbot --email your@email.com --agree-tos --no-eff-email -d your-domain.com'
+
+# 5. Enable HTTPS
+ssh root@your-server 'cd /opt/side-by-side/compose && docker compose down && docker compose up -d'
+```
+
+### Quick Start with Ansible
+
+```bash
+# 1. Clone repository
+git clone https://github.com/your-github-username/side-by-side.git
+cd side-by-side
+
+# 2. Configure environment
+cp env.example .env
+# Edit .env with your settings
+
+# 3. Bootstrap server
+./deploy.sh --bootstrap
+
+# 4. Deploy application
+./deploy.sh
+```
+
+### Manual Setup
+
+If you prefer manual setup, read below.
+
+## Docker Deployment
+
+Docker deployment provides:
+- ✅ **Automatic HTTPS** with Let's Encrypt
+- ✅ **Easy scaling** and updates
+- ✅ **Isolated environment**
+- ✅ **One-command deployment**
+
+### Docker Requirements
+
+- Docker 20.10+
+- Docker Compose 2.0+
+- Domain name (for HTTPS)
+- Open ports 80 and 443
+
+### Docker Configuration
+
+1. **Environment Variables**: Edit `.env` file:
+   ```bash
+   # Docker deployment
+   DEPLOY_MODE=docker
+   DOCKER_HUB_USERNAME=your-dockerhub-username
+   DOMAIN=your-domain.com
+   
+   # SMTP for magic links
+   SMTP_HOST=your-smtp-server.com
+   SMTP_USER=your-smtp-username
+   SMTP_PASS=your-smtp-password
+   SMTP_FROM_EMAIL=noreply@your-domain.com
+   ```
+
+2. **Deploy**: Run deployment script:
+   ```bash
+   ./deploy.sh --docker
+   ```
+
+3. **Get SSL Certificate**:
+   ```bash
+   ssh root@your-server 'cd /opt/side-by-side/compose && docker compose run --rm certbot certonly --webroot --webroot-path=/var/www/certbot --email your@email.com --agree-tos --no-eff-email -d your-domain.com'
+   ```
+
+4. **Enable HTTPS**:
+   ```bash
+   ssh root@your-server 'cd /opt/side-by-side/compose && docker compose down && docker compose up -d'
+   ```
+
+### Docker Services
+
+- **edge**: Nginx reverse proxy with SSL
+- **client**: React frontend
+- **server**: Bun backend API
+- **certbot**: Let's Encrypt SSL certificates
+
+### Docker Commands
+
+```bash
+# View logs
+docker compose logs -f
+
+# Restart services
+docker compose restart
+
+# Update images
+docker compose pull && docker compose up -d
+
+# Stop all services
+docker compose down
+```
+
+## Ansible Deployment
+
+Traditional deployment with systemd services.
 
 ### Requirements
 
@@ -219,7 +335,7 @@ See [deploy/compose/README.md](deploy/compose/README.md) for detailed documentat
 
 Docker images are automatically built on every push to `main`/`master`:
 - 🤖 Automatic builds on Linux x86-64 (no emulation issues)
-- 📦 Published to `ghcr.io/mikeozornin/side-by-side`
+- 📦 Published to `ghcr.io/your-github-username/side-by-side`
 - 🏷️ Tagged as `latest` for main branch
 - 🔢 Versioned tags for git tags (e.g., `v1.0.0`)
 
