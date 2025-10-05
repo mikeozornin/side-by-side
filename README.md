@@ -164,7 +164,68 @@ side-by-side/
 
 ## Deployment
 
-### Ubuntu + Nginx
+### Docker Compose (Recommended)
+
+The easiest way to deploy the application is using Docker Compose with pre-built images from GitHub Container Registry.
+
+#### Option A: Using pre-built images (easiest)
+
+Docker images are automatically built via GitHub Actions and published to GHCR.
+
+1. **On your VPS**:
+   ```bash
+   mkdir -p /opt/side-by-side/compose
+   cd /opt/side-by-side/compose
+   
+   # Copy configuration files:
+   # - docker-compose.yml
+   # - nginx.conf  
+   # - env.example (rename to .env)
+   
+   # Edit .env with your settings
+   nano .env
+   
+   # Pull and run
+   docker compose pull
+   docker compose up -d
+   ```
+
+2. **With PostgreSQL**:
+   ```bash
+   docker compose --profile postgres up -d
+   ```
+
+#### Option B: Build locally (if needed)
+
+If you need to build images locally (e.g., for testing):
+```bash
+cd deploy/compose
+./build-and-push.sh --no-push --tag test
+```
+
+#### Option C: Using Ansible (automated deployment)
+
+```bash
+# Bootstrap server
+ansible-playbook -i inventory.ini ansible/bootstrap-compose.yml
+
+# Deploy application
+ansible-playbook -i inventory.ini ansible/deploy-compose.yml
+```
+
+See [deploy/compose/README.md](deploy/compose/README.md) for detailed documentation.
+
+### CI/CD with GitHub Actions
+
+Docker images are automatically built on every push to `main`/`master`:
+- 🤖 Automatic builds on Linux x86-64 (no emulation issues)
+- 📦 Published to `ghcr.io/mikeozornin/side-by-side`
+- 🏷️ Tagged as `latest` for main branch
+- 🔢 Versioned tags for git tags (e.g., `v1.0.0`)
+
+See [.github/workflows/README.md](.github/workflows/README.md) for more details.
+
+### Ubuntu + Nginx (Classic)
 
 1. Build the project: `bun run build`
 2. Configure Nginx for static file serving and API proxying
