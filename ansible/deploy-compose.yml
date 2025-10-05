@@ -1,0 +1,295 @@
+---
+# Deploy playbook for Docker Compose
+# Deploys the Side-by-Side application using Docker Compose
+
+- name: Deploy Side-by-Side with Docker Compose
+  hosts: all
+  become: yes
+  vars:
+    # Application directories
+    app_dir: "/opt/side-by-side"
+    compose_dir: "{{ app_dir }}/compose"
+    data_dir: "{{ app_dir }}/data"
+    logs_dir: "{{ app_dir }}/logs"
+    state_dir: "{{ app_dir }}/state"
+    # User for running containers
+    docker_user: "root"
+    # Docker Compose settings
+    compose_use_postgres: false
+    compose_bind_mounts: true
+    compose_pull_images: false
+    # SSL/HTTPS settings
+    enable_https: false
+    ssl_domain: ""
+    ssl_email: ""
+    # Application settings
+    app_name: "side-by-side"
+    app_version: "latest"
+
+  tasks:
+    - name: Ensure Docker is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Create compose directory
+      file:
+        path: "{{ compose_dir }}"
+        state: directory
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0755'
+
+    - name: Copy docker-compose.yml
+      copy:
+        src: "{{ playbook_dir }}/../deploy/compose/docker-compose.yml"
+        dest: "{{ compose_dir }}/docker-compose.yml"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0644'
+      notify: restart compose
+
+    - name: Copy nginx.conf
+      copy:
+        src: "{{ playbook_dir }}/../deploy/compose/nginx.conf"
+        dest: "{{ compose_dir }}/nginx.conf"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0644'
+      notify: restart compose
+
+    - name: Copy HTTPS files (if enabled)
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ compose_dir }}/{{ item.dest }}"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - { src: "{{ playbook_dir }}/../deploy/compose/docker-compose.https.yml", dest: "docker-compose.https.yml", mode: "0644" }
+        - { src: "{{ playbook_dir }}/../deploy/compose/nginx-ssl.conf", dest: "nginx-ssl.conf", mode: "0644" }
+        - { src: "{{ playbook_dir }}/../deploy/compose/setup-ssl.sh", dest: "setup-ssl.sh", mode: "0755" }
+      when: enable_https | bool
+
+    - name: Update nginx-ssl.conf with domain
+      replace:
+        path: "{{ compose_dir }}/nginx-ssl.conf"
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      loop:
+        - { regexp: "YOUR_DOMAIN", replace: "{{ ssl_domain }}" }
+        - { regexp: "server_name _;", replace: "server_name {{ ssl_domain }};" }
+      when: enable_https | bool and ssl_domain != ""
+
+    - name: Copy environment file template
+      template:
+        src: "{{ playbook_dir }}/../deploy/compose/env.example"
+        dest: "{{ compose_dir }}/.env"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0600'
+      when: compose_env_template is not defined
+
+    - name: Update .env with image settings
+      lineinfile:
+        path: "{{ compose_dir }}/.env"
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - { regexp: '^IMAGE_REGISTRY=', line: 'IMAGE_REGISTRY={{ image_registry | default("docker.io/your-dockerhub-username") }}' }
+        - { regexp: '^IMAGE_TAG=', line: 'IMAGE_TAG={{ image_tag | default("latest") }}' }
+      when: image_registry is defined or image_tag is defined
+
+    - name: Copy custom environment file
+      copy:
+        src: "{{ compose_env_template }}"
+        dest: "{{ compose_dir }}/.env"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0600'
+      when: compose_env_template is defined
+
+    - name: Set up bind mounts (if enabled)
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0755'
+      loop:
+        - "{{ data_dir }}"
+        - "{{ logs_dir }}"
+        - "{{ state_dir }}"
+      when: compose_bind_mounts | bool
+
+    - name: Update docker-compose.yml for bind mounts
+      replace:
+        path: "{{ compose_dir }}/docker-compose.yml"
+        regexp: 'app_data:/var/app/data'
+        replace: '{{ data_dir }}:/var/app/data'
+      when: compose_bind_mounts | bool
+      notify: restart compose
+
+    - name: Update docker-compose.yml for bind mounts (state)
+      replace:
+        path: "{{ compose_dir }}/docker-compose.yml"
+        regexp: 'app_state:/var/app/state'
+        replace: '{{ state_dir }}:/var/app/state'
+      when: compose_bind_mounts | bool
+      notify: restart compose
+
+    - name: Update docker-compose.yml for bind mounts (logs)
+      replace:
+        path: "{{ compose_dir }}/docker-compose.yml"
+        regexp: 'app_logs:/var/app/logs'
+        replace: '{{ logs_dir }}:/var/app/logs'
+      when: compose_bind_mounts | bool
+      notify: restart compose
+
+    - name: Pull Docker images (if enabled)
+      command: docker compose pull
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      when: compose_pull_images | bool
+      register: pull_result
+      changed_when: "'Pulling' in pull_result.stdout"
+
+    - name: Build Docker images
+      command: docker compose build --no-cache
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      register: build_result
+      changed_when: "'Building' in build_result.stdout or 'Step' in build_result.stdout"
+
+    - name: Stop existing containers
+      command: docker compose down
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      ignore_errors: yes
+
+    - name: Start containers without HTTPS first
+      command: docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      when: not compose_use_postgres | bool
+      register: start_result
+
+    - name: Start containers with PostgreSQL
+      command: docker compose --profile postgres up -d --remove-orphans
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      when: compose_use_postgres | bool
+      register: start_result
+
+    - name: Wait for server to start before obtaining SSL
+      pause:
+        seconds: 10
+      when: enable_https | bool
+
+    - name: Check if SSL certificate exists
+      stat:
+        path: "/opt/side-by-side/compose/certbot-conf/live/{{ ssl_domain }}/fullchain.pem"
+      register: ssl_cert
+      when: enable_https | bool and ssl_domain != ""
+
+    - name: Start certbot service for SSL certificate
+      command: docker compose -f docker-compose.yml -f docker-compose.https.yml up -d certbot
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      when: enable_https | bool and ssl_domain != "" and ssl_email != "" and not ssl_cert.stat.exists
+
+    - name: Obtain SSL certificate (first time setup)
+      command: >
+        docker compose -f docker-compose.yml -f docker-compose.https.yml run --rm certbot certonly
+        --webroot
+        --webroot-path=/var/www/certbot
+        --email {{ ssl_email }}
+        --agree-tos
+        --no-eff-email
+        -d {{ ssl_domain }}
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      when: enable_https | bool and ssl_domain != "" and ssl_email != "" and not ssl_cert.stat.exists
+      register: certbot_result
+      failed_when: certbot_result.rc != 0
+
+    - name: Enable HTTPS configuration
+      command: docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --remove-orphans
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      when: enable_https | bool and (ssl_cert.stat.exists or certbot_result is succeeded)
+      register: https_result
+
+    - name: Wait for server to be healthy
+      uri:
+        url: "http://localhost/health"
+        method: GET
+        status_code: 200
+      retries: 30
+      delay: 10
+      register: health_check
+      until: health_check.status == 200
+      ignore_errors: yes
+
+    - name: Display container status
+      command: docker compose ps
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      register: container_status
+      changed_when: false
+
+    - name: Show container status
+      debug:
+        msg: "{{ container_status.stdout_lines }}"
+
+    - name: Display logs (if health check failed)
+      command: docker compose logs --tail=50
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      register: container_logs
+      when: health_check is failed
+      changed_when: false
+
+    - name: Show container logs (if health check failed)
+      debug:
+        msg: "{{ container_logs.stdout_lines }}"
+      when: health_check is failed
+
+    - name: Fail if health check failed
+      fail:
+        msg: "Health check failed. Check container logs above."
+      when: health_check is failed
+
+  handlers:
+    - name: restart compose
+      command: docker compose down
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      ignore_errors: yes
+
+    - name: start compose
+      command: docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      when: not compose_use_postgres | bool
+
+    - name: start compose with postgres
+      command: docker compose --profile postgres up -d --remove-orphans
+      args:
+        chdir: "{{ compose_dir }}"
+      become_user: "{{ docker_user }}"
+      when: compose_use_postgres | bool
+

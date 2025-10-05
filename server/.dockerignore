@@ -1,0 +1,42 @@
+# Зависимости (устанавливаются в Docker)
+node_modules
+bun.lockb
+
+# Сборка (создаётся в Docker)
+dist
+
+# Данные и логи
+data
+logs
+*.log
+
+# Тесты
+tests
+*.test.ts
+*.spec.ts
+coverage
+
+# Dev файлы
+.env
+.env.*
+*.local
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Временные файлы
+*.tmp
+.DS_Store
+
+# Другие
+README.md
+CLEANUP.md
+MIGRATIONS.md
+NOTIFICATIONS.md

@@ -12,6 +12,11 @@ import { configManager } from '../utils/config.js';
 
 export const router = new Hono();
 
+// Health check endpoint (before any middleware to avoid CORS issues)
+router.get('/health', async (c) => {
+  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Middleware
 router.use('*', logger());
 
@@ -63,6 +68,12 @@ router.options('*', async (c) => {
 
 router.use('*', cors({
   origin: (origin, c) => {
+    // Skip CORS check for health endpoint
+    const pathname = new URL(c.req.url).pathname;
+    if (pathname === '/health') {
+      return origin || '*';
+    }
+    
     // console.log(`CORS Origin check: origin="${origin}", method="${c?.req?.method}"`);
     
     // Специальная обработка для null/empty origin

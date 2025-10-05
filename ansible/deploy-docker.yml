@@ -1,0 +1,129 @@
+---
+- name: Deploy Side-by-Side Voting with Docker
+  hosts: all
+  become: yes
+  vars:
+    app_name: side-by-side
+    app_user: side-by-side
+    app_dir: /opt/{{ app_name }}
+    compose_dir: "{{ app_dir }}/compose"
+    docker_hub_username: "{{ docker_hub_username | default('your-dockerhub-username') }}"
+    domain: "{{ domain | default('your-domain.com') }}"
+    email: "{{ email | default('your@email.com') }}"
+
+  tasks:
+    - name: Install Docker
+      package:
+        name: docker.io
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install Docker (CentOS/RHEL)
+      package:
+        name: docker
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Install Docker Compose
+      get_url:
+        url: https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        system: yes
+        shell: /bin/bash
+        home: "{{ app_dir }}"
+        create_home: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: yes
+
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Create compose directory
+      file:
+        path: "{{ compose_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Create certbot directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+      loop:
+        - "{{ compose_dir }}/certbot-www"
+        - "{{ compose_dir }}/certbot-conf"
+
+    - name: Copy Docker Compose file
+      copy:
+        src: "{{ item }}"
+        dest: "{{ compose_dir }}/"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0644'
+      loop:
+        - "deploy/compose/docker-compose.yml"
+        - "deploy/compose/nginx-https.conf"
+
+    - name: Create environment file
+      template:
+        src: "deploy/compose/env.j2"
+        dest: "{{ compose_dir }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+      vars:
+        jwt_secret: "{{ ansible_date_time.epoch | hash('sha256') }}"
+
+    - name: Pull Docker images
+      docker_compose:
+        project_src: "{{ compose_dir }}"
+        pull: yes
+      become_user: "{{ app_user }}"
+
+    - name: Start Docker containers
+      docker_compose:
+        project_src: "{{ compose_dir }}"
+        state: present
+      become_user: "{{ app_user }}"
+
+    - name: Wait for services to be healthy
+      wait_for:
+        port: 80
+        host: "{{ ansible_default_ipv4.address }}"
+        delay: 10
+        timeout: 60
+
+    - name: Display deployment information
+      debug:
+        msg:
+          - "✅ Docker deployment completed successfully!"
+          - "🌐 HTTP: http://{{ domain }}"
+          - "🔒 HTTPS: https://{{ domain }} (after SSL certificate)"
+          - "📝 To get SSL certificate, run:"
+          - "   ssh {{ ansible_user }}@{{ ansible_default_ipv4.address }} 'cd {{ compose_dir }} && docker compose run --rm certbot certonly --webroot --webroot-path=/var/www/certbot --email {{ email }} --agree-tos --no-eff-email -d {{ domain }}'"
+          - "🔄 To enable HTTPS, run:"
+          - "   ssh {{ ansible_user }}@{{ ansible_default_ipv4.address }} 'cd {{ compose_dir }} && docker compose down && docker compose up -d'"
