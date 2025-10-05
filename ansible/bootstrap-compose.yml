@@ -1,0 +1,148 @@
+---
+# Bootstrap playbook for Docker Compose deployment
+# Installs Docker Engine and Docker Compose plugin
+
+- name: Bootstrap server for Docker Compose deployment
+  hosts: all
+  become: yes
+  vars:
+    # Docker version to install
+    docker_version: "5:24.0.0-1~ubuntu.22.04~jammy"
+    # Docker Compose version
+    compose_version: "v2.20.0"
+    # Application directories
+    app_dir: "/opt/side-by-side"
+    compose_dir: "{{ app_dir }}/compose"
+    data_dir: "{{ app_dir }}/data"
+    logs_dir: "{{ app_dir }}/logs"
+    state_dir: "{{ app_dir }}/state"
+    # User for running containers
+    docker_user: "side-by-side"
+    # Firewall settings
+    open_ports:
+      - 80
+      - 443
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - software-properties-common
+          - ufw
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Update apt cache after adding Docker repo
+      apt:
+        update_cache: yes
+
+    - name: Install Docker Engine
+      apt:
+        name:
+          - docker-ce={{ docker_version }}
+          - docker-ce-cli={{ docker_version }}
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Create application user
+      user:
+        name: "{{ docker_user }}"
+        system: yes
+        shell: /bin/bash
+        home: "{{ app_dir }}"
+        create_home: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ docker_user }}"
+        groups: docker
+        append: yes
+
+    - name: Create application directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0755'
+      loop:
+        - "{{ app_dir }}"
+        - "{{ compose_dir }}"
+        - "{{ data_dir }}"
+        - "{{ logs_dir }}"
+        - "{{ state_dir }}"
+
+    - name: Configure UFW firewall
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop: "{{ open_ports }}"
+      when: open_ports is defined
+
+    - name: Enable UFW firewall
+      ufw:
+        state: enabled
+        policy: deny
+
+    - name: Verify Docker installation
+      command: docker --version
+      register: docker_version_output
+      changed_when: false
+
+    - name: Verify Docker Compose installation
+      command: docker compose version
+      register: compose_version_output
+      changed_when: false
+
+    - name: Display Docker version
+      debug:
+        msg: "{{ docker_version_output.stdout }}"
+
+    - name: Display Docker Compose version
+      debug:
+        msg: "{{ compose_version_output.stdout }}"
+
+    - name: Test Docker with hello-world
+      command: docker run --rm hello-world
+      become_user: "{{ docker_user }}"
+      register: docker_test_output
+      changed_when: false
+
+    - name: Display Docker test result
+      debug:
+        msg: "{{ docker_test_output.stdout }}"
+
+  handlers:
+    - name: restart docker
+      systemd:
+        name: docker
+        state: restarted
+

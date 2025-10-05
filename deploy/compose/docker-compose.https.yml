@@ -1,0 +1,27 @@
+# Docker Compose override for HTTPS with Let's Encrypt
+# Usage: docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+
+services:
+  edge:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx-ssl.conf:/etc/nginx/conf.d/ssl.conf:ro  # SSL config
+      - certbot-conf:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    command: '/bin/sh -c ''while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g "daemon off;"'''
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    restart: unless-stopped
+
+volumes:
+  certbot-conf:
+  certbot-www:
+

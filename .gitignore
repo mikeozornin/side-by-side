@@ -225,3 +225,11 @@ server/data/
 .env.development
 ssl
 .playwright-mcp
+
+# Ansible sensitive files
+ansible/inventory.ini
+ansible/group_vars/https.yml
+
+# Docker sensitive files
+deploy/compose/nginx-https.conf
+ansible/inventory.ini

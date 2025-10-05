@@ -213,3 +213,39 @@
 - Валидация Figma плагина через заголовок `X-Figma-Plugin`
 - Защита от CSRF через SameSite cookies
 - Figma коды: при генерации нового кода удаляются все предыдущие коды пользователя (один активный код одновременно)
+
+## Deployment (Compose)
+
+### Архитектура Docker Compose
+- **Сервисы**:
+  - `server` (Bun API, порт 3000)
+  - `client` (React/Vite build, отдается через nginx)
+  - `edge` (nginx) — фронтовой прокси: `/` → client, `/api` → server
+  - `postgres` — опционально (профиль `postgres`)
+
+### Хранилище файлов
+- **По умолчанию**: `STORAGE_DRIVER=local`, путь `DATA_DIR` монтируется в контейнер
+- **S3**: `STORAGE_DRIVER=s3` + переменные `S3_*`
+
+### База данных
+- **SQLite** (по умолчанию): `DB_PROVIDER=sqlite`, `DB_PATH` в volume
+- **PostgreSQL**: `DB_PROVIDER=postgres`, `DATABASE_URL` для подключения
+
+### Переменные окружения
+- `BASE_URL`, `CLIENT_URL` — URL приложения
+- `JWT_SECRET` — секретный ключ (обязательно изменить!)
+- `DB_PROVIDER` — тип БД: `sqlite` или `postgres`
+- `STORAGE_DRIVER` — драйвер хранилища: `local` или `s3`
+- `AUTH_MODE` — режим аутентификации: `anonymous` или `magic-links`
+
+### Ansible плейбуки
+- `ansible/bootstrap-compose.yml` — установка Docker и Docker Compose
+- `ansible/deploy-compose.yml` — деплой приложения через Compose
+
+### Профили Compose
+- **По умолчанию**: SQLite + локальное хранилище
+- **postgres**: PostgreSQL + локальное хранилище
+
+### Тома и монтирование
+- **Named volumes**: `app_data`, `app_state`, `app_logs`, `pgdata`
+- **Bind mounts**: опционально через переменную `compose_bind_mounts=true`
