@@ -9,7 +9,7 @@ volumes:
 
 services:
   server:
-    image: ${IMAGE_REGISTRY:-docker.io/your-dockerhub-username}/side-by-side-server:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-docker.io/mikeozornin}/side-by-side-server:${IMAGE_TAG:-latest}
     # build: ../../server  # Uncomment for local build
     env_file: .env
     environment:
@@ -59,7 +59,7 @@ services:
     restart: unless-stopped
 
   client:
-    image: ${IMAGE_REGISTRY:-docker.io/your-dockerhub-username}/side-by-side-client:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-docker.io/mikeozornin}/side-by-side-client:${IMAGE_TAG:-latest}
     # build: ../../client  # Uncomment for local build
     environment:
       - VITE_API_URL=${VITE_API_URL:-/api}
