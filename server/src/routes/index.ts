@@ -15,6 +15,11 @@ export const router = new Hono();
 // Middleware
 router.use('*', logger());
 
+// Health check endpoint (before CORS middleware)
+router.get('/health', async (c) => {
+  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Explicit OPTIONS handler BEFORE cors to ensure preflight gets correct headers
 router.options('*', async (c) => {
   const origin = c.req.header('Origin');
