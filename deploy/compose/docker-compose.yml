@@ -51,7 +51,7 @@ services:
       - app_logs:/var/app/logs
     expose: ["3000"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD-SHELL", "curl -f -H 'Host: localhost' http://localhost:3000/health"]
       interval: 10s
       timeout: 3s
       retries: 5

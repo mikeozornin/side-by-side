@@ -68,6 +68,12 @@ router.options('*', async (c) => {
 
 router.use('*', cors({
   origin: (origin, c) => {
+    // Skip CORS check for health endpoint
+    const pathname = new URL(c.req.url).pathname;
+    if (pathname === '/health') {
+      return origin || '*';
+    }
+    
     // console.log(`CORS Origin check: origin="${origin}", method="${c?.req?.method}"`);
     
     // Специальная обработка для null/empty origin
