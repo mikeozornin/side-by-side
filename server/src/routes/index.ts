@@ -12,13 +12,13 @@ import { configManager } from '../utils/config.js';
 
 export const router = new Hono();
 
-// Middleware
-router.use('*', logger());
-
-// Health check endpoint (before CORS middleware)
+// Health check endpoint (before any middleware to avoid CORS issues)
 router.get('/health', async (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Middleware
+router.use('*', logger());
 
 // Explicit OPTIONS handler BEFORE cors to ensure preflight gets correct headers
 router.options('*', async (c) => {
