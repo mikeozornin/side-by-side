@@ -79,14 +79,17 @@ export class ConfigManager {
     return this.config.votingBaseUrl;
   }
 
-  // Сформировать полный URL для голосования
-  getVotingUrl(votingId: string): string {
+  getVotingUrl(votingOrId: { slug?: string | null; id: string } | string): string {
+    const identifier = typeof votingOrId === 'string' 
+      ? votingOrId 
+      : (votingOrId.slug || votingOrId.id);
+    
     if (this.isDevelopment()) {
       // В dev режиме используем клиентский URL с хешем
-      return `${this.config.votingBaseUrl}/#/v/${votingId}`;
+      return `${this.config.votingBaseUrl}/#/v/${identifier}`;
     } else {
       // В prod режиме используем базовый URL с хешем
-      return `${this.config.baseUrl}/#/v/${votingId}`;
+      return `${this.config.baseUrl}/#/v/${identifier}`;
     }
   }
 
@@ -106,47 +109,39 @@ export class ConfigManager {
     }
   }
 
-  // Более безопасная функция для проверки CORS origin
+  private normalizeOrigin(origin: string): string {
+    if (!origin) return origin;
+    return origin.replace(/\/+$/, '');
+  }
+
   getCorsOriginFunction(): (origin: string, c?: any) => string | undefined {
     return (origin: string, c?: any) => {
       const allowedOrigins = this.getCorsOrigins();
+      const normalizedOrigin = this.normalizeOrigin(origin);
 
-      // Прямое совпадение с разрешенными origins
-      if (allowedOrigins.includes(origin)) {
-        return origin;
+      for (const allowedOrigin of allowedOrigins) {
+        if (this.normalizeOrigin(allowedOrigin) === normalizedOrigin) {
+          return origin;
+        }
       }
 
-      // Специальная обработка для null/empty origin
       if (origin === 'null' || origin === '') {
-        // Проверяем User-Agent для дополнительной защиты
-        if (c?.req?.header) {
-          const userAgent = c.req.header('User-Agent');
+        // Для origin 'null' (Figma plugin) разрешаем если есть заголовок X-Figma-Plugin
+        // или если это preflight запрос (OPTIONS)
+        if (c?.req) {
           const figmaPluginHeader = c.req.header('X-Figma-Plugin');
-
-          // Проверяем, что User-Agent содержит "Figma" И есть кастомный заголовок
-          const hasValidUserAgent = userAgent && userAgent.includes('Figma');
           const hasValidHeader = figmaPluginHeader === 'SideBySide/1.0';
+          const isOptions = c.req.method === 'OPTIONS';
 
-          if (hasValidUserAgent && hasValidHeader) {
-            console.log(`✅ Valid Figma plugin CORS request - UA: "${userAgent}", Header: "${figmaPluginHeader}"`);
+          // Разрешаем для OPTIONS (preflight) или если есть валидный заголовок
+          if (hasValidHeader || isOptions) {
             return 'null';
           }
-
-          // Логируем подозрительный запрос
-          console.warn(`Blocked CORS request with ${origin === 'null' ? 'null' : 'empty'} origin:`, {
-            userAgent: userAgent,
-            figmaPluginHeader: figmaPluginHeader,
-            hasValidUserAgent: hasValidUserAgent,
-            hasValidHeader: hasValidHeader
-          });
-          return undefined;
         }
 
-        // Если контекст недоступен — отказываем по-умолчанию
         return undefined;
       }
 
-      // Для всех остальных origins - запрет
       return undefined;
     };
   }

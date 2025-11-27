@@ -2,6 +2,7 @@ import { Context, Next } from 'hono';
 import { verifyAccessToken } from '../utils/auth.js';
 import { getUserById } from '../db/auth-queries.js';
 import { env } from '../load-env.js';
+import { logger } from '../utils/logger.js';
 
 // Middleware для проверки аутентификации Figma плагина
 export async function requireFigmaAuth(c: AuthContext, next: Next) {
@@ -42,7 +43,7 @@ export async function requireFigmaAuth(c: AuthContext, next: Next) {
     
     await next();
   } catch (error) {
-    console.error('Figma auth middleware error:', error);
+    logger.error('Figma auth middleware error:', error);
     return c.json({ error: 'Authentication failed' }, 401);
   }
 }
@@ -88,7 +89,7 @@ export async function requireAuth(c: AuthContext, next: Next) {
     
     await next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    logger.error('Auth middleware error:', error);
     return c.json({ error: 'Authentication failed' }, 401);
   }
 }
@@ -127,7 +128,7 @@ export async function requireVotingAuth(c: AuthContext, next: Next) {
     
     await next();
   } catch (error) {
-    console.error('Voting auth middleware error:', error);
+    logger.error('Voting auth middleware error:', error);
     return c.json({ error: 'Authentication failed' }, 401);
   }
 }
@@ -164,7 +165,7 @@ export async function requireVotingOwner(c: AuthContext, next: Next) {
     
     await next();
   } catch (error) {
-    console.error('Voting owner middleware error:', error);
+    logger.error('Voting owner middleware error:', error);
     return c.json({ error: 'Authorization failed' }, 500);
   }
 }
@@ -196,7 +197,7 @@ export async function optionalVotingAuth(c: AuthContext, next: Next) {
     
     await next();
   } catch (error) {
-    console.error('Optional voting auth middleware error:', error);
+    logger.error('Optional voting auth middleware error:', error);
     // В случае ошибки продолжаем без авторизации
     await next();
   }

@@ -202,5 +202,37 @@ export const migrations: Migration[] = [
         await db.exec(`ALTER TABLE votings ADD COLUMN comment TEXT`);
       }
     }
+  },
+  {
+    version: 10,
+    name: 'add_mattermost_post_id',
+    up: async (db: DbClient) => {
+      // Добавляем поле mattermost_post_id в таблицу votings
+      const cols = await db.query<{ name: string }>(`PRAGMA table_info(votings)`);
+      const hasMattermostPostId = cols.some(c => c.name === 'mattermost_post_id');
+      if (!hasMattermostPostId) {
+        await db.exec(`ALTER TABLE votings ADD COLUMN mattermost_post_id TEXT`);
+      }
+    }
+  },
+  {
+    version: 11,
+    name: 'add_slug_to_votings',
+    up: async (db: DbClient) => {
+      // Добавляем поле slug в таблицу votings
+      const cols = await db.query<{ name: string }>(`PRAGMA table_info(votings)`);
+      const hasSlug = cols.some(c => c.name === 'slug');
+      if (!hasSlug) {
+        await db.exec(`ALTER TABLE votings ADD COLUMN slug TEXT`);
+      }
+      
+      // Создаем уникальный индекс на slug
+      await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_votings_slug ON votings(slug)`);
+      
+      // Мигрируем существующие записи
+      const { migrateExistingVotingsSlugs } = await import('./queries.js');
+      const migrated = await migrateExistingVotingsSlugs();
+      console.log(`Migrated ${migrated} existing votings with slugs`);
+    }
   }
 ];

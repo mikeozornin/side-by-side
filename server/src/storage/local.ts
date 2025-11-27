@@ -1,4 +1,4 @@
-import { writeFile, readFile, stat, unlink } from 'fs/promises';
+import { writeFile, readFile, stat, unlink, rm } from 'fs/promises';
 import { join, dirname } from 'path';
 import { ensureDir } from 'fs-extra';
 import { StorageDriver } from './types.js';
@@ -47,6 +47,19 @@ export class LocalStorageDriver implements StorageDriver {
   async deleteObject(key: string): Promise<void> {
     const filePath = await this.findFilePath(key);
     await unlink(filePath);
+  }
+
+  async deleteVotingDirectory(votingId: string): Promise<void> {
+    const votingDir = join(this.dataDir, votingId);
+    try {
+      await rm(votingDir, { recursive: true, force: true });
+    } catch (error) {
+      // Directory might not exist, which is fine
+      // Only throw if it's a different error
+      if (error && typeof error === 'object' && 'code' in error && error.code !== 'ENOENT') {
+        throw error;
+      }
+    }
   }
 
   private async findFilePath(key: string): Promise<string> {

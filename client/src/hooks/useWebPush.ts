@@ -14,6 +14,18 @@ export interface WebPushState {
   settings: NotificationSettings;
   isLoading: boolean;
   error: string | null;
+  pushNotSupported: boolean;
+}
+
+// Функция для детекта iOS Safari и других проблемных браузеров
+function isIOSSafari(): boolean {
+  const userAgent = navigator.userAgent.toLowerCase();
+  return /iPhone|iPad|iPod/.test(userAgent) && /Safari/.test(userAgent) && !/CriOS|FxiOS/.test(userAgent);
+}
+
+// Функция для проверки поддержки push-уведомлений
+function getIsSupported(): boolean {
+  return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
 }
 
 export function useWebPush() {
@@ -28,12 +40,13 @@ export function useWebPush() {
     },
     isLoading: false,
     error: null,
+    pushNotSupported: false,
   });
 
   // Проверяем поддержку уведомлений при инициализации
   useEffect(() => {
     const checkSupport = () => {
-      const isSupported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+      const isSupported = getIsSupported();
       
       // Принудительно проверяем разрешения
       let permission: NotificationPermission = 'denied';
@@ -46,6 +59,7 @@ export function useWebPush() {
         ...prev,
         isSupported,
         permission,
+        pushNotSupported: !isSupported,
       }));
     };
 
@@ -53,7 +67,7 @@ export function useWebPush() {
     
     // Добавляем слушатель изменений разрешений
     const handlePermissionChange = () => {
-      const isSupported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+      const isSupported = getIsSupported();
       if (isSupported) {
         const newPermission = Notification.permission;
         console.log('Permission changed to:', newPermission);
@@ -222,11 +236,48 @@ export function useWebPush() {
 
       // Подписываемся на push-уведомления
       console.log('Subscribing to push manager...');
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToArrayBuffer(publicKey),
-      });
-      console.log('Push subscription created:', subscription);
+      let subscription: PushSubscription | null = null;
+      
+      try {
+        // Устанавливаем таймаут для подписки (10 секунд)
+        const subscribePromise = registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToArrayBuffer(publicKey),
+        });
+        
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('timeout')), 10000);
+        });
+        
+        subscription = await Promise.race([subscribePromise, timeoutPromise]);
+        console.log('Push subscription created:', subscription);
+      } catch (subError) {
+        console.error('Error during push subscription:', subError);
+        const errorMessage = subError instanceof Error ? subError.message : 'Unknown error';
+        
+        // Детектим неподдерживаемые браузеры
+        if (errorMessage.includes('timeout') || 
+            errorMessage.includes('not supported') ||
+            errorMessage.includes('not allowed') ||
+            subError instanceof DOMException) {
+          setState(prev => ({
+            ...prev,
+            pushNotSupported: true,
+            error: 'Push notifications are not supported in this browser',
+          }));
+          return;
+        }
+        throw subError;
+      }
+      
+      if (!subscription) {
+        setState(prev => ({
+          ...prev,
+          pushNotSupported: true,
+          error: 'Failed to create push subscription',
+        }));
+        return;
+      }
 
       // Отправляем подписку на сервер
       const headers: Record<string, string> = {
@@ -248,17 +299,34 @@ export function useWebPush() {
 
       if (serverResponse.ok) {
         console.log('Subscription saved to server successfully');
-        setState(prev => ({ ...prev, isSubscribed: true }));
+        setState(prev => ({ 
+          ...prev, 
+          isSubscribed: true,
+          pushNotSupported: false,
+        }));
       } else {
         console.error('Failed to save subscription to server:', serverResponse.status);
         throw new Error(`Server error: ${serverResponse.status}`);
       }
     } catch (error) {
       console.error('Error subscribing to web push:', error);
-      setState(prev => ({
-        ...prev,
-        error: 'Не удалось подписаться на уведомления',
-      }));
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Детектим неподдерживаемые браузеры по ошибкам
+      if (errorMessage.includes('timeout') || 
+          errorMessage.includes('not supported') ||
+          errorMessage.includes('not allowed')) {
+        setState(prev => ({
+          ...prev,
+          pushNotSupported: true,
+          error: 'Push notifications are not supported in this browser',
+        }));
+      } else {
+        setState(prev => ({
+          ...prev,
+          error: 'Не удалось подписаться на уведомления',
+        }));
+      }
     }
   }, [state.isSupported, state.permission, accessToken]);
 
@@ -306,7 +374,17 @@ export function useWebPush() {
 
   // Запрашиваем разрешение на уведомления
   const requestPermission = useCallback(async () => {
-    if (!state.isSupported) return;
+    if (!state.isSupported || state.pushNotSupported) {
+      if (state.pushNotSupported) {
+        setState(prev => ({
+          ...prev,
+          error: isIOSSafari() 
+            ? 'Push notifications require PWA installation on iOS Safari'
+            : 'Push notifications are not supported in this browser',
+        }));
+      }
+      return;
+    }
 
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
@@ -330,14 +408,23 @@ export function useWebPush() {
         isLoading: false,
       }));
     }
-  }, [state.isSupported, subscribeToWebPush]);
+  }, [state.isSupported, state.pushNotSupported, subscribeToWebPush]);
 
   // Обновляем настройки уведомлений
   const updateSettings = useCallback(async (newSettings: Partial<NotificationSettings>) => {
-    if (!state.isSupported || state.permission !== 'granted' || !user || authLoading) {
+    if (!state.isSupported || state.permission !== 'granted' || state.pushNotSupported || !user || authLoading) {
+      if (state.pushNotSupported) {
+        setState(prev => ({
+          ...prev,
+          error: isIOSSafari() 
+            ? 'Push notifications require PWA installation on iOS Safari'
+            : 'Push notifications are not supported in this browser',
+        }));
+      }
       console.log('Skipping updateSettings:', { 
         isSupported: state.isSupported, 
-        permission: state.permission, 
+        permission: state.permission,
+        pushNotSupported: state.pushNotSupported,
         user: !!user, 
         authLoading 
       });
@@ -460,6 +547,9 @@ export function useWebPush() {
     loadSettings,
   };
 }
+
+// Экспортируем функцию для использования в компонентах
+export { isIOSSafari };
 
 // Утилита для конвертации VAPID ключа
 function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {

@@ -29,6 +29,21 @@ The migration system ensures safe database schema updates when deploying new app
 - Creation of `figma_auth_codes` table for Figma plugin authorization
 - Index on `expires_at` for cleaning up expired codes
 
+### Version 5-10: Additional features
+- Web push subscriptions and notification settings
+- Completed notification flag
+- Duration hours as REAL type
+- Comment field for votings
+- Mattermost post ID tracking
+
+### Version 11: add_slug_to_votings
+- Added `slug TEXT UNIQUE` field to `votings` table for human-readable identifiers
+- Created unique index on `slug` field
+- Automatic migration of existing votings: generates slug for all records without slug
+- Slugs are generated using `human-id` library in format `AdjectiveNounVerb` (e.g., `HairyParrotsPursueRudely`)
+- Collision handling: up to 10 retry attempts, then falls back to `slug + guid` format
+- Voting URLs now use slug as canonical identifier, but GUID still works for backward compatibility
+
 ## Commands
 
 ```bash

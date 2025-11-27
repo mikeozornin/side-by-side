@@ -1,6 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
+import { humanId } from 'human-id';
+import { basename } from 'path';
 import { getDatabase } from './init.js';
 import { prepareQuery } from './utils.js';
+import { logger } from '../utils/logger.js';
+import { createStorageFromEnv } from '../storage/index.js';
 
 // Интерфейсы для типизации
 export interface Voting {
@@ -14,6 +18,8 @@ export interface Voting {
   user_email?: string | null;
   complete_notified?: number;
   comment?: string | null;
+  mattermost_post_id?: string | null;
+  slug?: string | null;
 }
 
 export interface VotingOption {
@@ -35,12 +41,44 @@ export interface Vote {
   user_id?: string | null;
 }
 
-// Функции для работы с голосованиями
-export async function createVoting(voting: Omit<Voting, 'id' | 'created_at' | 'end_at'> & { created_at: Date, end_at: Date }): Promise<string> {
-  const id = uuidv4();
+export async function getVotingBySlug(slug: string): Promise<Voting | null> {
   const db = getDatabase();
-  const sql = prepareQuery('INSERT INTO votings (id, title, created_at, end_at, duration_hours, is_public, user_id, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-  await db.run(sql, [id, voting.title, voting.created_at.toISOString(), voting.end_at.toISOString(), voting.duration_hours, voting.is_public, voting.user_id, voting.comment || null]);
+  const sql = prepareQuery(`
+    SELECT v.*, u.email as user_email 
+    FROM votings v 
+    LEFT JOIN users u ON v.user_id = u.id 
+    WHERE v.slug = ?
+  `);
+  return await db.get<Voting>(sql, [slug]);
+}
+
+async function generateUniqueSlug(guid: string): Promise<string> {
+  const db = getDatabase();
+  const maxAttempts = 10;
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const slug = humanId({ addAdverb: true });
+    const existing = await getVotingBySlug(slug);
+    
+    if (!existing) {
+      return slug;
+    }
+    
+    logger.warn(`Slug collision detected: ${slug}, attempt ${attempt + 1}/${maxAttempts}`);
+  }
+  
+  const finalSlug = humanId({ addAdverb: true }) + guid.replace(/-/g, '');
+  logger.warn(`Using fallback slug with guid: ${finalSlug}`);
+  return finalSlug;
+}
+
+// Функции для работы с голосованиями
+export async function createVoting(voting: Omit<Voting, 'id' | 'created_at' | 'end_at' | 'slug'> & { created_at: Date, end_at: Date }): Promise<string> {
+  const id = uuidv4();
+  const slug = await generateUniqueSlug(id);
+  const db = getDatabase();
+  const sql = prepareQuery('INSERT INTO votings (id, slug, title, created_at, end_at, duration_hours, is_public, user_id, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  await db.run(sql, [id, slug, voting.title, voting.created_at.toISOString(), voting.end_at.toISOString(), voting.duration_hours, voting.is_public, voting.user_id, voting.comment || null]);
   return id;
 }
 
@@ -50,9 +88,9 @@ export async function getVoting(id: string): Promise<Voting | null> {
     SELECT v.*, u.email as user_email 
     FROM votings v 
     LEFT JOIN users u ON v.user_id = u.id 
-    WHERE v.id = ?
+    WHERE v.id = ? OR v.slug = ?
   `);
-  return await db.get<Voting>(sql, [id]);
+  return await db.get<Voting>(sql, [id, id]);
 }
 
 export async function getAllVotings(): Promise<Voting[]> {
@@ -76,18 +114,17 @@ export async function getPublicVotings(): Promise<Voting[]> {
 // Возвращает публичные голосования, которые завершились и по которым ещё не отправляли уведомление
 export async function getDueCompletedVotings(limit: number = 50): Promise<Voting[]> {
   const db = getDatabase();
-  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
-  const nowFn = DB_PROVIDER === 'postgres' ? 'NOW()' : 'datetime(\'now\')';
+  const now = new Date().toISOString();
   
   const sql = prepareQuery(`
     SELECT v.* FROM votings v
     WHERE v.is_public = TRUE
-      AND v.end_at <= ${nowFn}
+      AND v.end_at <= ?
       AND (v.complete_notified IS NULL OR v.complete_notified = FALSE)
     ORDER BY v.end_at ASC
     LIMIT ?
   `);
-  return await db.query<Voting>(sql, [limit]);
+  return await db.query<Voting>(sql, [now, limit]);
 }
 
 // Пометить голосование как уведомлённое о завершении
@@ -97,8 +134,37 @@ export async function markVotingCompleteNotified(id: string): Promise<void> {
   await db.run(sql, [id]);
 }
 
+// Обновить mattermost_post_id для голосования
+export async function updateVotingMattermostPostId(votingId: string, postId: string): Promise<void> {
+  const db = getDatabase();
+  const sql = prepareQuery('UPDATE votings SET mattermost_post_id = ? WHERE id = ?');
+  await db.run(sql, [postId, votingId]);
+}
+
 export async function deleteVoting(id: string): Promise<boolean> {
   const db = getDatabase();
+  const options = await getVotingOptions(id);
+  
+  try {
+    const storage = createStorageFromEnv();
+    const storageDriver = process.env.STORAGE_DRIVER || 'local';
+    
+    if (storageDriver === 'local') {
+      await storage.deleteVotingDirectory(id).catch(error => {
+        logger.error(`Ошибка удаления директории для голосования ${id}:`, error);
+      });
+    } else {
+      for (const option of options) {
+        const filename = basename(option.file_path);
+        await storage.deleteObject(filename).catch(error => {
+          logger.error(`Ошибка удаления файла ${option.file_path} для голосования ${id}:`, error);
+        });
+      }
+    }
+  } catch (error) {
+    logger.error(`Ошибка при удалении файлов для голосования ${id}:`, error);
+  }
+  
   const sql = prepareQuery('DELETE FROM votings WHERE id = ?');
   const result = await db.run(sql, [id]);
   return (result.changes ?? 0) > 0;
@@ -165,6 +231,26 @@ export async function getUserSelectedOption(votingId: string, userId: string): P
   return result ? result.option_id : null;
 }
 
+export async function migrateExistingVotingsSlugs(): Promise<number> {
+  const db = getDatabase();
+  const sql = prepareQuery('SELECT id FROM votings WHERE slug IS NULL OR slug = \'\'');
+  const votingsWithoutSlug = await db.query<{ id: string }>(sql);
+  
+  let migrated = 0;
+  for (const voting of votingsWithoutSlug) {
+    try {
+      const slug = await generateUniqueSlug(voting.id);
+      const updateSql = prepareQuery('UPDATE votings SET slug = ? WHERE id = ?');
+      await db.run(updateSql, [slug, voting.id]);
+      migrated++;
+    } catch (error) {
+      logger.error(`Error migrating slug for voting ${voting.id}:`, error);
+    }
+  }
+  
+  return migrated;
+}
+
 // Функция для выполнения SQL запросов (для обратной совместимости)
 export async function runQuery(sql: string, params: any[] = []): Promise<boolean> {
   try {
@@ -173,7 +259,7 @@ export async function runQuery(sql: string, params: any[] = []): Promise<boolean
     await db.run(preparedSql, params);
     return true;
   } catch (error) {
-    console.error('Error executing query:', error);
+    logger.error('Error executing query:', error);
     return false;
   }
 }

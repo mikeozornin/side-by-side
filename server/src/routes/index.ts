@@ -20,46 +20,45 @@ router.get('/health', async (c) => {
 // Middleware
 router.use('*', logger());
 
+function normalizeOrigin(origin: string): string {
+  if (!origin) return origin;
+  return origin.replace(/\/+$/, '');
+}
+
 // Explicit OPTIONS handler BEFORE cors to ensure preflight gets correct headers
 router.options('*', async (c) => {
   const origin = c.req.header('Origin');
-  const method = c.req.method;
-  const acrh = c.req.header('Access-Control-Request-Headers') || '';
-  const acrhLower = acrh.toLowerCase();
-  const userAgent = c.req.header('User-Agent') || '';
 
-  // Handle null/empty origin preflight
-  if (origin === 'null' || origin === '') {
-    const hasFigmaUserAgent = userAgent.includes('Figma');
-    const requestsFigmaHeader = acrhLower.split(',').map((s) => s.trim()).includes('x-figma-plugin');
-    
-    // Разрешаем для Figma плагина
-    if (hasFigmaUserAgent && requestsFigmaHeader) {
-      return c.body(null, 204, {
-        'Access-Control-Allow-Origin': 'null',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Figma-Plugin',
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Max-Age': '86400',
-        'Vary': 'Origin',
-      });
-    }
-    // Иначе запрещаем пустой/null origin
-    return c.text('Forbidden', 403);
+  // Разрешаем preflight для origin 'null' (Figma plugin)
+  // Для Figma плагина разрешаем все preflight запросы, так как они идут из изолированного контекста
+  if (origin === 'null' || origin === '' || !origin) {
+    // Разрешаем все preflight запросы с origin 'null' или без origin
+    // Реальная проверка авторизации будет в middleware для конкретных роутов
+    return c.body(null, 204, {
+      'Access-Control-Allow-Origin': origin || 'null',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Figma-Plugin',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Max-Age': '86400',
+      'Vary': 'Origin',
+    });
   }
 
-  // Fallback: allow known origins
   if (origin) {
     const allowedOrigins = configManager.getCorsOrigins();
-    if (allowedOrigins.includes(origin)) {
-      return c.body(null, 204, {
-        'Access-Control-Allow-Origin': origin,
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Figma-Plugin',
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Max-Age': '86400',
-        'Vary': 'Origin',
-      });
+    const normalizedOrigin = normalizeOrigin(origin);
+    
+    for (const allowedOrigin of allowedOrigins) {
+      if (normalizeOrigin(allowedOrigin) === normalizedOrigin) {
+        return c.body(null, 204, {
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Figma-Plugin',
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Max-Age': '86400',
+          'Vary': 'Origin',
+        });
+      }
     }
   }
 
@@ -68,52 +67,11 @@ router.options('*', async (c) => {
 
 router.use('*', cors({
   origin: (origin, c) => {
-    // Skip CORS check for health endpoint
     const pathname = new URL(c.req.url).pathname;
     if (pathname === '/health') {
       return origin || '*';
     }
     
-    // console.log(`CORS Origin check: origin="${origin}", method="${c?.req?.method}"`);
-    
-    // Специальная обработка для null/empty origin
-    if (origin === 'null' || origin === '') {
-      // Проверяем специальный заголовок Figma плагина
-      const figmaPluginHeader = c?.req?.header('X-Figma-Plugin');
-      const userAgent = c?.req?.header('User-Agent');
-      const accessControlRequestHeaders = c?.req?.header('Access-Control-Request-Headers');
-      
-      // console.log(`Null/empty origin request details:`, {
-      //   method: c?.req?.method,
-      //   origin: origin,
-      //   userAgent: userAgent,
-      //   figmaPluginHeader: figmaPluginHeader,
-      //   accessControlRequestHeaders: accessControlRequestHeaders,
-      //   allHeaders: Object.fromEntries(c?.req?.raw?.headers?.entries() || [])
-      // });
-      
-      // Для preflight запросов проверяем заголовки в Access-Control-Request-Headers
-      const isPreflight = c?.req?.method === 'OPTIONS';
-      const hasFigmaHeader = figmaPluginHeader === 'SideBySide/1.0' || 
-        (isPreflight && accessControlRequestHeaders?.includes('X-Figma-Plugin'));
-      const hasFigmaUserAgent = userAgent && userAgent.includes('Figma');
-      
-      // Разрешаем null/empty origin для Figma плагина
-      if (hasFigmaHeader && hasFigmaUserAgent) {
-        console.log(`✅ Valid Figma plugin CORS request - UA: "${userAgent}", Header: "${figmaPluginHeader}", Preflight: ${isPreflight}`);
-        return 'null';
-      }
-      // Иначе запрещаем пустой/null origin
-      console.warn(`Blocked CORS request with ${origin === 'null' ? 'null' : 'empty'} origin:`, {
-        userAgent: userAgent,
-        figmaPluginHeader: figmaPluginHeader,
-        isPreflight: isPreflight,
-        accessControlRequestHeaders: accessControlRequestHeaders
-      });
-      return undefined;
-    }
-    
-    // Используем стандартную функцию проверки для остальных origins
     return configManager.getCorsOriginFunction()(origin, c);
   },
   credentials: true,

@@ -39,6 +39,13 @@ update_env: false
 # Режим аутентификации (anonymous или magic-links)
 auth_mode: anonymous
 
+# Белый список доменов email (разделитель: запятая)
+# Если задан, то только пользователи с email из указанных доменов смогут регистрироваться
+# Существующие пользователи могут входить независимо от домена
+# Пример: allowed_email_domains: "example.com,company.com,corp.org"
+# Если не задан или пустой, все домены разрешены
+allowed_email_domains: ""
+
 # Настройки базы данных
 db_provider: "sqlite"  # "sqlite" или "postgres"
 database_url: ""      # Только для postgres

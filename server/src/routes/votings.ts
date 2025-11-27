@@ -6,6 +6,7 @@ import { NotificationService } from '../notifications/index.js';
 import { createVotingLimiter, createVotingHourlyLimiter } from '../utils/rateLimit.js';
 import { configManager } from '../utils/config.js';
 import { requireAuth, requireVotingOwner, requireVotingAuth, optionalVotingAuth, AuthContext } from '../middleware/auth.js';
+import { generateVotingPreview, saveVotingPreview } from '../utils/previewGenerator.js';
 import { 
   createVoting, 
   getVoting, 
@@ -67,23 +68,23 @@ votingRoutes.get('/votings/:id', optionalVotingAuth, async (c: AuthContext) => {
       return c.json({ error: 'Голосование не найдено' }, 404);
     }
 
-    const options = await getVotingOptions(id);
+    const votingId = voting.id;
+    const options = await getVotingOptions(votingId);
     const isFinished = new Date(voting.end_at) <= new Date();
+    const voteCount = await getVoteCountForVoting(votingId);
     
-    // Проверяем, голосовал ли пользователь (только в неанонимном режиме)
     let userVoted = false;
     let selectedOption: number | null = null;
     if (c.user && c.user.id !== 'anonymous') {
-      userVoted = await hasUserVoted(id, c.user.id);
+      userVoted = await hasUserVoted(votingId, c.user.id);
       if (userVoted) {
-        selectedOption = await getUserSelectedOption(id, c.user.id);
+        selectedOption = await getUserSelectedOption(votingId, c.user.id);
       }
     }
     
     let results = null;
     if (isFinished) {
-      // Если голосование завершено, загружаем результаты
-      const voteCounts = await getVoteCounts(id);
+      const voteCounts = await getVoteCounts(votingId);
       const totalVotes = voteCounts.reduce((sum, r) => sum + r.count, 0);
 
       const resultsData = options.map(option => {
@@ -115,7 +116,6 @@ votingRoutes.get('/votings/:id', optionalVotingAuth, async (c: AuthContext) => {
           winner = 'tie';
         }
       } else {
-        // Если нет голосов, все варианты считаются ничьей
         winner = 'tie';
       }
       
@@ -129,7 +129,8 @@ votingRoutes.get('/votings/:id', optionalVotingAuth, async (c: AuthContext) => {
     return c.json({ 
       voting: {
         ...voting,
-        options
+        options,
+        vote_count: voteCount
       },
       results,
       hasVoted: userVoted,
@@ -353,6 +354,30 @@ votingRoutes.post('/votings',
 
     await createVotingOptions(optionsToCreate);
     
+    // Get created options for preview generation
+    const createdOptions = await getVotingOptions(votingId);
+    
+    // Генерируем превьюшку только если используется API метод Mattermost
+    const mattermostSendMethod = process.env.MATTERMOST_SEND_METHOD || 'api';
+    const mattermostEnabled = process.env.MATTERMOST_ENABLED === 'true';
+    const shouldGeneratePreview = mattermostSendMethod === 'api' && mattermostEnabled;
+    
+    let previewPath: string | undefined;
+    
+    if (shouldGeneratePreview && createdOptions.length > 0) {
+      // Генерируем превьюшку синхронно, чтобы передать путь в уведомление
+      try {
+        const previewBuffer = await generateVotingPreview(createdOptions);
+        if (previewBuffer) {
+          previewPath = await saveVotingPreview(votingId, previewBuffer);
+          logger.info(`Preview generated and saved: ${previewPath}`);
+        }
+      } catch (error) {
+        logger.error('Error generating preview:', error);
+        // Продолжаем без превьюшки
+      }
+    }
+    
     // Отправляем уведомление асинхронно (только для публичных голосований).
     // Автор не должен получать пуш о собственном голосовании.
     notificationService.sendVotingCreatedNotification(
@@ -360,14 +385,19 @@ votingRoutes.post('/votings',
       title,
       endAt.toISOString(),
       isPublic,
-      c.user?.id || undefined
+      c.user?.id || undefined,
+      createdOptions,
+      previewPath
     ).catch(error => {
       logger.error('Error sending notification:', error);
     });
 
+    const createdVoting = await getVoting(votingId);
+    
     return c.json({
       voting: {
         id: votingId,
+        slug: createdVoting?.slug || null,
         title,
         end_at: endAt.toISOString(),
         duration_hours: durationHours,
@@ -410,20 +440,20 @@ votingRoutes.post('/votings/:id/vote', requireVotingAuth, async (c: AuthContext)
       return c.json({ error: 'Голосование завершено' }, 400);
     }
 
-    const options = await getVotingOptions(id);
+    const votingId = voting.id;
+    const options = await getVotingOptions(votingId);
     if (!options.some(o => o.id === optionId)) {
       return c.json({ error: 'Выбранный вариант не существует' }, 400);
     }
 
-    // Запрещаем повторное голосование для авторизованных пользователей
     if (c.user && c.user.id && c.user.id !== 'anonymous') {
-      if (await hasUserVoted(id, c.user.id)) {
+      if (await hasUserVoted(votingId, c.user.id)) {
         return c.json({ error: 'Вы уже голосовали' }, 400);
       }
     }
 
     await createVote({
-      voting_id: id,
+      voting_id: votingId,
       option_id: optionId,
       created_at: new Date(),
       user_id: c.user?.id || null
@@ -447,15 +477,15 @@ votingRoutes.get('/votings/:id/results', async (c) => {
       return c.json({ error: 'Голосование не найдено' }, 404);
     }
 
-    // Проверяем, закончилось ли голосование
     const isFinished = new Date(voting.end_at) <= new Date();
     
     if (!isFinished) {
       return c.json({ error: 'Голосование еще не завершено' }, 400);
     }
 
-    const voteCounts = await getVoteCounts(id);
-    const options = await getVotingOptions(id);
+    const votingId = voting.id;
+    const voteCounts = await getVoteCounts(votingId);
+    const options = await getVotingOptions(votingId);
     const totalVotes = voteCounts.reduce((sum, r) => sum + r.count, 0);
 
     const results = options.map(option => {
@@ -509,19 +539,33 @@ votingRoutes.post('/votings/:id/end-early', requireAuth, requireVotingOwner, asy
       return c.json({ error: 'Voting not found' }, 404);
     }
 
-    // Проверяем, что голосование еще не завершено
+    const votingId = voting.id;
+
     if (new Date(voting.end_at) <= new Date()) {
       return c.json({ error: 'Voting already finished' }, 400);
     }
 
-    // Обновляем время окончания на текущее время
     const success = await runQuery(
       'UPDATE votings SET end_at = ? WHERE id = ?',
-      [new Date().toISOString(), id]
+      [new Date().toISOString(), votingId]
     );
     
     if (!success) {
       return c.json({ error: 'Failed to end voting early' }, 500);
+    }
+    
+    // Отправить уведомление о завершении немедленно
+    try {
+      const { NotificationService } = await import('../notifications/index.js');
+      const { markVotingCompleteNotified } = await import('../db/queries.js');
+      const notificationService = new NotificationService();
+      await notificationService.sendVotingCompletedNotification(votingId, voting.title, voting.user_id || undefined);
+      // Помечаем голосование как уведомленное, чтобы планировщик не отправлял повторное уведомление
+      await markVotingCompleteNotified(votingId);
+      logger.info(`Voting ${votingId} ended early, completion notification sent`);
+    } catch (error) {
+      logger.error(`Error sending completion notification for voting ${votingId}:`, error);
+      // Не прерываем выполнение, так как голосование уже завершено
     }
     
     return c.json({ message: 'Voting ended early successfully' });
@@ -536,7 +580,12 @@ votingRoutes.delete('/votings/:id', requireAuth, requireVotingOwner, async (c: A
   try {
     const id = c.req.param('id');
     
-    const success = await deleteVoting(id);
+    const voting = await getVoting(id);
+    if (!voting) {
+      return c.json({ error: 'Voting not found' }, 404);
+    }
+    
+    const success = await deleteVoting(voting.id);
     
     if (!success) {
       return c.json({ error: 'Failed to delete voting' }, 500);
@@ -548,3 +597,4 @@ votingRoutes.delete('/votings/:id', requireAuth, requireVotingOwner, async (c: A
     return c.json({ error: 'Внутренняя ошибка сервера' }, 500);
   }
 });
+

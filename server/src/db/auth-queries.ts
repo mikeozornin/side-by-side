@@ -1,6 +1,7 @@
 import { getDatabase } from './init.js';
 import { User, verifyToken } from '../utils/auth.js';
 import { prepareQuery } from './utils.js';
+import { logger } from '../utils/logger.js';
 
 // Создание или получение пользователя по email
 export async function createOrGetUser(email: string): Promise<User> {
@@ -32,12 +33,12 @@ export async function saveMagicToken(tokenHash: string, email: string, expiresAt
 // Проверка и использование magic token
 export async function verifyAndUseMagicToken(plainToken: string): Promise<{ user: User; success: boolean } | null> {
   const db = getDatabase();
-  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
-  const nowFn = DB_PROVIDER === 'postgres' ? 'NOW()' : 'datetime(\'now\')';
+  const now = new Date().toISOString();
 
   // Ищем все валидные (неиспользованные и не истекшие) токены
   const candidates = await db.query<{ token_hash: string; user_email: string; expires_at: string; used_at: string | null }>(
-    prepareQuery(`SELECT token_hash, user_email, expires_at, used_at FROM magic_tokens WHERE used_at IS NULL AND expires_at > ${nowFn}`)
+    prepareQuery(`SELECT token_hash, user_email, expires_at, used_at FROM magic_tokens WHERE used_at IS NULL AND expires_at > ?`),
+    [now]
   );
 
   for (const record of candidates) {
@@ -109,12 +110,12 @@ export async function createFigmaCode(userId: string, codeHash: string, expiresA
 // Проверка и использование кода для Figma
 export async function verifyAndUseFigmaCode(code: string): Promise<{ user: User; success: boolean } | null> {
   const db = getDatabase();
-  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
-  const nowFn = DB_PROVIDER === 'postgres' ? 'NOW()' : 'datetime(\'now\')';
+  const now = new Date().toISOString();
   
   // Получаем все неиспользованные коды
   const codes = await db.query<{ code_hash: string; user_id: string; expires_at: string; used_at: string | null }>(
-    prepareQuery(`SELECT code_hash, user_id, expires_at, used_at FROM figma_auth_codes WHERE used_at IS NULL AND expires_at > ${nowFn}`)
+    prepareQuery(`SELECT code_hash, user_id, expires_at, used_at FROM figma_auth_codes WHERE used_at IS NULL AND expires_at > ?`),
+    [now]
   );
   
   // Проверяем каждый код
@@ -144,16 +145,22 @@ export async function getUserById(userId: string): Promise<User | null> {
   return await db.get<User>(sql, [userId]);
 }
 
+// Получение пользователя по email
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const db = getDatabase();
+  const sql = prepareQuery('SELECT id, email, created_at FROM users WHERE email = ?');
+  return await db.get<User>(sql, [email]);
+}
+
 // Очистка истекших сессий
 export async function cleanupExpiredSessions(): Promise<number> {
   const db = getDatabase();
-  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
-  const nowFn = DB_PROVIDER === 'postgres' ? 'NOW()' : 'datetime(\'now\')';
+  const now = new Date().toISOString();
 
-  const result = await db.run(prepareQuery(`DELETE FROM sessions WHERE expires_at <= ${nowFn}`));
+  const result = await db.run(prepareQuery(`DELETE FROM sessions WHERE expires_at <= ?`), [now]);
 
   if (result.changes && result.changes > 0) {
-    console.log(`Очищено истекших сессий: ${result.changes}`);
+    logger.info(`Очищено истекших сессий: ${result.changes}`);
   }
 
   return result.changes ?? 0;
@@ -162,20 +169,19 @@ export async function cleanupExpiredSessions(): Promise<number> {
 // Очистка истекших и использованных magic tokens
 export async function cleanupExpiredMagicTokens(): Promise<number> {
   const db = getDatabase();
-  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
-  const nowFn = DB_PROVIDER === 'postgres' ? 'NOW()' : 'datetime(\'now\')';
-  const hourAgoFn = DB_PROVIDER === 'postgres' ? 'NOW() - INTERVAL \'1 hour\'' : 'datetime(\'now\', \'-1 hour\')';
+  const now = new Date().toISOString();
+  const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
   // Удаляем истекшие токены (независимо от того, использованы они или нет)
-  const expiredResult = await db.run(prepareQuery(`DELETE FROM magic_tokens WHERE expires_at <= ${nowFn}`));
+  const expiredResult = await db.run(prepareQuery(`DELETE FROM magic_tokens WHERE expires_at <= ?`), [now]);
 
   // Удаляем использованные токены старше 1 часа (для безопасности)
-  const usedResult = await db.run(prepareQuery(`DELETE FROM magic_tokens WHERE used_at IS NOT NULL AND used_at <= ${hourAgoFn}`));
+  const usedResult = await db.run(prepareQuery(`DELETE FROM magic_tokens WHERE used_at IS NOT NULL AND used_at <= ?`), [hourAgo]);
 
   const totalDeleted = (expiredResult.changes ?? 0) + (usedResult.changes ?? 0);
 
   if (totalDeleted > 0) {
-    console.log(`Очищено magic tokens: ${totalDeleted} (истекших: ${expiredResult.changes}, использованных: ${usedResult.changes})`);
+    logger.info(`Очищено magic tokens: ${totalDeleted} (истекших: ${expiredResult.changes}, использованных: ${usedResult.changes})`);
   }
 
   return totalDeleted;
@@ -184,20 +190,19 @@ export async function cleanupExpiredMagicTokens(): Promise<number> {
 // Очистка истекших и использованных кодов Figma
 export async function cleanupFigmaCodes(): Promise<number> {
   const db = getDatabase();
-  const DB_PROVIDER = process.env.DB_PROVIDER || 'sqlite';
-  const nowFn = DB_PROVIDER === 'postgres' ? 'NOW()' : 'datetime(\'now\')';
-  const hourAgoFn = DB_PROVIDER === 'postgres' ? 'NOW() - INTERVAL \'1 hour\'' : 'datetime(\'now\', \'-1 hour\')';
+  const now = new Date().toISOString();
+  const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
   // Удаляем истекшие коды (независимо от того, использованы они или нет)
-  const expiredResult = await db.run(prepareQuery(`DELETE FROM figma_auth_codes WHERE expires_at <= ${nowFn}`));
+  const expiredResult = await db.run(prepareQuery(`DELETE FROM figma_auth_codes WHERE expires_at <= ?`), [now]);
 
   // Удаляем использованные коды старше 1 часа
-  const usedResult = await db.run(prepareQuery(`DELETE FROM figma_auth_codes WHERE used_at IS NOT NULL AND used_at <= ${hourAgoFn}`));
+  const usedResult = await db.run(prepareQuery(`DELETE FROM figma_auth_codes WHERE used_at IS NOT NULL AND used_at <= ?`), [hourAgo]);
 
   const totalDeleted = (expiredResult.changes ?? 0) + (usedResult.changes ?? 0);
 
   if (totalDeleted > 0) {
-    console.log(`Очищено кодов Figma: ${totalDeleted} (истекших: ${expiredResult.changes}, использованных: ${usedResult.changes})`);
+    logger.info(`Очищено кодов Figma: ${totalDeleted} (истекших: ${expiredResult.changes}, использованных: ${usedResult.changes})`);
   }
 
   return totalDeleted;
@@ -205,7 +210,7 @@ export async function cleanupFigmaCodes(): Promise<number> {
 
 // Комплексная очистка всех истекших данных аутентификации
 export async function cleanupExpiredAuthData(): Promise<{ sessions: number; magicTokens: number; figmaCodes: number; total: number }> {
-  console.log('Запуск комплексной очистки истекших данных аутентификации...');
+  logger.info('Запуск комплексной очистки истекших данных аутентификации...');
 
   const sessions = await cleanupExpiredSessions();
   const magicTokens = await cleanupExpiredMagicTokens();
@@ -214,9 +219,9 @@ export async function cleanupExpiredAuthData(): Promise<{ sessions: number; magi
   const total = sessions + magicTokens + figmaCodes;
 
   if (total > 0) {
-    console.log(`Комплексная очистка завершена. Всего удалено записей: ${total}`);
+    logger.info(`Комплексная очистка завершена. Всего удалено записей: ${total}`);
   } else {
-    console.log('Комплексная очистка завершена. Нечего удалять.');
+    logger.info('Комплексная очистка завершена. Нечего удалять.');
   }
 
   return { sessions, magicTokens, figmaCodes, total };
@@ -242,7 +247,7 @@ export async function cleanupOldUserSessions(userId: string, keepLast: number = 
   const result = await db.run(sql, ids);
 
   if (result.changes && result.changes > 0) {
-    console.log(`Очищено старых сессий пользователя ${userId}: ${result.changes} (оставлено ${keepLast})`);
+    logger.info(`Очищено старых сессий пользователя ${userId}: ${result.changes} (оставлено ${keepLast})`);
   }
 
   return result.changes ?? 0;

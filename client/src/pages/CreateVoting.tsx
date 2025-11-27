@@ -1,17 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, EyeOff, Image, NotebookPen } from 'lucide-react'
+import { X, EyeOff, Image, NotebookPen, UploadIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Toggle } from '@/components/ui/toggle'
 import { Textarea } from '@/components/ui/textarea'
-import { Dropzone, DropzoneEmptyState } from '@/components/ui/dropzone'
 import HiDPIImage from '@/components/ui/HiDPIImage'
 import VideoPlayer from '@/components/ui/VideoPlayer'
 import { getMediaType, getMediaDimensions, parsePixelRatioFromName, isHeicFile, isSafari } from '@/lib/mediaUtils'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
 import { configManager } from '@/lib/config'
+import { loadFilesFromStorage, clearFilesFromStorage } from '@/utils/fileStorage'
+import { useDropzone } from 'react-dropzone'
+import { cn } from '@/lib/utils'
 
 interface MediaFile {
   file: File;
@@ -63,6 +65,53 @@ export function CreateVoting() {
   }, [])
 
   useEffect(() => {
+    const loadDroppedFiles = async () => {
+      try {
+        const files = await loadFilesFromStorage()
+        if (files && files.length > 0) {
+          await clearFilesFromStorage()
+          
+          const newMediaFiles: MediaFile[] = []
+          
+          for (const file of files) {
+            if (newMediaFiles.length >= 10) {
+              setError(t('createVoting.maxFilesError'))
+              break
+            }
+            
+            if (file.size > 20 * 1024 * 1024) {
+              setError(t('createVoting.fileSizeError'))
+              continue
+            }
+            
+            const isHeicFileCheck = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')
+            if (!file.type.startsWith('image/') && !file.type.startsWith('video/') && !isHeicFileCheck) {
+              setError(t('createVoting.fileTypeError'))
+              continue
+            }
+            
+            try {
+              const dimensions = await getMediaDimensions(file)
+              newMediaFiles.push({ file, dimensions })
+            } catch (error) {
+              console.error(`[CreateVoting] Failed to get dimensions for ${file.name}:`, error)
+              newMediaFiles.push({ file, dimensions: null })
+            }
+          }
+          
+          if (newMediaFiles.length > 0) {
+            setMediaFiles(newMediaFiles.slice(0, 10))
+          }
+        }
+      } catch (error) {
+        console.error('[CreateVoting] Error loading files from storage:', error)
+      }
+    }
+
+    loadDroppedFiles()
+  }, [])
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
         if (title.trim() && mediaFiles.length >= 2 && !loading) {
@@ -90,7 +139,7 @@ export function CreateVoting() {
     }
   }, [title, mediaFiles, loading])
 
-  const handleDrop = async (acceptedFiles: File[]) => {
+  const handleDropFiles = async (acceptedFiles: File[]) => {
     setError('')
     setSuccess(false)
     const newMediaFiles: MediaFile[] = [...mediaFiles]
@@ -127,6 +176,19 @@ export function CreateVoting() {
   const handleError = (error: Error) => {
     setError(error.message)
   }
+
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif'],
+      'video/*': ['.mp4', '.webm', '.mov', '.avi']
+    },
+    maxFiles: 10,
+    maxSize: 20 * 1024 * 1024,
+    onDrop: handleDropFiles,
+    onError: handleError,
+    noClick: true,
+    noKeyboard: true,
+  })
 
   const handleClipboardImages = async (imageItems: DataTransferItem[]) => {
     setError('')
@@ -245,8 +307,8 @@ export function CreateVoting() {
       const data = await response.json()
       
       if (user && !authLoading) {
-        // Если пользователь авторизован, переходим на страницу голосования
-        navigate(`/v/${data.voting.id}`, { 
+        const votingIdentifier = data.voting.slug || data.voting.id
+        navigate(`/v/${votingIdentifier}`, { 
           state: { isPrivate: !isPublic } 
         })
       } else {
@@ -267,8 +329,17 @@ export function CreateVoting() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="max-w-none mx-auto p-4 w-full flex-shrink-0">
+    <div
+      {...getRootProps()}
+      className={cn(
+        'h-screen flex flex-col transition-all',
+        isDragActive && 'bg-primary/5 border-4 border-dashed border-primary'
+      )}
+    >
+      <div className={cn(
+        'max-w-none mx-auto p-4 w-full flex-shrink-0 transition-all',
+        isDragActive && 'pointer-events-none opacity-50'
+      )}>
         <div className="flex justify-between items-center h-16 mb-4">
           <Input
             ref={titleInputRef}
@@ -374,23 +445,40 @@ export function CreateVoting() {
         </div>
       </div>
 
-      <div className="flex-1 max-w-none mx-auto px-4 w-full flex flex-col">
+      <div className={cn(
+        'flex-1 max-w-none mx-auto px-4 w-full flex flex-col transition-all',
+        isDragActive && 'pointer-events-none opacity-50'
+      )}>
         <form onSubmit={handleSubmit} className="h-full flex flex-col">
           <div className="flex-1 mb-4 flex flex-col">
             <div className="flex-1 relative">
-              <Dropzone
-                accept={{
-                  'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif'],
-                  'video/*': ['.mp4', '.webm', '.mov', '.avi']
+              <div
+                className="absolute inset-0 flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={open}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    open()
+                  }
                 }}
-                maxFiles={10}
-                maxSize={20 * 1024 * 1024} // 20MB
-                onDrop={handleDrop}
-                onError={handleError}
-                className="absolute inset-0"
+                tabIndex={0}
+                role="button"
+                aria-label={t('dropzone.uploadFile')}
               >
-                <DropzoneEmptyState />
-              </Dropzone>
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                    <UploadIcon size={16} strokeWidth={3} />
+                  </div>
+                  <p className="my-2 font-medium text-sm">
+                    {t('dropzone.uploadFile')}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {t('dropzone.dragAndDrop')}
+                  </p>
+                  <p className="text-muted-foreground text-xs">{t('dropzone.mediaSizeLimit')}</p>
+                </div>
+              </div>
+              <input {...getInputProps()} />
             </div>
 
             {mediaFiles.length > 0 && (

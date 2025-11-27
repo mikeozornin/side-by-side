@@ -14,8 +14,6 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage",
-    "test:notifications": "bun src/test-notifications.ts",
-    "test:locale": "bun src/test-locale.ts",
     "check:env": "bun src/check-env.ts"
   },
   "dependencies": {
@@ -31,6 +29,7 @@
     "file-type": "^18.7.0",
     "fs-extra": "^11.2.0",
     "hono": "^4.0.0",
+    "human-id": "^4.1.2",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.6",
     "pg": "^8.16.3",

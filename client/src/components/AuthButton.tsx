@@ -63,6 +63,7 @@ export function AuthButton({ returnTo, className }: AuthButtonProps) {
       <Button
         onClick={handleLogin}
         size="sm"
+        variant="outline"
         className={className}
       >
         <User className="h-4 w-4 md:hidden" />

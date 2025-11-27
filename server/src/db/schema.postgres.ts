@@ -20,7 +20,8 @@ export async function createTables(db: DbClient): Promise<void> {
       duration_hours REAL NOT NULL DEFAULT 24,
       is_public BOOLEAN NOT NULL DEFAULT TRUE,
       user_id TEXT REFERENCES users(id),
-      comment TEXT
+      comment TEXT,
+      mattermost_post_id TEXT
     )
   `);
 

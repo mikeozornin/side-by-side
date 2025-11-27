@@ -21,6 +21,7 @@ import {
   createFigmaCode,
   verifyAndUseFigmaCode,
   getUserById,
+  getUserByEmail,
   cleanupExpiredAuthData,
   cleanupExpiredSessions,
   cleanupExpiredMagicTokens,
@@ -32,15 +33,17 @@ import {
   magicLinkLimiter,
   verifyTokenLimiter
 } from '../utils/rateLimit.js';
+import { isEmailDomainAllowed } from '../utils/email-validation.js';
 
 export const authRoutes = new Hono();
 
 // Middleware для проверки Figma плагина
 const figmaPluginMiddleware = async (c: any, next: any) => {
   const figmaHeader = c.req.header('X-Figma-Plugin');
-  const userAgent = c.req.header('User-Agent');
-
-  if (!figmaHeader || figmaHeader !== 'SideBySide/1.0' || !userAgent?.includes('Figma')) {
+  
+  // Проверяем только заголовок X-Figma-Plugin
+  // User-Agent может быть изменен при проксировании, поэтому не проверяем его
+  if (!figmaHeader || figmaHeader !== 'SideBySide/1.0') {
     return c.text('Unauthorized', 401);
   }
 
@@ -64,13 +67,20 @@ authRoutes.post('/magic-link', magicLinkLimiter, async (c) => {
       return c.json({ error: 'Email is required' }, 400);
     }
 
-    // Создаем или получаем пользователя
-    const user = await createOrGetUser(email);
+    // Проверяем существование пользователя
+    const existingUser = await getUserByEmail(email);
+    
+    // Если пользователь не существует, проверяем домен по белому списку
+    if (!existingUser && env.ALLOWED_EMAIL_DOMAINS.length > 0) {
+      if (!isEmailDomainAllowed(email, env.ALLOWED_EMAIL_DOMAINS)) {
+        return c.json({ 
+          error: 'Domain not allowed',
+          allowedDomains: env.ALLOWED_EMAIL_DOMAINS
+        }, 403);
+      }
+    }
 
-    // Логируем переменную окружения для отладки
-    // console.log('NODE_ENV:', env.NODE_ENV);
-    // console.log('BUN_ENV:', env.BUN_ENV);
-    // console.log('AUTO_APPROVE_SESSIONS:', env.AUTO_APPROVE_SESSIONS);
+    const user = await createOrGetUser(email);
 
     // Автоматически авторизуем пользователя если включен автоапрув
     if (env.AUTO_APPROVE_SESSIONS) {
@@ -178,10 +188,7 @@ authRoutes.post('/verify-token', verifyTokenLimiter, async (c) => {
 // POST /api/auth/refresh - Обновление access token
 authRoutes.post('/refresh', async (c) => {
   try {
-    // Try to get refresh token from cookie first, then from body
     const cookieHeader = c.req.header('Cookie');
-    
-    // Берем ПОСЛЕДНИЙ refreshToken, т.к. браузер может присылать и старую, и новую версии (например, с разными атрибутами Secure)
     let refreshToken = undefined as string | undefined;
     if (cookieHeader) {
       const parts = cookieHeader.split(';').map((c) => c.trim());
@@ -190,65 +197,35 @@ authRoutes.post('/refresh', async (c) => {
       refreshToken = last ? last.split('=')[1] : undefined;
     }
 
-    // Do not log token values in production
-    if (env.NODE_ENV !== 'production') {
-      console.log('🔑 Extracted refresh token from cookie:', refreshToken ? `${refreshToken.substring(0, 8)}…` : 'null');
-    }
-
     if (!refreshToken) {
       try {
         const body = await c.req.json();
         refreshToken = body.refreshToken;
-        if (env.NODE_ENV !== 'production') {
-          console.log('🔑 Refresh token from body:', refreshToken ? `${refreshToken.substring(0, 8)}…` : 'null');
-        }
       } catch (e) {
-        console.log('❌ Failed to parse request body:', e);
         // Ignore parsing errors
       }
     }
 
     if (!refreshToken) {
-      console.log('❌ No refresh token provided');
       return c.json({ error: 'No refresh token provided' }, 401);
     }
 
-    // Верифицируем refresh token
-    if (env.NODE_ENV !== 'production') {
-      console.log('🔍 JWT_SECRET is set:', Boolean(env.JWT_SECRET));
-    }
     const payload = verifyRefreshToken(refreshToken);
-    if (env.NODE_ENV !== 'production') {
-      console.log('🔍 Refresh token payload present:', Boolean(payload));
-    }
     if (!payload) {
-      console.log('❌ Invalid refresh token - JWT verification failed');
       return c.json({ error: 'Invalid refresh token' }, 401);
     }
 
-    // Получаем сессию из БД
     const session = await getSession(payload.sessionId);
-    console.log('🔍 Session from DB:', session ? 'found' : 'not found');
     if (!session) {
-      console.log('❌ Session not found in database');
       return c.json({ error: 'Session not found' }, 401);
     }
 
-    // Проверяем, не истекла ли сессия
     if (new Date() > new Date(session.expires_at)) {
       return c.json({ error: 'Session expired' }, 401);
     }
 
-    // Проверяем хеш refresh token
-    if (env.NODE_ENV !== 'production') {
-      console.log('🔍 Verifying token hash...');
-    }
     const isValidToken = await verifyToken(refreshToken, session.refresh_token_hash);
-    if (env.NODE_ENV !== 'production') {
-      console.log('🔍 Token hash verification result:', isValidToken);
-    }
     if (!isValidToken) {
-      console.log('❌ Token hash verification failed');
       return c.json({ error: 'Invalid refresh token' }, 401);
     }
 

@@ -116,6 +116,9 @@
       "permissionGranted": "Browser notifications are enabled",
       "permissionDenied": "Notifications are blocked in your browser",
       "notSupported": "Your browser doesn't support notifications",
+      "notSupportedInBrowser": "Push notifications are not supported in this browser",
+      "iosSafariRequiresPWA": "Push notifications require PWA installation on iOS Safari. Please install this app as a PWA to receive notifications.",
+      "notificationsNotSupported": "Your browser doesn't support push notifications",
       "allow": "Allow",
       "configure": "Configure",
       "resubscribe": "Resubscribe",
@@ -178,7 +181,8 @@
       "errorGeneric": "An error occurred. Please try again.",
       "errorConnection": "An error occurred. Check your internet connection.",
       "errorInvalidToken": "Invalid or expired link.",
-      "errorLogin": "An error occurred during login. Please try again."
+      "errorLogin": "An error occurred during login. Please try again.",
+      "errorDomainNotAllowed": "You cannot login with this email. Allowed domains: {{domains}}"
     }
   }
 }

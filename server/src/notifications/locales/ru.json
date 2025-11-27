@@ -6,7 +6,8 @@
     "providerNotConfigured": "Mattermost-провайдер не настроен корректно",
     "notificationSent": "Уведомление успешно отправлено в Mattermost для голосования {votingId}",
     "sendError": "Ошибка отправки уведомления в Mattermost: {error}",
-    "messageFormat": "**Новый сайд-бай-сайд для голосования!**\n\n[{title}]({votingUrl}){expirationDate}"
+    "messageFormat": "**Новый сайд-бай-сайд для голосования!**\n\n[{title}]({votingUrl}){expirationDate}",
+    "completionMessageFormat": "**Голосование завершено!**\n\n**{title}**\n\n[Ссылка на исходное сообщение]({originalPostUrl})"
   },
   "telegram": {
     "providerName": "Telegram",
