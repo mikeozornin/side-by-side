@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import Jimp from 'jimp';
 import { logger } from './logger.js';
 import { createStorageFromEnv } from '../storage/index.js';
 import type { VotingOption } from '../db/queries.js';
@@ -21,7 +21,7 @@ async function loadFontBase64(): Promise<string> {
   if (fontBase64Cache) {
     return fontBase64Cache;
   }
-  
+
   try {
     // Путь к шрифту в папке server/fonts
     const fontPath = join(process.cwd(), 'server', 'fonts', 'Inter-Bold.otf');
@@ -54,6 +54,22 @@ async function streamToBuffer(stream: ReadableStream): Promise<Buffer> {
   }
 
   return Buffer.concat(chunks);
+}
+
+/**
+ * Resize image to fill dimensions using Jimp
+ * Jimp automatically stretches images to exact dimensions (fill behavior)
+ */
+async function resizeToFill(buffer: Buffer, width: number, height: number): Promise<Buffer> {
+  try {
+    // Jimp resize stretches to exact dimensions by default (fill behavior)
+    const image = await Jimp.read(buffer);
+    image.resize(width, height);
+    return image.getBufferAsync(Jimp.MIME_PNG);
+  } catch (error) {
+    logger.error(`[Preview] Jimp resize failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
+  }
 }
 
 /**
@@ -151,19 +167,22 @@ export async function generateVotingPreview(options: VotingOption[]): Promise<Bu
 
   // Filter out video options for now (can be extended later with ffmpeg)
   const imageOptions = options.filter(opt => opt.media_type === 'image');
-  
+
   logger.info(`[Preview] Starting preview generation for ${options.length} options (${imageOptions.length} images)`);
   options.forEach((opt, idx) => {
     logger.info(`[Preview]   Option ${idx}: sort_order=${opt.sort_order}, file_path="${opt.file_path}", media_type=${opt.media_type}`);
   });
-  
+
   if (imageOptions.length === 0) {
     logger.warn('[Preview] No image options found for preview generation');
     return null;
   }
-  
+
   imageOptions.sort((a, b) => a.sort_order - b.sort_order);
   logger.info(`[Preview] Processing ${imageOptions.length} images in order: ${imageOptions.map((o, i) => `[${i}] sort_order=${o.sort_order}`).join(', ')}`);
+
+  // Log Jimp version for debugging
+  logger.info(`[Preview] Using Jimp for image processing`);
 
   try {
     const storage = createStorageFromEnv();
@@ -175,7 +194,7 @@ export async function generateVotingPreview(options: VotingOption[]): Promise<Bu
 
     for (let i = 0; i < imageOptions.length; i++) {
       const option = imageOptions[i];
-      
+
       try {
         // Extract filename from file_path
         // file_path can be either:
@@ -184,73 +203,78 @@ export async function generateVotingPreview(options: VotingOption[]): Promise<Bu
         // Storage.getObjectStream expects just the filename (hash.ext)
         // LocalStorageDriver.findFilePath will search in subdirectories if needed
         let filename = option.file_path;
-        
+
         // If file_path contains path separators, extract just the filename
         if (filename.includes('/') || filename.includes('\\')) {
           filename = filename.split('/').pop() || filename.split('\\').pop() || filename;
         }
-        
+
         logger.info(`[Preview] Processing option ${i} (sort_order: ${option.sort_order})`);
         logger.info(`[Preview]   file_path: "${option.file_path}"`);
         logger.info(`[Preview]   extracted filename: "${filename}"`);
         logger.info(`[Preview]   media_type: ${option.media_type}, size: ${option.width}x${option.height}`);
-        
+
         // Get image from storage
         // LocalStorageDriver will search in subdirectories if file not found in root
         const stream = await storage.getObjectStream(filename);
         let imageBuffer = await streamToBuffer(stream);
         logger.info(`[Preview]   Image loaded successfully, buffer size: ${imageBuffer.length} bytes`);
-        
+
         // Check if image has alpha channel, if not convert to PNG with alpha
-        const metadata = await sharp(imageBuffer).metadata();
-        if (!metadata.hasAlpha) {
-          logger.info(`[Preview]   Image format: ${metadata.format}, hasAlpha: ${metadata.hasAlpha}, converting to PNG with alpha channel`);
-          // Convert to PNG with alpha channel to ensure proper transparency handling
-          imageBuffer = await sharp(imageBuffer)
-            .ensureAlpha()
-            .png()
-            .toBuffer();
+        const image = await Jimp.read(imageBuffer);
+        const hasAlpha = image.hasAlpha();
+        if (!hasAlpha) {
+          logger.info(`[Preview]   Image has no alpha channel, converting to PNG with alpha`);
+          // Jimp automatically handles alpha when saving as PNG
+          imageBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
           logger.info(`[Preview]   Converted to PNG, new buffer size: ${imageBuffer.length} bytes`);
         } else {
-          logger.info(`[Preview]   Image format: ${metadata.format}, hasAlpha: ${metadata.hasAlpha}, no conversion needed`);
+          logger.info(`[Preview]   Image has alpha channel, no conversion needed`);
         }
-        
+
         // Get polygon points for this option
         const polygonPoints = getPolygonPoints(i, imageOptions.length, width, height);
         logger.info(`[Preview]   Polygon points: ${JSON.stringify(polygonPoints)}`);
-        
+
         const pointsStr = polygonPoints.map(p => `${p[0]},${p[1]}`).join(' ');
-        
-        const resizedImage = await sharp(imageBuffer)
-          .resize(width, height, {
-            fit: 'cover',
-            position: 'center'
-          })
-          .ensureAlpha()
-          .toBuffer();
-        logger.info(`[Preview] Image ${i + 1} resized to ${width}x${height}`);
+        logger.info(`[Preview]   Points string: "${pointsStr}"`);
 
-        const svgMask = Buffer.from(`
-          <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        logger.info(`[Preview]   Step 1: Resizing image to ${width}x${height}...`);
+        const resizedImage = await resizeToFill(imageBuffer, width, height);
+        logger.info(`[Preview]   Step 1 complete: Image ${i + 1} resized to ${width}x${height}, size: ${resizedImage.length} bytes`);
+
+        logger.info(`[Preview]   Step 2: Creating SVG mask...`);
+        // Ensure SVG is properly formatted with viewBox for better compatibility
+        const svgMask = Buffer.from(
+          `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
             <polygon points="${pointsStr}" fill="white" opacity="1"/>
-          </svg>
-        `);
+          </svg>`
+        );
+        logger.info(`[Preview]   Step 2: SVG mask created, size: ${svgMask.length} bytes, points: ${pointsStr}`);
 
-        const maskBuffer = await sharp(svgMask)
-          .resize(width, height)
-          .ensureAlpha()
-          .toBuffer();
-        logger.info(`[Preview] Mask ${i + 1} created, size: ${maskBuffer.length} bytes`);
+        logger.info(`[Preview]   Step 3: Converting SVG mask to image buffer...`);
+        const maskImage = await Jimp.read(svgMask);
+        maskImage.resize(width, height);
+        const maskBuffer = await maskImage.getBufferAsync(Jimp.MIME_PNG);
 
-        // dest-in: keeps destination pixels where mask is opaque, transparent elsewhere
-        const maskedImage = await sharp(resizedImage)
-          .ensureAlpha()
-          .composite([{
-            input: maskBuffer,
-            blend: 'dest-in'
-          }])
-          .toBuffer();
-        logger.info(`[Preview] Image ${i + 1} masked, size: ${maskedImage.length} bytes`);
+        // Verify mask dimensions
+        logger.info(`[Preview]   Step 3 complete: Mask ${i + 1} created, size: ${maskBuffer.length} bytes, dimensions: ${maskImage.bitmap.width}x${maskImage.bitmap.height}`);
+
+        logger.info(`[Preview]   Step 4: Applying mask to image...`);
+        // Read resized image
+        const resizedJimpImage = await Jimp.read(resizedImage);
+        logger.info(`[Preview]   Resized image dimensions: ${resizedJimpImage.bitmap.width}x${resizedJimpImage.bitmap.height}`);
+
+        // Ensure mask and image have same dimensions
+        if (maskImage.bitmap.width !== resizedJimpImage.bitmap.width || maskImage.bitmap.height !== resizedJimpImage.bitmap.height) {
+          logger.warn(`[Preview]   Dimension mismatch: mask ${maskImage.bitmap.width}x${maskImage.bitmap.height} vs image ${resizedJimpImage.bitmap.width}x${resizedJimpImage.bitmap.height}, resizing mask...`);
+          maskImage.resize(resizedJimpImage.bitmap.width, resizedJimpImage.bitmap.height);
+        }
+
+        // Apply mask using Jimp composite (mask as alpha channel)
+        resizedJimpImage.mask(maskImage, 0, 0);
+        const maskedImage = await resizedJimpImage.getBufferAsync(Jimp.MIME_PNG);
+        logger.info(`[Preview]   Step 4 complete: Image ${i + 1} masked, size: ${maskedImage.length} bytes`);
 
         // Add to composite inputs
         compositeInputs.push({
@@ -260,7 +284,15 @@ export async function generateVotingPreview(options: VotingOption[]): Promise<Bu
         });
         logger.info(`[Preview] Image ${i + 1} added to composite inputs (total: ${compositeInputs.length})`);
       } catch (error) {
-        logger.error(`[Preview] Error processing option ${i} (file_path: ${option.file_path}):`, error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        logger.error(`[Preview] Error processing option ${i} (file_path: ${option.file_path}): ${errorMessage}`);
+        if (errorStack) {
+          logger.error(`[Preview] Error stack: ${errorStack}`);
+        }
+        if (error && typeof error === 'object') {
+          logger.error(`[Preview] Error details: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
+        }
       }
     }
 
@@ -281,17 +313,16 @@ export async function generateVotingPreview(options: VotingOption[]): Promise<Bu
     compositeInputs.reverse();
     logger.info(`[Preview] Composite order: ${compositeInputs.map((_, idx) => `layer ${idx}`).join(' -> ')} (first image will be on top)`);
 
-    const previewBuffer = await sharp({
-      create: {
-        width,
-        height,
-        channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: 0 }
-      }
-    })
-      .composite(compositeInputs)
-      .png()
-      .toBuffer();
+    // Create base image with transparent background
+    const baseImage = new Jimp(width, height, 0x00000000); // Transparent background
+
+    // Composite all masked images (they are already in correct z-order after reverse)
+    for (const input of compositeInputs) {
+      const layerImage = await Jimp.read(input.input);
+      baseImage.composite(layerImage, input.left, input.top);
+    }
+
+    const previewBuffer = await baseImage.getBufferAsync(Jimp.MIME_PNG);
 
     logger.info(`[Preview] Preview generated, size: ${previewBuffer.length} bytes`);
     return previewBuffer;
@@ -309,17 +340,17 @@ export async function saveVotingPreview(votingId: string, previewBuffer: Buffer)
     // Save in voting directory
     const votingDir = join(DATA_DIR, votingId);
     await ensureDir(votingDir);
-    
+
     const filename = `preview-${votingId}.png`;
     const filePath = join(votingDir, filename);
-    
+
     try {
       const { unlink } = await import('fs/promises');
-      await unlink(filePath).catch(() => {});
-    } catch {}
-    
+      await unlink(filePath).catch(() => { });
+    } catch { }
+
     await writeFile(filePath, previewBuffer);
-    
+
     const absolutePath = require('path').resolve(filePath);
     logger.info(`Preview saved: ${absolutePath} (size: ${previewBuffer.length} bytes)`);
     return filePath;
@@ -347,14 +378,14 @@ export async function generateVotingPreviewWithResults(
 
   // Filter out video options for now
   const imageOptions = options.filter(opt => opt.media_type === 'image');
-  
+
   logger.info(`[Results Preview] Starting results preview generation for ${options.length} options (${imageOptions.length} images)`);
-  
+
   if (imageOptions.length === 0) {
     logger.warn('[Results Preview] No image options found for results preview generation');
     return null;
   }
-  
+
   // Ensure options are sorted by sort_order
   imageOptions.sort((a, b) => a.sort_order - b.sort_order);
   logger.info(`[Results Preview] Processing ${imageOptions.length} images in order: ${imageOptions.map((o, i) => `[${i}] sort_order=${o.sort_order}`).join(', ')}`);
@@ -366,7 +397,7 @@ export async function generateVotingPreviewWithResults(
 
     // Load custom font for embedding in SVG
     const fontBase64 = await loadFontBase64();
-    const fontFaceStyle = fontBase64 
+    const fontFaceStyle = fontBase64
       ? `<style>
           @font-face {
             font-family: 'Inter';
@@ -386,52 +417,46 @@ export async function generateVotingPreviewWithResults(
       const result = results.find(r => r.option_id === option.id);
       const percentage = result?.percentage || 0;
       const isWinner = winner !== 'tie' && winner !== null && winner === option.id;
-      
+
       try {
         // Extract filename from file_path
         let filename = option.file_path;
         if (filename.includes('/') || filename.includes('\\')) {
           filename = filename.split('/').pop() || filename.split('\\').pop() || filename;
         }
-        
+
         logger.info(`[Results Preview] Processing option ${i} (sort_order: ${option.sort_order}), isWinner: ${isWinner}, percentage: ${percentage}%`);
-        
+
         // Get image from storage
         const stream = await storage.getObjectStream(filename);
         let imageBuffer = await streamToBuffer(stream);
         logger.info(`[Results Preview]   Image loaded successfully, buffer size: ${imageBuffer.length} bytes`);
-        
+
         // Check if image has alpha channel
         const metadata = await sharp(imageBuffer).metadata();
         if (!metadata.hasAlpha) {
           logger.info(`[Results Preview]   Converting to PNG with alpha channel`);
           imageBuffer = await sharp(imageBuffer)
-            .ensureAlpha()
+            .ensureAlpha(1)
             .png()
             .toBuffer();
         }
-        
+
         // Get polygon points for this option
         const polygonPoints = getPolygonPoints(i, imageOptions.length, width, height);
         logger.info(`[Results Preview]   Polygon points: ${JSON.stringify(polygonPoints)}`);
-        
-        // Resize source image to cover full area
-        let processedImage = await sharp(imageBuffer)
-          .resize(width, height, {
-            fit: 'cover',
-            position: 'center'
-          })
-          .ensureAlpha()
-          .toBuffer();
-        
+
+        // Resize source image to fill exact dimensions
+        let processedImage = await resizeToFill(imageBuffer, width, height);
+
         // Apply grayscale to losers (not winner)
         if (!isWinner) {
-          processedImage = await sharp(processedImage)
-            .greyscale()
-            .toBuffer();
+          const jimpImage = await Jimp.read(processedImage);
+          jimpImage.greyscale();
+          processedImage = await jimpImage.getBufferAsync(Jimp.MIME_PNG);
           logger.info(`[Results Preview]   Applied grayscale to option ${i}`);
         }
-        
+
         // Create SVG mask for polygon
         const pointsStr = polygonPoints.map(p => `${p[0]},${p[1]}`).join(' ');
         const svgMask = Buffer.from(`
@@ -439,25 +464,20 @@ export async function generateVotingPreviewWithResults(
             <polygon points="${pointsStr}" fill="white" opacity="1"/>
           </svg>
         `);
-        
-        const maskBuffer = await sharp(svgMask)
-          .resize(width, height)
-          .ensureAlpha()
-          .toBuffer();
-        
+
+        const maskImage = await Jimp.read(svgMask);
+        maskImage.resize(width, height);
+        const maskBuffer = await maskImage.getBufferAsync(Jimp.MIME_PNG);
+
         // Apply mask
-        const maskedImage = await sharp(processedImage)
-          .ensureAlpha()
-          .composite([{
-            input: maskBuffer,
-            blend: 'dest-in'
-          }])
-          .toBuffer();
-        
+        const processedJimpImage = await Jimp.read(processedImage);
+        processedJimpImage.mask(maskImage, 0, 0);
+        const maskedImage = await processedJimpImage.getBufferAsync(Jimp.MIME_PNG);
+
         // Calculate center of polygon for positioning
         const centerX = polygonPoints.reduce((sum, p) => sum + p[0], 0) / polygonPoints.length;
         const centerY = polygonPoints.reduce((sum, p) => sum + p[1], 0) / polygonPoints.length;
-        
+
         // Create SVG with percentage text (white text with black stroke for readability)
         // Проценты размещаем чуть ниже центра
         // Обводка наружу - рисуем текст дважды: сначала обводка (больше), потом основной текст
@@ -465,7 +485,7 @@ export async function generateVotingPreviewWithResults(
         const textY = centerY + 40; // Смещаем вниз от центра
         const percentageText = `${percentage}%`;
         const strokeWidth = 3; // Толщина обводки
-        
+
         const textSvg = Buffer.from(`
           <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
             ${fontFaceStyle}
@@ -499,28 +519,26 @@ export async function generateVotingPreviewWithResults(
             >${percentageText}</text>
           </svg>
         `);
-        
+
         // Composite text onto masked image
-        const imageWithText = await sharp(maskedImage)
-          .composite([{
-            input: textSvg,
-            blend: 'over'
-          }])
-          .toBuffer();
-        
+        const maskedJimpImage = await Jimp.read(maskedImage);
+        const textImage = await Jimp.read(textSvg);
+        maskedJimpImage.composite(textImage, 0, 0);
+        let finalImage = maskedJimpImage;
+
         logger.info(`[Results Preview]   Added percentage text "${percentageText}" at (${centerX}, ${textY})`);
-        
+
         // Add winner icon if this is the winner
         if (isWinner) {
           const iconSize = 80;
           const iconX = centerX - iconSize / 2;
           // Иконку размещаем чуть выше центра, чтобы не перекрывалась с процентами
           const iconY = centerY - iconSize / 2 - 40; // Смещаем вверх от центра
-          
+
           // Create green medal icon SVG using exact lucide-react Medal icon
           // Используем viewBox для автоматического масштабирования
-          const strokeWidth =  1.2; // Масштабируем stroke-width пропорционально
-          
+          const strokeWidth = 1.2; // Масштабируем stroke-width пропорционально
+
           const winnerIconSvg = Buffer.from(`
             <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <!-- Зеленый круглый фон - правильный круг, заполняющий viewBox -->
@@ -537,31 +555,20 @@ export async function generateVotingPreviewWithResults(
               </g>
             </svg>
           `);
-          
-          const imageWithIcon = await sharp(imageWithText)
-            .composite([{
-              input: winnerIconSvg,
-              left: Math.round(iconX),
-              top: Math.round(iconY),
-              blend: 'over'
-            }])
-            .toBuffer();
-          
-          compositeInputs.push({
-            input: imageWithIcon,
-            left: 0,
-            top: 0
-          });
-          
+
+          const iconImage = await Jimp.read(winnerIconSvg);
+          finalImage.composite(iconImage, Math.round(iconX), Math.round(iconY));
+
           logger.info(`[Results Preview]   Added winner medal icon at (${iconX}, ${iconY})`);
-        } else {
-          compositeInputs.push({
-            input: imageWithText,
-            left: 0,
-            top: 0
-          });
         }
-        
+
+        const finalBuffer = await finalImage.getBufferAsync(Jimp.MIME_PNG);
+        compositeInputs.push({
+          input: finalBuffer,
+          left: 0,
+          top: 0
+        });
+
         logger.info(`[Results Preview] Image ${i + 1} processed and added to composite inputs`);
       } catch (error) {
         logger.error(`[Results Preview] Error processing option ${i} (file_path: ${option.file_path}):`, error);
@@ -579,18 +586,16 @@ export async function generateVotingPreviewWithResults(
     compositeInputs.reverse();
     logger.info(`[Results Preview] Composite order: ${compositeInputs.map((_, idx) => `layer ${idx}`).join(' -> ')} (first image will be on top)`);
 
-    // Create base image and composite all masked images
-    const previewBuffer = await sharp({
-      create: {
-        width,
-        height,
-        channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: 0 }
-      }
-    })
-      .composite(compositeInputs)
-      .png()
-      .toBuffer();
+    // Create base image with transparent background
+    const baseImage = new Jimp(width, height, 0x00000000); // Transparent background
+
+    // Composite all processed images (they are already in correct z-order after reverse)
+    for (const input of compositeInputs) {
+      const layerImage = await Jimp.read(input.input);
+      baseImage.composite(layerImage, input.left, input.top);
+    }
+
+    const previewBuffer = await baseImage.getBufferAsync(Jimp.MIME_PNG);
 
     logger.info(`[Results Preview] Results preview generated, size: ${previewBuffer.length} bytes`);
     return previewBuffer;
@@ -608,17 +613,17 @@ export async function saveVotingResultsPreview(votingId: string, previewBuffer: 
     // Save in voting directory
     const votingDir = join(DATA_DIR, votingId);
     await ensureDir(votingDir);
-    
+
     const filename = `results-preview-${votingId}.png`;
     const filePath = join(votingDir, filename);
-    
+
     try {
       const { unlink } = await import('fs/promises');
-      await unlink(filePath).catch(() => {});
-    } catch {}
-    
+      await unlink(filePath).catch(() => { });
+    } catch { }
+
     await writeFile(filePath, previewBuffer);
-    
+
     const absolutePath = require('path').resolve(filePath);
     logger.info(`Results preview saved: ${absolutePath} (size: ${previewBuffer.length} bytes)`);
     return filePath;

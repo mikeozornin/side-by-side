@@ -23,6 +23,9 @@ WORKDIR /app
 COPY package.json bun.lock ./
 
 # Установка зависимостей (включая dev для сборки)
+# Force sharp to use prebuilt binaries instead of system libvips
+# This avoids "A boolean was expected" error on Ubuntu with system libvips
+ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
 RUN bun install --frozen-lockfile
 
 # Копирование исходного кода

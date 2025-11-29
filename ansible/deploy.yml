@@ -135,6 +135,9 @@
         cd "{{ release_path }}/server"
         # Remove old lockfiles to avoid conflicts
         rm -f package-lock.json yarn.lock pnpm-lock.yaml
+        # Force sharp to use prebuilt binaries instead of system libvips
+        # This avoids "A boolean was expected" error on Ubuntu with system libvips
+        export SHARP_IGNORE_GLOBAL_LIBVIPS=1
         # Install with Bun (it will create bun.lock)
         bun install --production
       args:
