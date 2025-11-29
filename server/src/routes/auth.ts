@@ -34,6 +34,7 @@ import {
   verifyTokenLimiter
 } from '../utils/rateLimit.js';
 import { isEmailDomainAllowed } from '../utils/email-validation.js';
+import { logger } from '../utils/logger.js';
 
 export const authRoutes = new Hono();
 
@@ -127,7 +128,7 @@ authRoutes.post('/magic-link', magicLinkLimiter, async (c) => {
     });
 
   } catch (error) {
-    console.error('Error sending magic link:', error);
+    logger.error('Error sending magic link:', error);
     return c.json({ error: 'Failed to send magic link' }, 500);
   }
 });
@@ -180,7 +181,7 @@ authRoutes.post('/verify-token', verifyTokenLimiter, async (c) => {
     });
 
   } catch (error) {
-    console.error('Error verifying token:', error);
+    logger.error('Error verifying token:', error);
     return c.json({ error: 'Failed to verify token' }, 500);
   }
 });
@@ -266,7 +267,7 @@ authRoutes.post('/refresh', async (c) => {
     });
 
   } catch (error) {
-    console.error('Error refreshing token:', error);
+    logger.error('Error refreshing token:', error);
     return c.json({ error: 'Failed to refresh token' }, 500);
   }
 });
@@ -293,7 +294,7 @@ authRoutes.post('/logout', async (c) => {
     return c.json({ message: 'Logged out successfully' });
 
   } catch (error) {
-    console.error('Error logging out:', error);
+    logger.error('Error logging out:', error);
     return c.json({ error: 'Failed to logout' }, 500);
   }
 });
@@ -330,7 +331,7 @@ authRoutes.get('/figma-code', async (c) => {
     });
 
   } catch (error) {
-    console.error('Error generating Figma code:', error);
+    logger.error('Error generating Figma code:', error);
     return c.json({ error: 'Failed to generate code' }, 500);
   }
 });
@@ -392,7 +393,7 @@ authRoutes.post('/figma-verify', figmaPluginMiddleware, async (c) => {
     });
 
   } catch (error) {
-    console.error('Error verifying Figma code:', error);
+    logger.error('Error verifying Figma code:', error);
     return c.json({ error: 'Failed to verify code' }, 500);
   }
 });
@@ -421,7 +422,7 @@ authRoutes.post('/cleanup-figma-codes', async (c) => {
     });
 
   } catch (error) {
-    console.error('Error cleaning up Figma codes:', error);
+    logger.error('Error cleaning up Figma codes:', error);
     return c.json({ error: 'Failed to cleanup codes' }, 500);
   }
 });
@@ -450,7 +451,7 @@ authRoutes.post('/cleanup', async (c) => {
     });
 
   } catch (error) {
-    console.error('Error running manual cleanup:', error);
+    logger.error('Error running manual cleanup:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return c.json({ error: `Failed to run cleanup: ${errorMessage}` }, 500);
   }
@@ -479,7 +480,7 @@ authRoutes.get('/cleanup/status', async (c) => {
     });
 
   } catch (error) {
-    console.error('Error getting cleanup status:', error);
+    logger.error('Error getting cleanup status:', error);
     return c.json({ error: 'Failed to get cleanup status' }, 500);
   }
 });

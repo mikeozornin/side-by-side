@@ -1,5 +1,6 @@
 import { DbClient } from './db-client.js';
 import { Migration } from './migrations.js';
+import { logger } from '../utils/logger.js';
 
 export const migrations: Migration[] = [
   {
@@ -240,7 +241,7 @@ export const migrations: Migration[] = [
       // Мигрируем существующие записи
       const { migrateExistingVotingsSlugs } = await import('./queries.js');
       const migrated = await migrateExistingVotingsSlugs();
-      console.log(`Migrated ${migrated} existing votings with slugs`);
+      logger.info(`Migrated ${migrated} existing votings with slugs`);
     }
   }
 ];
