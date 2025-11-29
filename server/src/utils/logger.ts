@@ -24,5 +24,12 @@ export const logger = {
     const logMessage = `[${timestamp}] WARN: ${message} ${args.length ? JSON.stringify(args) : ''}\n`;
     console.warn(logMessage.trim());
     appendFile(LOG_FILE, logMessage).catch(console.error);
+  },
+
+  debug: (message: string, ...args: any[]) => {
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] DEBUG: ${message} ${args.length ? JSON.stringify(args) : ''}\n`;
+    console.debug(logMessage.trim());
+    appendFile(LOG_FILE, logMessage).catch(console.error);
   }
 };

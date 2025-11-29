@@ -5,7 +5,7 @@ import { ensureVotingDirectory } from './files.js';
 import { logger } from './logger.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import sharp from 'sharp';
+import Jimp from 'jimp';
 import { fileTypeFromBuffer } from 'file-type';
 import { createStorageFromEnv } from '../storage/index.js';
 import type { StorageDriver } from '../storage/types.js';
@@ -104,14 +104,15 @@ async function uploadImagesSync(votingId: string, files: File[]): Promise<Upload
     if (isHeicFile || detectedFileType?.mime === 'image/heic' || detectedFileType?.mime === 'image/heif') {
       try {
         logger.info(`Converting HEIC/HEIF file ${file.name} to JPG`);
-        const sharpInstance = sharp(buffer);
-        finalBuffer = await sharpInstance.jpeg({ quality: 90 }).toBuffer();
-        finalExtension = '.jpg';
-        finalMimeType = 'image/jpeg';
-        logger.info(`Successfully converted ${file.name} to JPG`);
+        // Jimp doesn't support HEIC directly, so we'll skip conversion for now
+        // and keep the original HEIC file (browsers can display it)
+        logger.warn(`Jimp doesn't support HEIC conversion, keeping original format`);
+        // finalBuffer remains as original buffer
+        finalExtension = extension; // Keep .heic/.heif extension
+        finalMimeType = detectedFileType?.mime || 'image/heic';
       } catch (error) {
-        logger.error(`Failed to convert HEIC/HEIF file ${file.name}:`, error);
-        throw new Error(`Не удалось конвертировать HEIC файл "${file.name}" в JPG. Возможно, файл поврежден.`);
+        logger.error(`Failed to process HEIC/HEIF file ${file.name}:`, error);
+        throw new Error(`Не удалось обработать HEIC файл "${file.name}". Возможно, файл поврежден.`);
       }
     }
     
@@ -129,16 +130,11 @@ async function uploadImagesSync(votingId: string, files: File[]): Promise<Upload
     if (mediaType === 'image') {
       try {
         // Для S3 storage, мы используем finalBuffer напрямую
-        const metadata = await sharp(finalBuffer).metadata();
-        width = metadata.width || 0;
-        height = metadata.height || 0;
-        // Приоритет: density/metadata > имя > 1
-        // 72 DPI = pixelRatio 1, 144 DPI = pixelRatio 2, и т.д.
-        if (metadata.density && metadata.density > 72) {
-          pixelRatio = Number(metadata.density) / 72;
-        } else {
-          pixelRatio = parsePixelRatioFromName(file.name);
-        }
+        const image = await Jimp.read(finalBuffer);
+        width = image.bitmap.width;
+        height = image.bitmap.height;
+        // Jimp не предоставляет density как sharp, используем pixelRatio из имени файла
+        pixelRatio = parsePixelRatioFromName(file.name);
       } catch (error) {
         logger.warn(`Не удалось прочитать метаданные изображения ${fileName}:`, error);
         width = 0;

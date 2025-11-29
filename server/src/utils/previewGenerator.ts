@@ -57,19 +57,72 @@ async function streamToBuffer(stream: ReadableStream): Promise<Buffer> {
 }
 
 /**
- * Resize image to fill dimensions using Jimp
- * Jimp automatically stretches images to exact dimensions (fill behavior)
+ * Resize image to fill dimensions using Jimp with proper aspect ratio handling
+ * Uses "cover" behavior: scales image to cover the entire area while maintaining aspect ratio
  */
-async function resizeToFill(buffer: Buffer, width: number, height: number): Promise<Buffer> {
+export async function resizeToFill(buffer: Buffer, width: number, height: number): Promise<Buffer> {
   try {
-    // Jimp resize stretches to exact dimensions by default (fill behavior)
     const image = await Jimp.read(buffer);
-    image.resize(width, height);
+
+    // Calculate scale factors for width and height
+    const scaleX = width / image.bitmap.width;
+    const scaleY = height / image.bitmap.height;
+
+    // Use the larger scale factor to ensure the image covers the entire area
+    const scale = Math.max(scaleX, scaleY);
+
+    // Calculate new dimensions
+    const newWidth = Math.round(image.bitmap.width * scale);
+    const newHeight = Math.round(image.bitmap.height * scale);
+
+    // Resize the image
+    image.resize(newWidth, newHeight);
+
+    // If the image is larger than target dimensions, crop it
+    if (newWidth > width || newHeight > height) {
+      // Center the crop
+      const cropX = Math.max(0, Math.round((newWidth - width) / 2));
+      const cropY = Math.max(0, Math.round((newHeight - height) / 2));
+      image.crop(cropX, cropY, Math.min(width, newWidth), Math.min(height, newHeight));
+    }
+
     return image.getBufferAsync(Jimp.MIME_PNG);
   } catch (error) {
     logger.error(`[Preview] Jimp resize failed: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
+}
+
+/**
+ * Create a polygon mask image for Jimp
+ */
+export async function createPolygonMask(points: Array<[number, number]>, width: number, height: number): Promise<Jimp> {
+  const maskImage = new Jimp(width, height, 0x00000000); // Transparent background
+
+  // Draw polygon on mask with white color using ray casting algorithm
+  if (points.length >= 3) {
+    maskImage.scan(0, 0, width, height, function(x, y, idx) {
+      let inside = false;
+      for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+        const xi = points[i][0], yi = points[i][1];
+        const xj = points[j][0], yj = points[j][1];
+
+        if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+          inside = !inside;
+        }
+      }
+
+      if (inside) {
+        // White color for mask
+        this.bitmap.data[idx] = 255;     // R
+        this.bitmap.data[idx + 1] = 255; // G
+        this.bitmap.data[idx + 2] = 255; // B
+        this.bitmap.data[idx + 3] = 255; // A
+      }
+    });
+  }
+
+  return maskImage;
 }
 
 /**
@@ -243,19 +296,15 @@ export async function generateVotingPreview(options: VotingOption[]): Promise<Bu
         const resizedImage = await resizeToFill(imageBuffer, width, height);
         logger.info(`[Preview]   Step 1 complete: Image ${i + 1} resized to ${width}x${height}, size: ${resizedImage.length} bytes`);
 
-        logger.info(`[Preview]   Step 2: Creating SVG mask...`);
-        // Ensure SVG is properly formatted with viewBox for better compatibility
-        const svgMask = Buffer.from(
-          `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="${pointsStr}" fill="white" opacity="1"/>
-          </svg>`
-        );
-        logger.info(`[Preview]   Step 2: SVG mask created, size: ${svgMask.length} bytes, points: ${pointsStr}`);
+        logger.info(`[Preview]   Step 2: Creating image mask programmatically...`);
 
-        logger.info(`[Preview]   Step 3: Converting SVG mask to image buffer...`);
-        const maskImage = await Jimp.read(svgMask);
-        maskImage.resize(width, height);
+        // Создаем маску как изображение с прозрачным фоном
+        const maskImage = await createPolygonMask(polygonPoints, width, height);
+
+
+
         const maskBuffer = await maskImage.getBufferAsync(Jimp.MIME_PNG);
+        logger.info(`[Preview]   Step 2: Polygon mask created, size: ${maskBuffer.length} bytes, points: ${pointsStr}`);
 
         // Verify mask dimensions
         logger.info(`[Preview]   Step 3 complete: Mask ${i + 1} created, size: ${maskBuffer.length} bytes, dimensions: ${maskImage.bitmap.width}x${maskImage.bitmap.height}`);
@@ -433,13 +482,12 @@ export async function generateVotingPreviewWithResults(
         logger.info(`[Results Preview]   Image loaded successfully, buffer size: ${imageBuffer.length} bytes`);
 
         // Check if image has alpha channel
-        const metadata = await sharp(imageBuffer).metadata();
-        if (!metadata.hasAlpha) {
-          logger.info(`[Results Preview]   Converting to PNG with alpha channel`);
-          imageBuffer = await sharp(imageBuffer)
-            .ensureAlpha(1)
-            .png()
-            .toBuffer();
+        const image = await Jimp.read(imageBuffer);
+        const hasAlpha = image.hasAlpha();
+        if (!hasAlpha) {
+          logger.info(`[Results Preview]   Image has no alpha channel, converting to PNG with alpha`);
+          // Jimp automatically handles alpha when saving as PNG
+          imageBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
         }
 
         // Get polygon points for this option
@@ -457,16 +505,9 @@ export async function generateVotingPreviewWithResults(
           logger.info(`[Results Preview]   Applied grayscale to option ${i}`);
         }
 
-        // Create SVG mask for polygon
+        // Create polygon mask
         const pointsStr = polygonPoints.map(p => `${p[0]},${p[1]}`).join(' ');
-        const svgMask = Buffer.from(`
-          <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="${pointsStr}" fill="white" opacity="1"/>
-          </svg>
-        `);
-
-        const maskImage = await Jimp.read(svgMask);
-        maskImage.resize(width, height);
+        const maskImage = await createPolygonMask(polygonPoints, width, height);
         const maskBuffer = await maskImage.getBufferAsync(Jimp.MIME_PNG);
 
         // Apply mask
@@ -563,11 +604,11 @@ export async function generateVotingPreviewWithResults(
         }
 
         const finalBuffer = await finalImage.getBufferAsync(Jimp.MIME_PNG);
-        compositeInputs.push({
+          compositeInputs.push({
           input: finalBuffer,
-          left: 0,
-          top: 0
-        });
+            left: 0,
+            top: 0
+          });
 
         logger.info(`[Results Preview] Image ${i + 1} processed and added to composite inputs`);
       } catch (error) {

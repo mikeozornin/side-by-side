@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 import { uploadImages } from '../utils/images.js';
 import { NotificationService } from '../notifications/index.js';
-import { createVotingLimiter, createVotingHourlyLimiter } from '../utils/rateLimit.js';
+import { votingRateLimit } from '../utils/rateLimit.js';
 import { configManager } from '../utils/config.js';
 import { requireAuth, requireVotingOwner, requireVotingAuth, optionalVotingAuth, AuthContext } from '../middleware/auth.js';
 import { generateVotingPreview, saveVotingPreview } from '../utils/previewGenerator.js';
@@ -145,7 +145,7 @@ votingRoutes.get('/votings/:id', optionalVotingAuth, async (c: AuthContext) => {
 // POST /api/votings - создание голосования (требует авторизацию)
 const middlewaresForCreate: any[] = configManager.isDevelopment()
   ? [requireAuth]
-  : [createVotingLimiter, createVotingHourlyLimiter, requireAuth];
+  : [votingRateLimit, requireAuth];
 
 // Apply middlewares to /votings path
 votingRoutes.use('/votings', ...middlewaresForCreate as any);
@@ -356,38 +356,17 @@ votingRoutes.post('/votings',
     
     // Get created options for preview generation
     const createdOptions = await getVotingOptions(votingId);
-    
-    // Генерируем превьюшку только если используется API метод Mattermost
-    const mattermostSendMethod = process.env.MATTERMOST_SEND_METHOD || 'api';
-    const mattermostEnabled = process.env.MATTERMOST_ENABLED === 'true';
-    const shouldGeneratePreview = mattermostSendMethod === 'api' && mattermostEnabled;
-    
-    let previewPath: string | undefined;
-    
-    if (shouldGeneratePreview && createdOptions.length > 0) {
-      // Генерируем превьюшку синхронно, чтобы передать путь в уведомление
-      try {
-        const previewBuffer = await generateVotingPreview(createdOptions);
-        if (previewBuffer) {
-          previewPath = await saveVotingPreview(votingId, previewBuffer);
-          logger.info(`Preview generated and saved: ${previewPath}`);
-        }
-      } catch (error) {
-        logger.error('Error generating preview:', error);
-        // Продолжаем без превьюшки
-      }
-    }
-    
+
     // Отправляем уведомление асинхронно (только для публичных голосований).
     // Автор не должен получать пуш о собственном голосовании.
+    // Превьюшка генерируется асинхронно вместе с уведомлением
     notificationService.sendVotingCreatedNotification(
       votingId,
       title,
       endAt.toISOString(),
       isPublic,
       c.user?.id || undefined,
-      createdOptions,
-      previewPath
+      createdOptions
     ).catch(error => {
       logger.error('Error sending notification:', error);
     });

@@ -89,7 +89,7 @@ export class NotificationService {
     }
   }
 
-  async sendVotingCreatedNotification(votingId: string, title: string, expiresAt?: string, isPublic: boolean = true, authorUserId?: string, options?: NotificationData['options'], previewPath?: string): Promise<void> {
+  async sendVotingCreatedNotification(votingId: string, title: string, expiresAt?: string, isPublic: boolean = true, authorUserId?: string, options?: NotificationData['options']): Promise<void> {
     // Не отправляем уведомления для приватных голосований
     if (!isPublic) {
       logger.info(`Skipping notification for private voting: ${votingId}`);
@@ -99,7 +99,28 @@ export class NotificationService {
     const { getVoting } = await import('../db/queries.js');
     const voting = await getVoting(votingId);
     const votingUrl = configManager.getVotingUrl(voting || votingId);
-    
+
+    let previewPath: string | undefined;
+
+    // Генерируем превьюшку асинхронно только если используется API метод Mattermost
+    const mattermostSendMethod = process.env.MATTERMOST_SEND_METHOD || 'api';
+    const mattermostEnabled = process.env.MATTERMOST_ENABLED === 'true';
+    const shouldGeneratePreview = mattermostSendMethod === 'api' && mattermostEnabled;
+
+    if (shouldGeneratePreview && options && options.length > 0) {
+      try {
+        const { generateVotingPreview, saveVotingPreview } = await import('../utils/previewGenerator.js');
+        const previewBuffer = await generateVotingPreview(options);
+        if (previewBuffer) {
+          previewPath = await saveVotingPreview(votingId, previewBuffer);
+          logger.info(`Preview generated and saved: ${previewPath}`);
+        }
+      } catch (error) {
+        logger.error('Error generating preview:', error);
+        // Продолжаем без превьюшки
+      }
+    }
+
     const notificationData: NotificationData = {
       title,
       votingId,
