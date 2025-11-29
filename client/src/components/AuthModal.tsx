@@ -64,7 +64,14 @@ export function AuthModal({ isOpen, onClose, returnTo, onSuccess }: AuthModalPro
         setMessage(t('auth.modal.checkEmail'));
       } else {
         const error = await response.json();
-        setMessage(error.error || t('auth.modal.errorGeneric'));
+        
+        // Обработка ошибки 403 (домен не разрешен)
+        if (response.status === 403 && error.allowedDomains && Array.isArray(error.allowedDomains)) {
+          const domainsList = error.allowedDomains.join(', ');
+          setMessage(t('auth.modal.errorDomainNotAllowed', { domains: domainsList }));
+        } else {
+          setMessage(error.error || t('auth.modal.errorGeneric'));
+        }
       }
     } catch (error) {
       console.error('Error sending magic link:', error);

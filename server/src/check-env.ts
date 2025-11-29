@@ -5,7 +5,12 @@ console.log('✅ Bun automatically loads .env files\n');
 // Проверяем переменные
 const envVars = [
   'MATTERMOST_ENABLED',
+  'MATTERMOST_SEND_METHOD',
   'MATTERMOST_WEBHOOK_URL',
+  'MATTERMOST_SERVER_URL',
+  'MATTERMOST_API_TOKEN',
+  'MATTERMOST_CHANNEL_ID',
+  'MATTERMOST_TEAM_SLUG',
   'TELEGRAM_ENABLED',
   'TELEGRAM_BOT_TOKEN',
   'TELEGRAM_CHAT_ID',
@@ -36,6 +41,7 @@ console.log('\n🔧 Parsed Values:');
 console.log('================\n');
 
 console.log(`MATTERMOST_ENABLED === 'true': ${process.env.MATTERMOST_ENABLED === 'true'}`);
+console.log(`MATTERMOST_SEND_METHOD: ${process.env.MATTERMOST_SEND_METHOD || 'not set (default: api)'}`);
 console.log(`TELEGRAM_ENABLED === 'true': ${process.env.TELEGRAM_ENABLED === 'true'}`);
 console.log(`NOTIFICATIONS_LOCALE: ${process.env.NOTIFICATIONS_LOCALE || 'not set (default: ru)'}`);
 console.log(`STORAGE_DRIVER: ${process.env.STORAGE_DRIVER || 'not set (default: local)'}`);
@@ -45,7 +51,10 @@ console.log('\n💡 Tips:');
 console.log('========');
 console.log('1. Make sure .env file exists in the project root');
 console.log('2. Set MATTERMOST_ENABLED=true to enable Mattermost');
-console.log('3. Set MATTERMOST_WEBHOOK_URL to your webhook URL');
-console.log('4. Set STORAGE_DRIVER=s3 to use S3 storage');
-console.log('5. For S3, set S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY');
-console.log('6. Run: npm run test:notifications to test the system');
+console.log('3. Set MATTERMOST_SEND_METHOD=webhook for webhook (simpler, no attachments)');
+console.log('   or MATTERMOST_SEND_METHOD=api for API (better, with attachments, default)');
+console.log('4. For webhook: Set MATTERMOST_WEBHOOK_URL to your webhook URL');
+console.log('5. For API: Set MATTERMOST_SERVER_URL, MATTERMOST_API_TOKEN, MATTERMOST_CHANNEL_ID');
+console.log('6. Set STORAGE_DRIVER=s3 to use S3 storage');
+console.log('7. For S3, set S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY');
+console.log('8. Run: npm run test:notifications to test the system');

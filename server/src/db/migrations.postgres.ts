@@ -1,5 +1,6 @@
 import { DbClient } from './db-client.js';
 import { Migration } from './migrations.js';
+import { logger } from '../utils/logger.js';
 
 export const migrations: Migration[] = [
   {
@@ -197,6 +198,50 @@ export const migrations: Migration[] = [
       if (!existsRow?.exists) {
         await db.exec(`ALTER TABLE votings ADD COLUMN comment TEXT`);
       }
+    }
+  },
+  {
+    version: 10,
+    name: 'add_mattermost_post_id',
+    up: async (db: DbClient) => {
+      // Добавляем поле mattermost_post_id в таблицу votings
+      const existsRow = await db.get<{ exists: boolean }>(`
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_name = 'votings' AND column_name = 'mattermost_post_id'
+        ) as exists
+      `);
+      
+      if (!existsRow?.exists) {
+        await db.exec(`ALTER TABLE votings ADD COLUMN mattermost_post_id TEXT`);
+      }
+    }
+  },
+  {
+    version: 11,
+    name: 'add_slug_to_votings',
+    up: async (db: DbClient) => {
+      // Добавляем поле slug в таблицу votings
+      const existsRow = await db.get<{ exists: boolean }>(`
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_name = 'votings' AND column_name = 'slug'
+        ) as exists
+      `);
+      
+      if (!existsRow?.exists) {
+        await db.exec(`ALTER TABLE votings ADD COLUMN slug TEXT`);
+      }
+      
+      // Создаем уникальный индекс на slug
+      await db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_votings_slug ON votings(slug)`);
+      
+      // Мигрируем существующие записи
+      const { migrateExistingVotingsSlugs } = await import('./queries.js');
+      const migrated = await migrateExistingVotingsSlugs();
+      logger.info(`Migrated ${migrated} existing votings with slugs`);
     }
   }
 ];

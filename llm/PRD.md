@@ -51,7 +51,7 @@
 
 ## Роли и доступ
 - Роли: Автор и голосующие. Других ролей не планируется.
-- Ссылка на голосование: публичная, идентификатор — UUID (короткие slug не требуются).
+- Ссылка на голосование: публичная, идентификатор — словесный slug (например, `HairyParrotsPursueRudely`) или UUID для обратной совместимости. Каноническим считается slug.
 - Доступ без логина. После публикации редактирование и удаление голосования не предусмотрены.
 
 ## Маршруты SPA и навигация
@@ -85,11 +85,11 @@
 - Сервер запрещает голосование после наступления `end_at` (включая ручные запросы).
 
 ## API (подтверждено)
-- POST `/api/votings` — создать голосование (принимает `comment` в теле запроса)
+- POST `/api/votings` — создать голосование (принимает `comment` в теле запроса). Возвращает `slug` в ответе.
 - GET `/api/votings` — список голосований
-- GET `/api/votings/:id` — детали (включая `end_at` и `comment`)
-- POST `/api/votings/:id/vote` — голос
-- GET `/api/votings/:id/results` — итоги
+- GET `/api/votings/:id` — детали (включая `end_at` и `comment`). Параметр `:id` может быть как GUID, так и slug. Поддерживается обратная совместимость.
+- POST `/api/votings/:id/vote` — голос (параметр `:id` может быть GUID или slug)
+- GET `/api/votings/:id/results` — итоги (параметр `:id` может быть GUID или slug)
 
 ## Файлы и оптимизация
 - **Поддерживаемые форматы изображений**: JPEG/PNG/WebP/AVIF/HEIC/HEIF
@@ -113,13 +113,14 @@
 - **Выбор СУБД**: Через переменную окружения `DB_PROVIDER` ("sqlite" или "postgres")
 - **Схема**:
   - `users(id, email, created_at)` — пользователи
-  - `votings(id, title, created_at, end_at, duration_hours, is_public, user_id, comment)` — голосования
+  - `votings(id, slug, title, created_at, end_at, duration_hours, is_public, user_id, comment, mattermost_post_id, complete_notified)` — голосования
+    - `slug` — уникальный словесный идентификатор (например, `HairyParrotsPursueRudely`), используется в URL как канонический идентификатор
   - `voting_options(id, voting_id, file_path, sort_order, pixel_ratio, width, height, media_type)` — варианты голосований
   - `votes(id, voting_id, option_id, user_id, created_at)` — голоса
   - `magic_tokens(token_hash, user_email, expires_at, used_at)` — токены magic link
   - `sessions(id, user_id, refresh_token_hash, expires_at, created_at)` — сессии
   - `figma_auth_codes(code_hash, user_id, expires_at, used_at)` — коды для Figma
-- **Индексы**: По `created_at`, `end_at`, `user_id`, внешние ключи для связности
+- **Индексы**: По `created_at`, `end_at`, `user_id`, `slug` (уникальный), внешние ключи для связности
 - **Миграции**: Автоматическое применение при запуске сервера
 
 ## Конфигурация и логи

@@ -17,6 +17,75 @@ function isHeicFile(filePath: string): boolean {
   return filePath.toLowerCase().endsWith('.heic') || filePath.toLowerCase().endsWith('.heif')
 }
 
+// Функция для преобразования текста с URL-ами в JSX элементы с кликабельными ссылками
+function linkifyText(text: string): (string | JSX.Element)[] {
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi
+  const parts: (string | JSX.Element)[] = []
+  let lastIndex = 0
+  let match
+  let key = 0
+
+  const addTextWithLineBreaks = (textToAdd: string) => {
+    const lines = textToAdd.split('\n')
+    lines.forEach((line, lineIndex) => {
+      if (lineIndex > 0) {
+        parts.push(<br key={`br-${key++}`} />)
+      }
+      if (line) {
+        parts.push(line)
+      }
+    })
+  }
+
+  while ((match = urlRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      const textBefore = text.substring(lastIndex, match.index)
+      if (textBefore) {
+        addTextWithLineBreaks(textBefore)
+      }
+    }
+
+    let url = match[0]
+    
+    // Убираем все концевые знаки препинания
+    // Сохраняем дефис, так как он часть URL
+    const trailingPunctuation = /[,.;!?)\]}>«»"':([{—–]+$/
+    url = url.replace(trailingPunctuation, '')
+
+    let href = url
+    if (url.toLowerCase().startsWith('www.')) {
+      href = `https://${url}`
+    }
+
+    parts.push(
+      <a
+        key={`link-${key++}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 dark:text-blue-400 hover:text-red-600 dark:hover:text-red-400 underline decoration-[0.5px] underline-offset-4 break-all"
+      >
+        {url}
+      </a>
+    )
+
+    lastIndex = match.index + url.length
+  }
+
+  if (lastIndex < text.length) {
+    const textAfter = text.substring(lastIndex)
+    if (textAfter) {
+      addTextWithLineBreaks(textAfter)
+    }
+  }
+
+  if (parts.length === 0) {
+    addTextWithLineBreaks(text)
+  }
+
+  return parts
+}
+
 interface VotingOption {
   id: number;
   voting_id: string;
@@ -29,6 +98,7 @@ interface VotingOption {
 
 interface Voting {
   id: string
+  slug?: string | null
   title: string
   created_at: string
   end_at: string
@@ -37,6 +107,7 @@ interface Voting {
   user_email?: string | null
   comment?: string | null
   options: VotingOption[]
+  vote_count?: number
 }
 
 interface Result {
@@ -85,6 +156,12 @@ export function VotingPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [showLeftShadow, setShowLeftShadow] = useState(false)
   const [showRightShadow, setShowRightShadow] = useState(false)
+  
+  // Состояние для drag-to-scroll
+  const [isDragging, setIsDragging] = useState(false)
+  const [startX, setStartX] = useState(0)
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const hasMovedRef = useRef(false)
 
 
   const shuffledOptions = useMemo(() => {
@@ -199,6 +276,52 @@ export function VotingPage() {
     }
   }
 
+  // Обработчики для drag-to-scroll
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!scrollContainerRef.current) return
+    
+    setIsDragging(true)
+    const rect = scrollContainerRef.current.getBoundingClientRect()
+    setStartX(e.pageX - rect.left)
+    setScrollLeft(scrollContainerRef.current.scrollLeft)
+    hasMovedRef.current = false
+    
+    // Предотвращаем выделение текста
+    e.preventDefault()
+  }
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging || !scrollContainerRef.current) return
+    
+    e.preventDefault()
+    const rect = scrollContainerRef.current.getBoundingClientRect()
+    const x = e.pageX - rect.left
+    const walk = x - startX // Множитель для более плавной прокрутки
+    scrollContainerRef.current.scrollLeft = scrollLeft - walk
+    
+    // Проверяем, переместилась ли мышь больше чем на 5px
+    const moveDistance = Math.abs(x - startX)
+    if (moveDistance > 5) {
+      hasMovedRef.current = true
+    }
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+    // Сбрасываем hasMovedRef с небольшой задержкой, чтобы onClick мог его проверить
+    setTimeout(() => {
+      hasMovedRef.current = false
+    }, 0)
+  }
+
+  const handleMouseLeave = () => {
+    setIsDragging(false)
+    // Сбрасываем hasMovedRef с небольшой задержкой, чтобы onClick мог его проверить
+    setTimeout(() => {
+      hasMovedRef.current = false
+    }, 0)
+  }
+
   useEffect(() => {
     const container = scrollContainerRef.current
     if (container) {
@@ -255,7 +378,12 @@ export function VotingPage() {
       const data: VotingResponse = await response.json()
       setVoting(data.voting)
       
-      // Результаты приходят вместе с данными голосования, если оно завершено
+      const isGuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '')
+      if (isGuidFormat && data.voting.slug && data.voting.slug !== id) {
+        navigate(`/v/${data.voting.slug}`, { replace: true })
+        return
+      }
+      
       if (data.results) {
         setResults(data.results)
       }
@@ -364,8 +492,6 @@ export function VotingPage() {
       await navigator.clipboard.writeText(url)
       toast.success(t('voting.linkCopied'))
     } catch (error) {
-      console.error('Failed to copy link:', error)
-      // Fallback for older browsers
       const textArea = document.createElement('textarea')
       textArea.value = window.location.href
       document.body.appendChild(textArea)
@@ -398,7 +524,6 @@ export function VotingPage() {
 
       navigate('/')
     } catch (error) {
-      console.error('Error deleting voting:', error)
       toast.error(error instanceof Error ? error.message : t('voting.deleteError'))
     } finally {
       setDeleteLoading(false)
@@ -428,7 +553,6 @@ export function VotingPage() {
       // Обновляем данные голосования
       await fetchVoting()
     } catch (error) {
-      console.error('Error ending voting early:', error)
       toast.error(error instanceof Error ? error.message : t('voting.endEarlyError'))
     } finally {
       setEndEarlyLoading(false)
@@ -574,17 +698,25 @@ export function VotingPage() {
         {/* Выносим комментарий и время из блока с заголовком */}
         {voting.comment && voting.comment.trim() && (
           <div className="mt-3 mb-3">
-            <p className="text-sm max-w-none whitespace-pre-wrap">{voting.comment}</p>
+            <p className="text-sm max-w-none">{linkifyText(voting.comment)}</p>
+          </div>
+        )}
+        
+        {finished && (
+          <div className="flex items-center gap-2 mt-2 mb-3 text-sm text-muted-foreground">
+            <Clock12 className="h-4 w-4" />
+            {results && `${t('votes', { count: results.totalVotes })} · `}
+            <span className="font-mono">{t('voting.finished')}</span>
+            {voting.user_email && ` · ${voting.user_email}`}
           </div>
         )}
         
         {!finished && (
-          <div className="flex items-center gap-2 mt-2 mb-3 text-muted-foreground">
+          <div className="flex items-center gap-2 mt-2 mb-3 text-sm text-muted-foreground">
             <Clock className="h-4 w-4" />
-            <span className="text-sm font-mono">
-              {getTimeRemaining(voting.end_at)}
-              {voting.user_email && ` · ${voting.user_email}`}
-            </span>
+            {voting.vote_count !== undefined && `${t('votes', { count: voting.vote_count })} · `}
+            <span className="font-mono">{getTimeRemaining(voting.end_at)}</span>
+            {voting.user_email && ` · ${voting.user_email}`}
           </div>
         )}
       </div>
@@ -595,7 +727,14 @@ export function VotingPage() {
             // Для завершенных голосований используем новую верстку
             <div className="relative mb-6">
               <div className={`absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-10 transition-opacity duration-300 ${showLeftShadow ? 'opacity-100' : 'opacity-0'}`} />
-              <div ref={scrollContainerRef} className="w-full overflow-x-auto overflow-y-hidden">
+              <div 
+                ref={scrollContainerRef} 
+                className={`w-full overflow-x-auto overflow-y-hidden ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
+              >
                 <div className="flex gap-4">
                   {shuffledOptions.map((option) => {
                     const result = results?.results.find(r => r.option_id === option.id)
@@ -676,14 +815,26 @@ export function VotingPage() {
             // Для активных голосований используем новую верстку
             <div className="relative mb-6">
               <div className={`absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none z-10 transition-opacity duration-300 ${showLeftShadow ? 'opacity-100' : 'opacity-0'}`} />
-              <div ref={scrollContainerRef} className="w-full overflow-x-auto overflow-y-hidden">
+              <div 
+                ref={scrollContainerRef} 
+                className={`w-full overflow-x-auto overflow-y-hidden ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
+              >
                 <div className="flex gap-4">
                   {shuffledOptions.map((option) => {
                     
                     return (
                       <div key={option.id} className="flex flex-col items-center flex-shrink-0 w-auto h-[620px] max-w-[600px] overflow-hidden">
-                        <div className="relative flex justify-center items-center h-full min-h-[240px] min-w-[240px] max-h-[600px] m-2"
-                          onClick={() => !finished && !hasVoted && setSelectedChoice(option.id)}
+                        <div className="relative flex justify-center items-center h-full min-h-[240px] min-w-[240px] max-h-[600px] m-2 transition-transform hover:scale-[1.03]"
+                          onClick={() => {
+                            // Если был драг (hasMovedRef), не обрабатываем клик
+                            if (!finished && !hasVoted && !hasMovedRef.current) {
+                              setSelectedChoice(option.id)
+                            }
+                          }}
                           style={{ cursor: !finished ? 'pointer' : 'default' }}>
                           {option.media_type === 'image' ? (
                             isHeicFile(option.file_path) && !isSafari() ? (
@@ -740,7 +891,7 @@ export function VotingPage() {
                   })}
                 </div>
               </div>
-              <div className={`absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-10 transition-opacity duration-300 ${showRightShadow ? 'opacity-100' : 'opacity-0'}`} />
+              <div className={`absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-black/20 to-transparent pointer-events-none z-10 transition-opacity duration-300 ${showRightShadow ? 'opacity-100' : 'opacity-0'}`} />
             </div>
           )}
 

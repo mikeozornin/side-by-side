@@ -2,7 +2,7 @@
 process.env.NODE_ENV = 'test';
 process.env.DB_PROVIDER = 'sqlite';
 process.env.DATABASE_URL = ':memory:';
-process.env.JWT_SECRET = 'test-jwt-secret-for-testing-only';
+process.env.JWT_SECRET = 'test-jwt-secret-for-testing-purposes-only-min-32-chars-super-strong-test-key';
 process.env.AUTH_MODE = 'magic-links';
 process.env.AUTO_APPROVE_SESSIONS = 'false';
 process.env.CLIENT_URL = 'http://localhost:3000';

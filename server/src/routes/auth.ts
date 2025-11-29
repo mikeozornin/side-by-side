@@ -21,6 +21,7 @@ import {
   createFigmaCode,
   verifyAndUseFigmaCode,
   getUserById,
+  getUserByEmail,
   cleanupExpiredAuthData,
   cleanupExpiredSessions,
   cleanupExpiredMagicTokens,
@@ -32,15 +33,18 @@ import {
   magicLinkLimiter,
   verifyTokenLimiter
 } from '../utils/rateLimit.js';
+import { isEmailDomainAllowed } from '../utils/email-validation.js';
+import { logger } from '../utils/logger.js';
 
 export const authRoutes = new Hono();
 
 // Middleware для проверки Figma плагина
 const figmaPluginMiddleware = async (c: any, next: any) => {
   const figmaHeader = c.req.header('X-Figma-Plugin');
-  const userAgent = c.req.header('User-Agent');
-
-  if (!figmaHeader || figmaHeader !== 'SideBySide/1.0' || !userAgent?.includes('Figma')) {
+  
+  // Проверяем только заголовок X-Figma-Plugin
+  // User-Agent может быть изменен при проксировании, поэтому не проверяем его
+  if (!figmaHeader || figmaHeader !== 'SideBySide/1.0') {
     return c.text('Unauthorized', 401);
   }
 
@@ -64,13 +68,20 @@ authRoutes.post('/magic-link', magicLinkLimiter, async (c) => {
       return c.json({ error: 'Email is required' }, 400);
     }
 
-    // Создаем или получаем пользователя
-    const user = await createOrGetUser(email);
+    // Проверяем существование пользователя
+    const existingUser = await getUserByEmail(email);
+    
+    // Если пользователь не существует, проверяем домен по белому списку
+    if (!existingUser && env.ALLOWED_EMAIL_DOMAINS.length > 0) {
+      if (!isEmailDomainAllowed(email, env.ALLOWED_EMAIL_DOMAINS)) {
+        return c.json({ 
+          error: 'Domain not allowed',
+          allowedDomains: env.ALLOWED_EMAIL_DOMAINS
+        }, 403);
+      }
+    }
 
-    // Логируем переменную окружения для отладки
-    // console.log('NODE_ENV:', env.NODE_ENV);
-    // console.log('BUN_ENV:', env.BUN_ENV);
-    // console.log('AUTO_APPROVE_SESSIONS:', env.AUTO_APPROVE_SESSIONS);
+    const user = await createOrGetUser(email);
 
     // Автоматически авторизуем пользователя если включен автоапрув
     if (env.AUTO_APPROVE_SESSIONS) {
@@ -117,7 +128,7 @@ authRoutes.post('/magic-link', magicLinkLimiter, async (c) => {
     });
 
   } catch (error) {
-    console.error('Error sending magic link:', error);
+    logger.error('Error sending magic link:', error);
     return c.json({ error: 'Failed to send magic link' }, 500);
   }
 });
@@ -170,7 +181,7 @@ authRoutes.post('/verify-token', verifyTokenLimiter, async (c) => {
     });
 
   } catch (error) {
-    console.error('Error verifying token:', error);
+    logger.error('Error verifying token:', error);
     return c.json({ error: 'Failed to verify token' }, 500);
   }
 });
@@ -178,10 +189,7 @@ authRoutes.post('/verify-token', verifyTokenLimiter, async (c) => {
 // POST /api/auth/refresh - Обновление access token
 authRoutes.post('/refresh', async (c) => {
   try {
-    // Try to get refresh token from cookie first, then from body
     const cookieHeader = c.req.header('Cookie');
-    
-    // Берем ПОСЛЕДНИЙ refreshToken, т.к. браузер может присылать и старую, и новую версии (например, с разными атрибутами Secure)
     let refreshToken = undefined as string | undefined;
     if (cookieHeader) {
       const parts = cookieHeader.split(';').map((c) => c.trim());
@@ -190,65 +198,35 @@ authRoutes.post('/refresh', async (c) => {
       refreshToken = last ? last.split('=')[1] : undefined;
     }
 
-    // Do not log token values in production
-    if (env.NODE_ENV !== 'production') {
-      console.log('🔑 Extracted refresh token from cookie:', refreshToken ? `${refreshToken.substring(0, 8)}…` : 'null');
-    }
-
     if (!refreshToken) {
       try {
         const body = await c.req.json();
         refreshToken = body.refreshToken;
-        if (env.NODE_ENV !== 'production') {
-          console.log('🔑 Refresh token from body:', refreshToken ? `${refreshToken.substring(0, 8)}…` : 'null');
-        }
       } catch (e) {
-        console.log('❌ Failed to parse request body:', e);
         // Ignore parsing errors
       }
     }
 
     if (!refreshToken) {
-      console.log('❌ No refresh token provided');
       return c.json({ error: 'No refresh token provided' }, 401);
     }
 
-    // Верифицируем refresh token
-    if (env.NODE_ENV !== 'production') {
-      console.log('🔍 JWT_SECRET is set:', Boolean(env.JWT_SECRET));
-    }
     const payload = verifyRefreshToken(refreshToken);
-    if (env.NODE_ENV !== 'production') {
-      console.log('🔍 Refresh token payload present:', Boolean(payload));
-    }
     if (!payload) {
-      console.log('❌ Invalid refresh token - JWT verification failed');
       return c.json({ error: 'Invalid refresh token' }, 401);
     }
 
-    // Получаем сессию из БД
     const session = await getSession(payload.sessionId);
-    console.log('🔍 Session from DB:', session ? 'found' : 'not found');
     if (!session) {
-      console.log('❌ Session not found in database');
       return c.json({ error: 'Session not found' }, 401);
     }
 
-    // Проверяем, не истекла ли сессия
     if (new Date() > new Date(session.expires_at)) {
       return c.json({ error: 'Session expired' }, 401);
     }
 
-    // Проверяем хеш refresh token
-    if (env.NODE_ENV !== 'production') {
-      console.log('🔍 Verifying token hash...');
-    }
     const isValidToken = await verifyToken(refreshToken, session.refresh_token_hash);
-    if (env.NODE_ENV !== 'production') {
-      console.log('🔍 Token hash verification result:', isValidToken);
-    }
     if (!isValidToken) {
-      console.log('❌ Token hash verification failed');
       return c.json({ error: 'Invalid refresh token' }, 401);
     }
 
@@ -289,7 +267,7 @@ authRoutes.post('/refresh', async (c) => {
     });
 
   } catch (error) {
-    console.error('Error refreshing token:', error);
+    logger.error('Error refreshing token:', error);
     return c.json({ error: 'Failed to refresh token' }, 500);
   }
 });
@@ -316,7 +294,7 @@ authRoutes.post('/logout', async (c) => {
     return c.json({ message: 'Logged out successfully' });
 
   } catch (error) {
-    console.error('Error logging out:', error);
+    logger.error('Error logging out:', error);
     return c.json({ error: 'Failed to logout' }, 500);
   }
 });
@@ -353,7 +331,7 @@ authRoutes.get('/figma-code', async (c) => {
     });
 
   } catch (error) {
-    console.error('Error generating Figma code:', error);
+    logger.error('Error generating Figma code:', error);
     return c.json({ error: 'Failed to generate code' }, 500);
   }
 });
@@ -415,7 +393,7 @@ authRoutes.post('/figma-verify', figmaPluginMiddleware, async (c) => {
     });
 
   } catch (error) {
-    console.error('Error verifying Figma code:', error);
+    logger.error('Error verifying Figma code:', error);
     return c.json({ error: 'Failed to verify code' }, 500);
   }
 });
@@ -444,7 +422,7 @@ authRoutes.post('/cleanup-figma-codes', async (c) => {
     });
 
   } catch (error) {
-    console.error('Error cleaning up Figma codes:', error);
+    logger.error('Error cleaning up Figma codes:', error);
     return c.json({ error: 'Failed to cleanup codes' }, 500);
   }
 });
@@ -473,7 +451,7 @@ authRoutes.post('/cleanup', async (c) => {
     });
 
   } catch (error) {
-    console.error('Error running manual cleanup:', error);
+    logger.error('Error running manual cleanup:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return c.json({ error: `Failed to run cleanup: ${errorMessage}` }, 500);
   }
@@ -502,7 +480,7 @@ authRoutes.get('/cleanup/status', async (c) => {
     });
 
   } catch (error) {
-    console.error('Error getting cleanup status:', error);
+    logger.error('Error getting cleanup status:', error);
     return c.json({ error: 'Failed to get cleanup status' }, 500);
   }
 });

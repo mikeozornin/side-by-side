@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Copy, Check, RefreshCw, LogOut, X, AlertCircle, Sun, Moon, SunMoon } from 'lucide-react';
 import { configManager } from '@/lib/config';
-import { useWebPush } from '@/hooks/useWebPush';
+import { useWebPush, isIOSSafari } from '@/hooks/useWebPush';
 import { useTheme } from '@/components/ThemeProvider';
 
 
@@ -28,6 +28,7 @@ export function Settings() {
   const {
     permission,
     isSupported,
+    pushNotSupported,
     settings,
     isLoading: notificationsLoading,
     error: notificationsError,
@@ -125,10 +126,14 @@ export function Settings() {
   };
 
   const getNotificationStatus = () => {
-    if (!isSupported) {
+    // Проверяем неподдерживаемые браузеры
+    if (!isSupported || pushNotSupported) {
+      const isIOS = isIOSSafari();
       return {
         icon: <AlertCircle className="h-4 w-4" />,
-        text: t('settings.notifications.notSupported'),
+        text: isIOS 
+          ? t('settings.notifications.iosSafariRequiresPWA')
+          : t('settings.notifications.notSupportedInBrowser'),
         color: 'text-muted-foreground',
         showButton: false,
       };
@@ -384,17 +389,17 @@ export function Settings() {
                   id="myVotingsComplete"
                   checked={settings.myVotingsComplete || false}
                   onCheckedChange={(value) => handleSettingChange('myVotingsComplete', value)}
-                  disabled={permission !== 'granted' || notificationsLoading}
+                  disabled={permission !== 'granted' || notificationsLoading || pushNotSupported}
                 />
                 <Label 
                   htmlFor="myVotingsComplete"
                   className={`text-sm font-medium cursor-pointer ${
-                    permission !== 'granted' || notificationsLoading 
+                    permission !== 'granted' || notificationsLoading || pushNotSupported
                       ? 'text-muted-foreground cursor-not-allowed' 
                       : ''
                   }`}
                   onClick={() => {
-                    if (permission === 'granted' && !notificationsLoading) {
+                    if (permission === 'granted' && !notificationsLoading && !pushNotSupported) {
                       handleSettingChange('myVotingsComplete', !(settings.myVotingsComplete || false));
                     }
                   }}
@@ -408,17 +413,17 @@ export function Settings() {
                   id="newVotings"
                   checked={settings.newVotings || false}
                   onCheckedChange={(value) => handleSettingChange('newVotings', value)}
-                  disabled={permission !== 'granted' || notificationsLoading}
+                  disabled={permission !== 'granted' || notificationsLoading || pushNotSupported}
                 />
                 <Label 
                   htmlFor="newVotings"
                   className={`text-sm font-medium cursor-pointer ${
-                    permission !== 'granted' || notificationsLoading 
+                    permission !== 'granted' || notificationsLoading || pushNotSupported
                       ? 'text-muted-foreground cursor-not-allowed' 
                       : ''
                   }`}
                   onClick={() => {
-                    if (permission === 'granted' && !notificationsLoading) {
+                    if (permission === 'granted' && !notificationsLoading && !pushNotSupported) {
                       handleSettingChange('newVotings', !(settings.newVotings || false));
                     }
                   }}
@@ -516,7 +521,7 @@ export function Settings() {
             className="flex items-center gap-2"
           >
             <LogOut className="h-4 w-4" />
-            <span className="ml-2">{t('settings.logout')}</span>
+            {t('settings.logout')}
           </Button>
         </div>
       )}

@@ -29,6 +29,12 @@ export interface StorageDriver {
    */
   deleteObject(key: string): Promise<void>;
 
+  /**
+   * Delete voting directory (for local storage) or do nothing (for S3)
+   * @param votingId - Voting ID to delete directory for
+   */
+  deleteVotingDirectory(votingId: string): Promise<void>;
+
 }
 
 export type StorageDriverType = 'local' | 's3';

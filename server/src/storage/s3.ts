@@ -87,4 +87,10 @@ export class S3StorageDriver implements StorageDriver {
     await this.s3Client.send(command);
   }
 
+  async deleteVotingDirectory(votingId: string): Promise<void> {
+    // For S3, directories don't exist as separate entities
+    // Files are deleted individually by their keys
+    // This method is a no-op for S3 storage
+  }
+
 }

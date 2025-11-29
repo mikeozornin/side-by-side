@@ -39,7 +39,7 @@ export const env = {
   AUTO_APPROVE_SESSIONS: process.env.AUTO_APPROVE_SESSIONS === 'true',
   
   // JWT секретный ключ
-  JWT_SECRET: process.env.JWT_SECRET || 'default-jwt-secret-for-development-only',
+  JWT_SECRET: process.env.JWT_SECRET,
   
   // SMTP настройки
   SMTP_HOST: process.env.SMTP_HOST || '',
@@ -47,6 +47,11 @@ export const env = {
   SMTP_USER: process.env.SMTP_USER || '',
   SMTP_PASS: process.env.SMTP_PASS || '',
   SMTP_FROM_EMAIL: process.env.SMTP_FROM_EMAIL || 'noreply@side-by-side.com',
+  
+  // Белый список доменов email (разделитель: запятая)
+  ALLOWED_EMAIL_DOMAINS: process.env.ALLOWED_EMAIL_DOMAINS
+    ? process.env.ALLOWED_EMAIL_DOMAINS.split(',').map(d => d.trim()).filter(d => d.length > 0)
+    : [],
 } as const;
 
 // Проверка безопасности для продакшн-режима
@@ -56,14 +61,12 @@ if (env.NODE_ENV === 'production' && env.AUTO_APPROVE_SESSIONS) {
 }
 
 // Проверка JWT_SECRET
-if (env.NODE_ENV === 'production') {
-  if (!process.env.JWT_SECRET || env.JWT_SECRET === 'default-jwt-secret-for-development-only') {
-    console.error('FATAL ERROR: JWT_SECRET must be set to a strong value in production.');
-    process.exit(1);
-  }
-} else {
-  if (!process.env.JWT_SECRET) {
-    console.warn('WARNING: JWT_SECRET not set in environment variables. Using default value for development only.');
-    console.warn('Please set JWT_SECRET in your .env.development file for security.');
-  }
+if (!env.JWT_SECRET) {
+  console.error('FATAL ERROR: JWT_SECRET must be set in environment variables.');
+  process.exit(1);
+}
+
+if (env.JWT_SECRET.length < 32) {
+  console.error('FATAL ERROR: JWT_SECRET must be at least 32 characters.');
+  process.exit(1);
 }

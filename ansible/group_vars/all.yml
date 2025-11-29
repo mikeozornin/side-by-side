@@ -1,8 +1,8 @@
 # Домен для side-by-side
-domain: your-domain.com
+domain: side-by-side.mikeozornin.ru
 
 # Email для Let's Encrypt сертификата
-ssl_email: admin@your-domain.com
+ssl_email: admin@mikeozornin.ru
 
 # Пути для релизов
 release_root: /opt/side-by-side/releases
@@ -18,7 +18,7 @@ bun_path: /usr/local/bin/bun
 
 # Конфигурация
 env_file_path: /etc/side-by-side/server.env
-cors_allowed_origins: your-domain.com
+cors_allowed_origins: side-by-side.mikeozornin.ru
 host_bind: 127.0.0.1
 server_port: 3000
 
@@ -39,6 +39,13 @@ update_env: false
 # Режим аутентификации (anonymous или magic-links)
 auth_mode: anonymous
 
+# Белый список доменов email (разделитель: запятая)
+# Если задан, то только пользователи с email из указанных доменов смогут регистрироваться
+# Существующие пользователи могут входить независимо от домена
+# Пример: allowed_email_domains: "example.com,company.com,corp.org"
+# Если не задан или пустой, все домены разрешены
+allowed_email_domains: ""
+
 # Настройки базы данных
 db_provider: "sqlite"  # "sqlite" или "postgres"
 database_url: ""      # Только для postgres
@@ -55,4 +62,3 @@ image_optimization_packages:
   - jpegoptim
   - pngquant
   - webp
-  - avif-tools

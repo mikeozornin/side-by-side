@@ -138,8 +138,7 @@
         name:
           - libvips-dev          # Core Sharp library
           - libvips42            # VIPS runtime library
-          - libglib2.0-dev       # GLib development files
-          - libgobject-2.0-dev   # GObject development files
+          - libglib2.0-dev       # GLib development files (includes GObject)
           - libcairo2-dev        # Cairo graphics library
           - libpango1.0-dev      # Pango text rendering
           - libjpeg-dev          # JPEG support
@@ -246,7 +245,7 @@
                   # Увеличиваем лимит размера загружаемых файлов до 300MB (до 10 изображений по 20MB)
                   client_max_body_size 300M;
                   
-                  proxy_pass http://{{ host_bind }}:{{ port }}{{ api_prefix }}/;
+                  proxy_pass http://{{ host_bind }}:{{ server_port }}{{ api_prefix }}/;
                   proxy_http_version 1.1;
                   proxy_set_header Host $host;
                   proxy_set_header X-Real-IP $remote_addr;
@@ -266,7 +265,7 @@
 
               # Health check
               location = {{ health_path }} {
-                  proxy_pass http://{{ host_bind }}:{{ port }}{{ health_path }};
+                  proxy_pass http://{{ host_bind }}:{{ server_port }}{{ health_path }};
                   proxy_http_version 1.1;
                   proxy_set_header Host $host;
               }
@@ -340,7 +339,7 @@
           DATA_DIR={{ current_link | dirname }}/data
           LOG_DIR={{ current_link | dirname }}/logs
           DB_PATH={{ current_link | dirname }}/app.db
-          PORT={{ port }}
+          PORT={{ server_port }}
           BASE_URL=https://{{ domain }}
           NODE_ENV=production
 

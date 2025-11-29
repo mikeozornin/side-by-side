@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Clock, CheckCircle } from 'lucide-react'
+import { Plus, Clock, CheckCircle, Clock12 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTranslation } from 'react-i18next'
@@ -9,6 +9,9 @@ import { AuthButton } from '@/components/AuthButton'
 import { AuthModal } from '@/components/AuthModal'
 import { useAuth } from '@/contexts/AuthContext'
 import { configManager } from '@/lib/config'
+import { useDropzone } from 'react-dropzone'
+import { saveFilesToStorage } from '@/utils/fileStorage'
+import { cn } from '@/lib/utils'
 
 interface VotingOption {
   id: number;
@@ -21,6 +24,7 @@ interface VotingOption {
 
 interface Voting {
   id: string
+  slug?: string | null
   title: string
   created_at: string
   end_at: string
@@ -33,12 +37,45 @@ interface Voting {
 export function VotingList() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { isAnonymous, user, accessToken } = useAuth()
+  const { isAnonymous, user, accessToken, isLoading: authLoading } = useAuth()
   const [votings, setVotings] = useState<Voting[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [showAuthModal, setShowAuthModal] = useState(false)
+
+  const handleDrop = async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return
+
+    try {
+      await saveFilesToStorage(acceptedFiles)
+      
+      if (isAnonymous || (user && accessToken)) {
+        navigate('/new')
+      } else {
+        setShowAuthModal(true)
+      }
+    } catch (error) {
+      console.error('[VotingList] Error saving files:', error)
+    }
+  }
+
+  const handleError = (error: Error) => {
+    console.error('[VotingList] Dropzone error:', error)
+  }
+
+  const { getRootProps, isDragActive } = useDropzone({
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif'],
+      'video/*': ['.mp4', '.webm', '.mov', '.avi']
+    },
+    maxFiles: 10,
+    maxSize: 20 * 1024 * 1024, // 20MB
+    onDrop: handleDrop,
+    onError: handleError,
+    noClick: true,
+    noKeyboard: true,
+  })
 
 
   useEffect(() => {
@@ -126,9 +163,20 @@ export function VotingList() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">{t('voting.loading')}</div>
+      <div
+        {...getRootProps()}
+        className={cn(
+          'min-h-screen transition-all',
+          isDragActive && 'bg-primary/5 border-4 border-dashed border-primary'
+        )}
+      >
+        <div className={cn(
+          'container mx-auto p-6 transition-all',
+          isDragActive && 'pointer-events-none opacity-50'
+        )}>
+          <div className="flex items-center justify-center h-64">
+            <div className="text-muted-foreground">{t('voting.loading')}</div>
+          </div>
         </div>
       </div>
     )
@@ -136,39 +184,61 @@ export function VotingList() {
 
   if (error) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">{t('voting.active')}</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button 
-              size="sm"
-              onClick={handleCreateClick}
-            >
-              <Plus className="h-4 w-4 mr-2 stroke-[3]" />
-              {t('voting.create')}
-            </Button>
-          </div>
-        </div>
-        
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center h-64">
-            <div className="text-center">
-              <p className="text-muted-foreground mb-4">{error}</p>
-              <Button onClick={fetchVotings} variant="outline">
-                {t('voting.tryAgain')}
+      <div
+        {...getRootProps()}
+        className={cn(
+          'min-h-screen transition-all',
+          isDragActive && 'bg-primary/5 border-4 border-dashed border-primary'
+        )}
+      >
+        <div className={cn(
+          'container mx-auto p-6 transition-all',
+          isDragActive && 'pointer-events-none opacity-50'
+        )}>
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold">{t('voting.active')}</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button 
+                size="sm"
+                onClick={handleCreateClick}
+                disabled={authLoading}
+              >
+                <Plus className="h-4 w-4 mr-2 stroke-[3]" />
+                {t('voting.create')}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center h-64">
+              <div className="text-center">
+                <p className="text-muted-foreground mb-4">{error}</p>
+                <Button onClick={fetchVotings} variant="outline">
+                  {t('voting.tryAgain')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex items-center justify-between mb-8">
+    <div
+      {...getRootProps()}
+      className={cn(
+        'min-h-screen transition-all',
+        isDragActive && 'bg-primary/5 border-4 border-dashed border-primary'
+      )}
+    >
+      <div className={cn(
+        'container mx-auto p-6 transition-all',
+        isDragActive && 'pointer-events-none opacity-50'
+      )}>
+        <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold">
             {votings.length === 0 ? t('voting.sideBySides') : t('voting.active')}
@@ -178,6 +248,7 @@ export function VotingList() {
           <Button 
             size="sm"
             onClick={handleCreateClick}
+            disabled={authLoading}
           >
             <Plus className="h-4 w-4 mr-2 stroke-[3]" />
             {t('voting.create')}
@@ -201,7 +272,7 @@ export function VotingList() {
             <div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {activeVotings.map((voting) => (
-                  <Link key={voting.id} to={`/v/${voting.id}`} className="block">
+                  <Link key={voting.id} to={`/v/${voting.slug || voting.id}`} className="block">
                     <Card 
                       className={`transition-all hover:bg-muted cursor-pointer ${
                         hasVoted(voting) ? 'opacity-60 grayscale bg-muted/30' : ''
@@ -243,7 +314,7 @@ export function VotingList() {
               <h2 className="text-3xl font-bold mb-4">{t('voting.completed')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {finishedVotings.map((voting) => (
-                  <Link key={voting.id} to={`/v/${voting.id}`} className="block">
+                  <Link key={voting.id} to={`/v/${voting.slug || voting.id}`} className="block">
                     <Card 
                       className={`transition-all hover:bg-muted cursor-pointer ${
                         hasVoted(voting) ? 'opacity-60 grayscale bg-muted/30' : 'opacity-60 grayscale bg-muted/30'
@@ -257,7 +328,7 @@ export function VotingList() {
                               <CheckCircle className="h-5 w-5 text-green-500" />
                             )}
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              {t('votes', { count: voting.vote_count })} · <Clock className="h-4 w-4" /> <span className="font-mono">{getTimeRemaining(voting.end_at)}</span>
+                              {t('votes', { count: voting.vote_count })} · <Clock12 className="h-4 w-4" /> <span className="font-mono">{getTimeRemaining(voting.end_at)}</span>
                               {voting.user_email && ` · ${voting.user_email}`}
                             </div>
                           </div>
@@ -282,6 +353,7 @@ export function VotingList() {
         onClose={() => setShowAuthModal(false)}
         returnTo="/new"
       />
+      </div>
     </div>
   )
 }
