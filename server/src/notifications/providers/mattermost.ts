@@ -4,6 +4,7 @@ import { logger } from '../../utils/logger.js';
 import { i18n } from '../i18n.js';
 import { formatExpirationDate } from '../utils/dateFormatter.js';
 import { readFile, unlink } from 'fs/promises';
+import { basename, resolve } from 'path';
 
 export class MattermostProvider extends NotificationProvider {
   get name(): string {
@@ -160,8 +161,29 @@ export class MattermostProvider extends NotificationProvider {
 
   private async uploadFile(filePath: string): Promise<string | null> {
     try {
+      // Security: Validate file path is within expected data directory
+      const dataDir = process.env.DATA_DIR || './data';
+      const resolvedDataDir = resolve(dataDir);
+      const resolvedFilePath = resolve(filePath);
+
+      if (!resolvedFilePath.startsWith(resolvedDataDir)) {
+        throw new Error('File path is outside of allowed data directory');
+      }
+
       const fileBuffer = await readFile(filePath);
-      const fileName = filePath.split('/').pop() || 'preview.png';
+
+      // Security: Use path.basename() for safe filename extraction
+      let fileName = basename(filePath);
+
+      // Security: Check for path traversal attempts
+      if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+        throw new Error('Invalid filename: contains path traversal sequences');
+      }
+
+      // Fallback to safe default if filename is empty or invalid
+      if (!fileName || fileName.length === 0) {
+        fileName = 'preview.png';
+      }
 
       const formData = new FormData();
       const file = new File([fileBuffer], fileName, { type: 'image/png' });
