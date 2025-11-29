@@ -144,7 +144,7 @@
       copy:
         dest: "{{ release_path }}/manifest.json"
         content: |
-          {"deployed_at": "{{ release_ts }}", "domain": "{{ domain }}", "version": "{{ ansible_facts['ansible_date_time']['iso8601'] }}"}
+          {"deployed_at": "{{ release_ts }}", "domain": "{{ domain }}", "version": "{{ lookup('pipe', 'date -Iseconds') }}"}
         owner: www-data
         group: www-data
         mode: "0644"
